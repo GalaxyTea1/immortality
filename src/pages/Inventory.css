@@ -458,7 +458,7 @@
   position: relative;
   cursor: pointer;
   transition: border-color 0.2s ease;
-  overflow: hidden;
+  /* overflow: hidden;  <-- Removed to allow slot-level to show */
 }
 
 .equipment-slot:hover {
@@ -487,6 +487,7 @@
   background-position: center;
   border-radius: 50%;
   z-index: 1;
+  overflow: hidden; /* Keep image contained */
 }
 
 .slot-level {
@@ -504,6 +505,7 @@
   font-size: 0.625rem;
   font-weight: 700;
   color: #a855f7;
+  z-index: 10; /* Ensure on top */
 }
 
 /* Stats Card */
@@ -671,6 +673,8 @@
   flex: 1;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  grid-auto-rows: max-content; /* Ensure rows don't stretch */
+  align-content: start; /* Pack rows at the top */
   gap: 1rem;
   padding: 1.5rem;
   overflow-y: auto;
@@ -1137,3 +1141,19 @@
   grid-template-columns: repeat(2, 1fr);
   gap: 0.5rem;
 }
+
+/* ===== ITEM ENHANCE LEVEL ===== */
+.item-enhance-level {
+  position: absolute;
+  top: 0.25rem;
+  left: 0.25rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: #fbbf24;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  border: 1px solid rgba(251, 191, 36, 0.5);
+  z-index: 2;
+}
+

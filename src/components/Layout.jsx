@@ -22,13 +22,6 @@ function Layout() {
       {/* Header */}
       <header className="main-header">
         <div className="header-content">
-          {/* <Link to="/" className="logo">
-            <div className="logo-icon">
-              <img src={logo} alt="logo" />
-            </div>
-            <h1 className="logo-text">Tu Tiên Giới</h1>
-          </Link> */}
-
           <nav className="main-nav">
             {navItems.map((item) => (
               <Link
@@ -43,17 +36,6 @@ function Layout() {
           </nav>
 
           <div className="header-actions">
-            {/* <div className="resources">
-              <div className="resource-item">
-                <span className="material-symbols-outlined resource-icon diamond">diamond</span>
-                <span className="resource-value">{formatNumber(resources.spiritStones)}</span>
-              </div>
-              <div className="resource-item">
-                <span className="material-symbols-outlined resource-icon pill">medication</span>
-                <span className="resource-value">{formatNumber(resources.pills)}</span>
-              </div>
-            </div> */}
-
             <button className="notification-btn">
               <span className="material-symbols-outlined">notifications</span>
               <span className="notification-dot"></span>

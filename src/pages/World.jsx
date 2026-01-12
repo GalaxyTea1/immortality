@@ -1,50 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 import './World.css';
-
-const locations = [
-  {
-    id: 1,
-    name: 'Linh Thú Sơn',
-    nameEn: 'Spirit Beast Mountain',
-    description: 'Vùng núi hiểm trở có nhiều linh thú cổ đại. Lý tưởng để săn lõi thú.',
-    danger: 'high',
-    resources: ['herbs', 'ores'],
-    level: 'Trúc Cơ+',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCYussLE_qqaf_CIlch6xN6XM3Qvbs1490hCNvrpzDeMfRUdy0Bsfh8P4Qep6uerLgHmgiLsNiHlk0llo-RCxZ6W_U4n7lIPyMIuKDnCQzJvgY62DY3Bf0royNxDavuBBneA6QeHOasZkIaYMQMoneqUpO-rzPrS1syGlRkdpgXJv7NNAQbwmv3dkazUWMCUg_vo4TIE6RXPjHlKF95-KiW7Ai6LOn9ORN3iK-RbbhMyf6S6R-VIIlSpiKSw5tqu53Jr3C0EishTHs'
-  },
-  {
-    id: 2,
-    name: 'U Minh Lâm',
-    nameEn: 'Dark Mist Forest',
-    description: 'Rừng sương mù vĩnh cửu. Có thể tìm thấy thảo dược quý hiếm.',
-    danger: 'medium',
-    resources: ['herbs'],
-    level: 'Luyện Khí',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAiLd-VAUFRlZjSAl3yQ_WpBM3tAT8vSKC7oc2DAN-aDz9BM9NH6xXvleotVip8LbMDTmSp4-MnGJdcBFPUiT4G2z1JhwvdqVA9DbBJw1ghSv9f5pOXLA7zmkag0aU84yfdTt_klyStlTFJr5I_ITglv2J1b8C6CwofmUunLqGAQly91wqj57uS81rS3ZY9lUpaQFTOHPAFXW6A_h5ssx_MVdlex84-u2TPywpjgOos-_olFS8DfQNV0yYfiswuVhu09fwfk3iIyXI'
-  },
-  {
-    id: 3,
-    name: 'Thiên Kiếm Tông',
-    nameEn: 'Heavenly Sword Sect',
-    description: 'Môn phái chính đạo uy tín. Giao dịch, nghỉ ngơi và nhận nhiệm vụ.',
-    danger: 'safe',
-    resources: ['shop', 'quest'],
-    level: 'Bất kỳ',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCwM-VkgoDWWO1_R5VcbIOEzqlqbRBwkZF9WepMMse8aoYjgvA6l5IRFMkJy1a1x-jVeXrq0jBI0FYUPRSlid9ESaZhE50DAmvVsvKUJ3jfTNNiaFHNnrs2Yd_m_rmyCcOui51y2N-uJI-SXu9AVfGFSG_-9pRDlshtxfy-91S7zFJiKEgg6msN35BIL6fBg0CO42F4a9QYNJc3OgDst7-gOzOG34QT2vxrDfnNnrqc0BX7E1NEj2S5Fk0KMA_hHTYQkmhHCW9Un4U'
-  },
-  {
-    id: 4,
-    name: 'Cổ Chiến Trường',
-    nameEn: 'Ancient Battlefield',
-    description: 'Tàn tích của cuộc chiến thần cấp. Có thể gặp linh hồn nguy hiểm.',
-    danger: 'pvp',
-    resources: ['artifacts'],
-    level: 'Kim Đan',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDghHgyJjRILVcFo1fGvaC9_lJuncBvYq0kvFle5EB2aT08JScaM6zUF7fiWEfrz5UqvdQ-dtlas-kYD5HlgMPlKPDJ23aA9gWZlfkgyWYpvAj9wogmUOGTfSfBpd1ecPokYeRb_Eyedysqqd16c5qgQH_-AUDNmlwQQd_r_L3EaWrCtl40UrCeRQ7OOSmfzUpZ9SYCf58JQQCLyU8GiQllBgn7-pws1LvMXqm89dMJIH7-aS5fdp6YvzVThsp-D5W4PNmu6HPMqxY'
-  }
-];
 
 const getDangerStyle = (danger) => {
   switch (danger) {
@@ -61,17 +18,6 @@ const getDangerStyle = (danger) => {
   }
 };
 
-const getResourceIcon = (resource) => {
-  switch (resource) {
-    case 'herbs': return { icon: 'grass', color: 'text-green' };
-    case 'ores': return { icon: 'diamond', color: 'text-blue' };
-    case 'shop': return { icon: 'storefront', color: 'text-yellow' };
-    case 'quest': return { icon: 'assignment', color: 'text-purple' };
-    case 'artifacts': return { icon: 'swords', color: 'text-orange' };
-    default: return { icon: '', color: '' };
-  }
-};
-
 // Helper format time
 const formatTimeAgo = (timestamp) => {
   const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -81,16 +27,21 @@ const formatTimeAgo = (timestamp) => {
   return `${Math.floor(seconds / 86400)} ngày trước`;
 };
 
+// Chi phí làm mới lượt
+const REFRESH_COST = 5000;
+
 function World() {
   const { 
     gameState, 
+    setGameState,
     formatNumber, 
-    getRealmName, 
     REALMS,
+    WORLD_ZONES,
     exploreLocation,
     claimQuestReward,
-    restoreHp,
+    meditate,
     getInventoryWithDetails,
+    addEvent,
   } = useGame();
   
   const { player, stats, exploration, quests, events, resources } = gameState;
@@ -99,22 +50,65 @@ function World() {
   // State
   const [notification, setNotification] = useState(null);
   const [isExploring, setIsExploring] = useState(false);
+  const [showRefreshModal, setShowRefreshModal] = useState(false);
   
-  // Xử lý khám phá
-  const handleExplore = useCallback((location) => {
+  // Kiểm tra và reset lượt hằng ngày
+  useEffect(() => {
+    const lastResetDate = localStorage.getItem('exploration_last_reset');
+    const today = new Date().toDateString();
+    
+    if (lastResetDate !== today) {
+      // Reset lượt khám phá
+      setGameState(prev => ({
+        ...prev,
+        exploration: {
+          ...prev.exploration,
+          explorationCount: 0,
+        },
+      }));
+      localStorage.setItem('exploration_last_reset', today);
+    }
+  }, [setGameState]);
+  
+  // Xử lý khám phá với zone mới
+  const handleExplore = useCallback((zoneId) => {
     if (isExploring) return;
     
     setIsExploring(true);
     
-    // Giả lập thời gian khám phá
     setTimeout(() => {
-      const result = exploreLocation(location.id, location.name, location.danger);
+      const result = exploreLocation(zoneId);
       setNotification(result);
       setIsExploring(false);
       
       setTimeout(() => setNotification(null), 4000);
     }, 1000);
   }, [isExploring, exploreLocation]);
+  
+  const handleRefreshExploration = useCallback(() => {
+    if (resources.spiritStones < REFRESH_COST) {
+      setNotification({ success: false, message: `Không đủ Linh Thạch! Cần ${formatNumber(REFRESH_COST)}` });
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+    
+    setGameState(prev => ({
+      ...prev,
+      resources: {
+        ...prev.resources,
+        spiritStones: prev.resources.spiritStones - REFRESH_COST,
+      },
+      exploration: {
+        ...prev.exploration,
+        explorationCount: 0,
+      },
+    }));
+    
+    addEvent('info', `Đã làm mới lượt khám phá! -${formatNumber(REFRESH_COST)} Linh Thạch`);
+    setNotification({ success: true, message: `Đã làm mới lượt khám phá! -${formatNumber(REFRESH_COST)} Linh Thạch` });
+    setShowRefreshModal(false);
+    setTimeout(() => setNotification(null), 3000);
+  }, [resources.spiritStones, setGameState, addEvent, formatNumber]);
   
   // Xử lý nhận thưởng quest
   const handleClaimQuest = useCallback(() => {
@@ -125,19 +119,30 @@ function World() {
   
   // Xử lý thiền định
   const handleMeditate = useCallback(() => {
-    const healAmount = Math.floor(stats.maxHp * 0.2);
-    restoreHp(healAmount);
-    setNotification({ success: true, message: `Thiền định hồi phục ${healAmount} HP!` });
-    setTimeout(() => setNotification(null), 2000);
-  }, [restoreHp, stats.maxHp]);
+    const result = meditate();
+    setNotification(result);
+    setTimeout(() => setNotification(null), 3000);
+  }, [meditate]);
+  
+  // Kiểm tra có thể vào zone không
+  const canEnterZone = (zone) => {
+    return player.realmIndex >= zone.minRealm && 
+           (player.realmIndex > zone.minRealm || player.level >= zone.minLevel);
+  };
   
   // Progress percentages
   const expPercent = Math.floor((player.exp / player.maxExp) * 100);
   const hpPercent = Math.floor((stats.hp / stats.maxHp) * 100);
   const questPercent = quests.active ? Math.floor((quests.active.progress / quests.active.target) * 100) : 0;
+  const explorationPercent = Math.floor((exploration.explorationCount / exploration.maxExplorationPerDay) * 100);
+  const remainingExploration = exploration.maxExplorationPerDay - exploration.explorationCount;
   
   // Lấy inventory preview
   const inventory = getInventoryWithDetails().slice(0, 4);
+  
+  // Chuyển zones thành array
+  const zones = Object.values(WORLD_ZONES);
+  
   return (
     <div className="world-page">
       <div className="world-container">
@@ -177,15 +182,26 @@ function World() {
             </div>
           </div>
 
-          <div className="stat-box">
+          <div className="stat-box exploration-stat">
             <div className="stat-header">
               <span className="material-symbols-outlined">explore</span>
               Lượt Khám Phá
             </div>
-            <p className="stat-value">{exploration.explorationCount} <span className="stat-max">/ {exploration.maxExplorationPerDay}</span></p>
+            <p className="stat-value">
+              {remainingExploration} <span className="stat-max">/ {exploration.maxExplorationPerDay}</span>
+            </p>
             <div className="stat-progress">
-              <div className="stat-progress-fill stat-mp" style={{ width: `${(exploration.explorationCount / exploration.maxExplorationPerDay) * 100}%` }}></div>
+              <div className="stat-progress-fill stat-mp" style={{ width: `${explorationPercent}%` }}></div>
             </div>
+            {remainingExploration === 0 && (
+              <button 
+                className="refresh-btn"
+                onClick={() => setShowRefreshModal(true)}
+              >
+                <span className="material-symbols-outlined">refresh</span>
+                Làm mới ({formatNumber(REFRESH_COST)})
+              </button>
+            )}
           </div>
 
           <div className="stat-box">
@@ -212,69 +228,84 @@ function World() {
               </div>
               <div className="exploration-status">
                 <span className="material-symbols-outlined">hiking</span>
-                {exploration.explorationCount}/{exploration.maxExplorationPerDay} lượt
+                {remainingExploration}/{exploration.maxExplorationPerDay} lượt còn lại
+                {remainingExploration === 0 && (
+                  <button 
+                    className="refresh-inline-btn"
+                    onClick={() => setShowRefreshModal(true)}
+                    title={`Làm mới với ${formatNumber(REFRESH_COST)} Linh Thạch`}
+                  >
+                    <span className="material-symbols-outlined">refresh</span>
+                  </button>
+                )}
               </div>
             </div>
 
             <div className="locations-grid">
-              {locations.map((location) => {
-                const dangerStyle = getDangerStyle(location.danger);
-                const canExplore = exploration.explorationCount < exploration.maxExplorationPerDay;
+              {zones.map((zone) => {
+                const dangerStyle = getDangerStyle(zone.dangerLevel);
+                const canExplore = remainingExploration > 0;
+                const canEnter = canEnterZone(zone);
+                const requiredRealm = REALMS[zone.minRealm]?.name || '';
+                
                 return (
-                  <div key={location.id} className={`location-card ${isExploring ? 'exploring' : ''}`}>
+                  <div key={zone.id} className={`location-card ${isExploring ? 'exploring' : ''} ${!canEnter ? 'locked' : ''}`}>
                     <div className="location-image-wrapper">
                       <div 
                         className="location-image"
-                        style={{ backgroundImage: `url("${location.image}")` }}
+                        style={{ 
+                          backgroundImage: `url("https://picsum.photos/seed/${zone.id}/400/300")`,
+                          filter: !canEnter ? 'grayscale(0.8)' : 'none'
+                        }}
                       ></div>
                       <div className="location-overlay"></div>
                       <div className={`danger-badge ${dangerStyle.bg}`}>
                         <span className="material-symbols-outlined">{dangerStyle.icon}</span>
                         {dangerStyle.label}
                       </div>
+                      {!canEnter && (
+                        <div className="locked-overlay">
+                          <span className="material-symbols-outlined">lock</span>
+                          <span>Yêu cầu: {requiredRealm} Tầng {zone.minLevel}</span>
+                        </div>
+                      )}
                     </div>
                     <div className="location-content">
-                      <h3 className="location-name">{location.name}</h3>
-                      <p className="location-desc">{location.description}</p>
+                      <h3 className="location-name">{zone.name}</h3>
+                      <p className="location-desc">{zone.description}</p>
                       <div className="location-info">
                         <div className="info-group">
-                          <span className="info-label">Tài Nguyên</span>
-                          <div className="resource-icons">
-                            {location.resources.map((res, idx) => {
-                              const resource = getResourceIcon(res);
-                              return (
-                                <span 
-                                  key={idx} 
-                                  className={`material-symbols-outlined ${resource.color}`}
-                                  title={res}
-                                >
-                                  {resource.icon}
-                                </span>
-                              );
-                            })}
-                          </div>
+                          <span className="info-label">Phần thưởng</span>
+                          <span className="info-value reward">
+                            +{zone.baseExpReward} EXP, +{zone.baseStonesReward} 💎
+                          </span>
                         </div>
                         <div className="info-divider"></div>
                         <div className="info-group">
-                          <span className="info-label">Cấp Độ</span>
-                          <span className="info-value">{location.level}</span>
+                          <span className="info-label">Vật phẩm</span>
+                          <span className="info-value">{zone.drops.length} loại</span>
                         </div>
                       </div>
                       <button 
-                        className={`travel-btn ${location.danger === 'safe' ? 'travel-btn-secondary' : ''} ${!canExplore ? 'disabled' : ''}`}
-                        onClick={() => handleExplore(location)}
-                        disabled={!canExplore || isExploring}
+                        className={`travel-btn ${zone.dangerLevel === 'safe' ? 'travel-btn-secondary' : ''} ${!canExplore || !canEnter ? 'disabled' : ''}`}
+                        onClick={() => handleExplore(zone.id)}
+                        disabled={!canExplore || isExploring || !canEnter}
                       >
                         {isExploring ? (
                           <>
                             <span className="material-symbols-outlined animate-spin">sync</span>
                             Đang khám phá...
                           </>
+                        ) : !canEnter ? (
+                          <>
+                            <span className="material-symbols-outlined">lock</span>
+                            Chưa đủ cấp
+                          </>
                         ) : (
                           <>
-                            {location.danger === 'safe' ? 'Vào' : 'Khám Phá'}
+                            {zone.dangerLevel === 'safe' ? 'Vào' : 'Khám Phá'}
                             <span className="material-symbols-outlined">
-                              {location.danger === 'safe' ? 'meeting_room' : 'arrow_forward'}
+                              {zone.dangerLevel === 'safe' ? 'meeting_room' : 'arrow_forward'}
                             </span>
                           </>
                         )}
@@ -384,6 +415,50 @@ function World() {
           <span className="fab-subtitle">Hồi Phục HP</span>
         </div>
       </button>
+      
+      {/* Refresh Exploration Modal */}
+      {showRefreshModal && (
+        <div className="modal-overlay" onClick={() => setShowRefreshModal(false)}>
+          <div className="refresh-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="refresh-modal-header">
+              <h3>
+                <span className="material-symbols-outlined">refresh</span>
+                Làm Mới Lượt Khám Phá
+              </h3>
+              <button className="modal-close" onClick={() => setShowRefreshModal(false)}>
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="refresh-modal-content">
+              <p>Bạn đã hết lượt khám phá hôm nay!</p>
+              <p className="refresh-cost">
+                Chi phí: <strong>{formatNumber(REFRESH_COST)} Linh Thạch</strong>
+              </p>
+              <p className="refresh-balance">
+                Số dư: <span className={resources.spiritStones >= REFRESH_COST ? 'text-success' : 'text-danger'}>
+                  {formatNumber(resources.spiritStones)}
+                </span>
+              </p>
+              <div className="refresh-actions">
+                <button 
+                  className="cancel-btn"
+                  onClick={() => setShowRefreshModal(false)}
+                >
+                  Hủy
+                </button>
+                <button 
+                  className="confirm-btn"
+                  onClick={handleRefreshExploration}
+                  disabled={resources.spiritStones < REFRESH_COST}
+                >
+                  <span className="material-symbols-outlined">check</span>
+                  Xác Nhận
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

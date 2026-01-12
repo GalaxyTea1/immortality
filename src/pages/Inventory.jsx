@@ -73,10 +73,9 @@ function Inventory() {
     return items;
   }, [getInventoryWithDetails, activeTab, searchQuery]);
 
-  // Lấy equipped items với details
   const equippedItems = useMemo(() => {
     const result = getEquippedItems();
-    console.log('🎒 [Inventory] equippedItems:', result);
+    console.log('[Inventory] equippedItems:', result);
     return result;
   }, [getEquippedItems]);
 
@@ -388,27 +387,36 @@ function Inventory() {
             </div>
 
             <div className="items-grid">
-              {inventoryItems.map((item) => (
-                <button 
-                  key={item.itemId} 
-                  className={`item-slot rarity-${item.rarity} ${selectedItem === item.itemId ? 'selected' : ''}`}
-                  onClick={() => {
-                    setSelectedItem(selectedItem === item.itemId ? null : item.itemId);
-                    setUseQuantity(1);
-                  }}
-                  onDoubleClick={() => handleUseItem(item.itemId, 1)}
-                  title={`${item.name}\n${item.description}\nNhấn đúp để sử dụng`}
-                >
-                  <div 
-                    className="item-image"
-                    style={{ backgroundImage: `url("${item.image}")` }}
-                  ></div>
-                  <div className="item-gradient"></div>
-                  <p className="item-name">{item.name}</p>
-                  {item.quantity > 1 && <span className="item-count">x{item.quantity}</span>}
-                  <div className="rarity-indicator"></div>
-                </button>
-              ))}
+              {inventoryItems.map((item, index) => {
+                // Equipment dùng uid, pills/materials dùng itemId
+                const itemKey = item.uid || item.itemId;
+                const isSelected = selectedItem === itemKey;
+                
+                return (
+                  <button 
+                    key={`${itemKey}-${index}`} 
+                    className={`item-slot rarity-${item.rarity} ${isSelected ? 'selected' : ''}`}
+                    onClick={() => {
+                      setSelectedItem(isSelected ? null : itemKey);
+                      setUseQuantity(1);
+                    }}
+                    onDoubleClick={() => handleUseItem(itemKey, 1)}
+                    title={`${item.name}${item.enhanceLevel > 0 ? ` (+${item.enhanceLevel})` : ''}\n${item.description}\nNhấn đúp để sử dụng`}
+                  >
+                    <div 
+                      className="item-image"
+                      style={{ backgroundImage: `url("${item.image}")` }}
+                    ></div>
+                    <div className="item-gradient"></div>
+                    <p className="item-name">{item.name}</p>
+                    {item.quantity > 1 && <span className="item-count">x{item.quantity}</span>}
+                    {item.type === 'equipment' && item.enhanceLevel > 0 && (
+                      <span className="item-enhance-level">+{item.enhanceLevel}</span>
+                    )}
+                    <div className="rarity-indicator"></div>
+                  </button>
+                );
+              })}
               
               {/* Empty slots */}
               {inventoryItems.length < 20 && Array(Math.max(0, 8 - inventoryItems.length)).fill(null).map((_, idx) => (
@@ -422,13 +430,21 @@ function Inventory() {
             {selectedItem && (
               <div className="item-actions">
                 {(() => {
-                  const item = inventoryItems.find(i => i.itemId === selectedItem);
+                  // Tìm theo uid hoặc itemId
+                  const item = inventoryItems.find(i => 
+                    (i.uid && i.uid === selectedItem) || (!i.uid && i.itemId === selectedItem)
+                  );
                   if (!item) return null;
+                  
+                  const itemKey = item.uid || item.itemId;
                   
                   return (
                     <>
                       <div className="item-detail">
-                        <p className="item-detail-name">{item.name}</p>
+                        <p className="item-detail-name">
+                          {item.name}
+                          {item.enhanceLevel > 0 && <span className="enhance-badge">+{item.enhanceLevel}</span>}
+                        </p>
                         <p className="item-detail-desc">{item.description}</p>
                       </div>
                       
@@ -449,7 +465,7 @@ function Inventory() {
                       <div className="action-btns">
                         <button 
                           className="action-btn use-btn"
-                          onClick={() => handleUseItem(selectedItem, item.type === 'pill' ? useQuantity : 1)}
+                          onClick={() => handleUseItem(itemKey, item.type === 'pill' ? useQuantity : 1)}
                         >
                           <span className="material-symbols-outlined">
                             {item.type === 'equipment' ? 'checkroom' : item.type === 'book' ? 'menu_book' : 'play_arrow'}

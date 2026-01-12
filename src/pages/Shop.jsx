@@ -74,7 +74,7 @@ const shopItems = [
     description: 'Trang sức phòng thủ, tăng 20 điểm phòng.',
     tier: 'black',
     price: 800,
-    image: 'https://images.unsplash.com/photo-1601342630318-7b4c6e4e083c?q=80&w=200'
+    image: 'https://i.etsystatic.com/29320864/r/il/7d221a/4206023060/il_340x270.4206023060_di3b.jpg'
   },
   {
     id: 9,
@@ -97,6 +97,7 @@ const categories = [
 
 const getTierStyle = (tier) => {
   switch (tier) {
+    // case 'god': return { class: 'tier-god', label: 'Thần Cấp', color: '#fa4a15ff' };
     case 'heaven': return { class: 'tier-heaven', label: 'Thiên Cấp', color: '#facc15' };
     case 'earth': return { class: 'tier-earth', label: 'Địa Cấp', color: '#fb923c' };
     case 'black': return { class: 'tier-black', label: 'Huyền Cấp', color: '#c084fc' };
