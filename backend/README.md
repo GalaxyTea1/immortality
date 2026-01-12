@@ -1,7 +1,3 @@
-# Tu Tiên Backend API
-
-Backend API cho game Tu Tiên, được xây dựng với Node.js, Express và PostgreSQL.
-
 ## Cài đặt
 
 ### 1. Cài đặt dependencies
@@ -81,22 +77,3 @@ Server sẽ chạy tại: `http://localhost:3001`
 - `POST /api/inventory/:characterId/add` - Thêm vật phẩm
 - `POST /api/inventory/:characterId/remove` - Xóa/giảm vật phẩm
 - `PUT /api/inventory/:characterId/sync` - Đồng bộ toàn bộ inventory
-
-## Cấu trúc thư mục
-
-```
-backend/
-├── src/
-│   ├── db/
-│   │   ├── index.js      # Database connection pool
-│   │   └── schema.sql    # Database schema
-│   ├── routes/
-│   │   ├── character.routes.js
-│   │   ├── leaderboard.routes.js
-│   │   └── inventory.routes.js
-│   └── index.js          # Entry point
-├── .env.example
-├── .gitignore
-├── package.json
-└── README.md
-```
