@@ -3,11 +3,11 @@ import { query } from '../db/index.js';
 
 const router = express.Router();
 
-// GET /api/leaderboard - Lấy bảng xếp hạng tu luyện
+// GET /api/leaderboard - Get cultivation leaderboard
 router.get('/', async (req, res) => {
   try {
     const { limit = 50, offset = 0 } = req.query;
-    
+
     const result = await query(
       `SELECT 
         c.id,
@@ -26,7 +26,7 @@ router.get('/', async (req, res) => {
       LIMIT $1 OFFSET $2`,
       [parseInt(limit), parseInt(offset)]
     );
-    
+
     res.json({
       data: result.rows,
       total: result.rowCount,
@@ -35,15 +35,15 @@ router.get('/', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching leaderboard:', error);
-    res.status(500).json({ error: 'Lỗi khi lấy bảng xếp hạng' });
+    res.status(500).json({ error: 'Error fetching leaderboard' });
   }
 });
 
-// GET /api/leaderboard/power - Xếp hạng theo lực chiến
+// GET /api/leaderboard/power - Leaderboard by power
 router.get('/power', async (req, res) => {
   try {
     const { limit = 50 } = req.query;
-    
+
     const result = await query(
       `SELECT 
         c.id,
@@ -63,19 +63,19 @@ router.get('/power', async (req, res) => {
       LIMIT $1`,
       [parseInt(limit)]
     );
-    
+
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching power leaderboard:', error);
-    res.status(500).json({ error: 'Lỗi khi lấy bảng xếp hạng lực chiến' });
+    res.status(500).json({ error: 'Error fetching power leaderboard' });
   }
 });
 
-// GET /api/leaderboard/reputation - Xếp hạng theo danh vọng
+// GET /api/leaderboard/reputation - Leaderboard by reputation
 router.get('/reputation', async (req, res) => {
   try {
     const { limit = 50 } = req.query;
-    
+
     const result = await query(
       `SELECT 
         c.id,
@@ -91,11 +91,11 @@ router.get('/reputation', async (req, res) => {
       LIMIT $1`,
       [parseInt(limit)]
     );
-    
+
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching reputation leaderboard:', error);
-    res.status(500).json({ error: 'Lỗi khi lấy bảng xếp hạng danh vọng' });
+    res.status(500).json({ error: 'Error fetching reputation leaderboard' });
   }
 });
 

@@ -42,11 +42,10 @@ function Layout() {
             </button>
 
             <div className="user-avatar">
-              <img 
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuAM99U2yz_DBRPHbMVcTOt9kHwXgcQDwdvAT-YDmSHJDrBhO9UY05GLJSU04x3qh-UyWPMBLMaSUvHcmpn0kfzrcMUJ3XsvohSiIphDKK0hzG41PRHJkE3S3yt1yl5DYaBiXWhMs0z-NHqDuP95jRp49W00avrpaicxgcW3ChqTxs186hk-_rtbaEG4WHhvfMHp7_zfEcwtgXMG8JbiKs-Fnt3nSdJrxdiyP6p86FWYIzZyuIkpd8aVo8-wHXFs2ACdODWr5uNsKrg" 
-                alt="Avatar" 
+              <img
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuAM99U2yz_DBRPHbMVcTOt9kHwXgcQDwdvAT-YDmSHJDrBhO9UY05GLJSU04x3qh-UyWPMBLMaSUvHcmpn0kfzrcMUJ3XsvohSiIphDKK0hzG41PRHJkE3S3yt1yl5DYaBiXWhMs0z-NHqDuP95jRp49W00avrpaicxgcW3ChqTxs186hk-_rtbaEG4WHhvfMHp7_zfEcwtgXMG8JbiKs-Fnt3nSdJrxdiyP6p86FWYIzZyuIkpd8aVo8-wHXFs2ACdODWr5uNsKrg"
+                alt="Avatar"
               />
-              <span className="online-indicator"></span>
             </div>
           </div>
         </div>

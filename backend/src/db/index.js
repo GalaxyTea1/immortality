@@ -1,7 +1,13 @@
 import pg from 'pg';
 import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Load .env from backend root directory
+dotenv.config({ path: resolve(__dirname, '../../.env') });
 
 const { Pool } = pg;
 
@@ -22,13 +28,13 @@ export const testConnection = async () => {
   try {
     const client = await pool.connect();
     const result = await client.query('SELECT NOW()');
-    console.log('Kết nối Database thành công:', result.rows[0].now);
+    console.log('Database connection successful:', result.rows[0].now);
     client.release();
     return true;
   } catch (error) {
-    console.error('Lỗi kết nối Database:', error.message);
-    console.log('Server sẽ tiếp tục chạy nhưng các tính năng DB sẽ không hoạt động.');
-    console.log('Hãy kiểm tra file .env và đảm bảo PostgreSQL đang chạy.\n');
+    console.error('Database connection error:', error.message);
+    console.log('Server will continue running but DB features will not work.');
+    console.log('Please check .env file and ensure PostgreSQL is running.\n');
     return false;
   }
 };

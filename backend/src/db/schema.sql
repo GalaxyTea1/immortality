@@ -1,4 +1,4 @@
--- Tu Tiên Game Database Schema
+-- Immortality Game Database Schema
 -- Run this script to create all required tables
 
 -- ===========================
@@ -20,16 +20,16 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS characters (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    name VARCHAR(100) NOT NULL DEFAULT 'Đạo Hữu',
+    name VARCHAR(100) NOT NULL DEFAULT 'Daoist',
     
     -- Cultivation Progress
-    realm_index INTEGER DEFAULT 0,           -- Index trong REALMS
-    level INTEGER DEFAULT 1,                 -- Tầng trong cảnh giới (1-9)
+    realm_index INTEGER DEFAULT 0,           -- Index in REALMS
+    level INTEGER DEFAULT 1,                 -- Level in realm (1-9)
     exp BIGINT DEFAULT 0,
     max_exp BIGINT DEFAULT 100,
     
     -- Resources
-    spirit_stones BIGINT DEFAULT 1000,       -- Linh Thạch
+    spirit_stones BIGINT DEFAULT 1000,       -- Spirit Stones
     
     -- Base Stats
     hp INTEGER DEFAULT 100,
@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS characters (
     -- Reputation
     reputation_points INTEGER DEFAULT 0,
     reputation_level INTEGER DEFAULT 1,
-    reputation_title VARCHAR(100) DEFAULT 'Vô Danh',
+    reputation_title VARCHAR(100) DEFAULT 'Nameless',
     
     -- Alchemy
     alchemy_level INTEGER DEFAULT 1,
@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS characters (
 CREATE TABLE IF NOT EXISTS inventory (
     id SERIAL PRIMARY KEY,
     character_id INTEGER REFERENCES characters(id) ON DELETE CASCADE,
-    item_id VARCHAR(100) NOT NULL,           -- ID của item (e.g., 'tieu_hoan_dan')
+    item_id VARCHAR(100) NOT NULL,           -- Item ID (e.g., 'small_recovery_pill')
     quantity INTEGER DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(character_id, item_id)
@@ -146,6 +146,7 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+DROP TRIGGER IF EXISTS update_characters_updated_at ON characters;
 CREATE TRIGGER update_characters_updated_at
     BEFORE UPDATE ON characters
     FOR EACH ROW

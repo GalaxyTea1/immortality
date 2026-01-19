@@ -3,7 +3,7 @@ import { query } from '../db/index.js';
 
 const router = express.Router();
 
-// GET /api/characters/:userId - Lấy thông tin nhân vật của user
+// GET /api/characters/:userId - Get character info for user
 router.get('/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
@@ -11,42 +11,61 @@ router.get('/:userId', async (req, res) => {
       'SELECT * FROM characters WHERE user_id = $1',
       [userId]
     );
-    
+
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Không tìm thấy nhân vật' });
+      return res.status(404).json({ error: 'Character not found' });
     }
-    
+
     res.json(result.rows[0]);
   } catch (error) {
     console.error('Error fetching character:', error);
-    res.status(500).json({ error: 'Lỗi khi lấy thông tin nhân vật' });
+    res.status(500).json({ error: 'Error fetching character info' });
   }
 });
 
-// POST /api/characters - Tạo nhân vật mới
+// POST /api/characters - Create new character
 router.post('/', async (req, res) => {
   try {
     const { userId, name } = req.body;
-    
+
     const result = await query(
       `INSERT INTO characters (user_id, name) 
        VALUES ($1, $2) 
        RETURNING *`,
-      [userId, name || 'Đạo Hữu']
+      [userId, name || 'Daoist']
     );
-    
+
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Error creating character:', error);
-    res.status(500).json({ error: 'Lỗi khi tạo nhân vật' });
+    res.status(500).json({ error: 'Error creating character' });
   }
 });
 
-// PUT /api/characters/:id - Cập nhật nhân vật (save game)
+// PUT /api/characters/:id - Update character (save game)
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const {
+      // ... (omitting lengthy destructuring lines for brevity, assuming tool keeps context or I should be precise if not omitting) 
+      // To allow multiple replacement, I need to match StartLine and EndLine precisely.
+      // I will target the comment first, then key lines.
+      // Actually, I can just replace the whole blocks that have text.
+      // Let's do partial replacement for the big update query block.
+      // Wait, I can't partially match, I need exact TargetContent.
+      // I'll break it down.
+
+      // UPDATE 1: Comment
+      // PUT /api/characters/:id - Cập nhật nhân vật (save game) -> Update character (save game)
+      // UPDATE 2: 404
+      // Không tìm thấy nhân vật -> Character not found
+      // UPDATE 3: 500
+      // Lỗi khi cập nhật nhân vật -> Error updating character
+      // UPDATE 4: 
+      // name, realm_index.... -> (no translation needed)
+
+      // Let's replace the whole route if possible, or key parts.
+      // The route is long. I'll replace top and bottom.
       name,
       realm_index,
       level,
@@ -68,7 +87,7 @@ router.put('/:id', async (req, res) => {
       alchemy_level,
       alchemy_exp
     } = req.body;
-    
+
     const result = await query(
       `UPDATE characters SET
         name = COALESCE($1, name),
@@ -100,15 +119,15 @@ router.put('/:id', async (req, res) => {
         reputation_level, reputation_title, alchemy_level, alchemy_exp, id
       ]
     );
-    
+
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Không tìm thấy nhân vật' });
+      return res.status(404).json({ error: 'Character not found' });
     }
-    
+
     res.json(result.rows[0]);
   } catch (error) {
     console.error('Error updating character:', error);
-    res.status(500).json({ error: 'Lỗi khi cập nhật nhân vật' });
+    res.status(500).json({ error: 'Error updating character' });
   }
 });
 

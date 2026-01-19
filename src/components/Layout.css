@@ -219,22 +219,12 @@
   object-fit: cover;
 }
 
-.online-indicator {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 0.75rem;
-  height: 0.75rem;
-  background: #0bda6f;
-  border-radius: 50%;
-  border: 2px solid var(--bg-dark);
-}
-
 /* ===== MAIN CONTENT ===== */
 .main-content {
   flex: 1;
   width: 100%;
-  padding-bottom: 5rem; /* Space for mobile nav */
+  padding-bottom: 5rem;
+  /* Space for mobile nav */
 }
 
 @media (min-width: 1024px) {
