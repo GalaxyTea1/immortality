@@ -1,7 +1,7 @@
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
+import { useAuth } from '../context/AuthContext';
 import './Layout.css';
-import logo from '../assets/logo.png';
 
 const navItems = [
   { path: '/', label: 'Trang Chủ', icon: 'home' },
@@ -14,8 +14,17 @@ const navItems = [
 
 function Layout() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { gameState, formatNumber } = useGame();
+  const { user, logout } = useAuth();
   const { resources } = gameState;
+
+  const handleLogout = () => {
+    if (window.confirm('Bạn có chắc muốn đăng xuất?')) {
+      logout();
+      navigate('/login');
+    }
+  };
 
   return (
     <div className="app-container">
@@ -36,16 +45,34 @@ function Layout() {
           </nav>
 
           <div className="header-actions">
+            {/* User info */}
+            <div className="user-info">
+              <span className="user-name">{user?.username || 'Đạo Hữu'}</span>
+            </div>
+
             <button className="notification-btn">
               <span className="material-symbols-outlined">notifications</span>
               <span className="notification-dot"></span>
             </button>
 
-            <div className="user-avatar">
-              <img
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuAM99U2yz_DBRPHbMVcTOt9kHwXgcQDwdvAT-YDmSHJDrBhO9UY05GLJSU04x3qh-UyWPMBLMaSUvHcmpn0kfzrcMUJ3XsvohSiIphDKK0hzG41PRHJkE3S3yt1yl5DYaBiXWhMs0z-NHqDuP95jRp49W00avrpaicxgcW3ChqTxs186hk-_rtbaEG4WHhvfMHp7_zfEcwtgXMG8JbiKs-Fnt3nSdJrxdiyP6p86FWYIzZyuIkpd8aVo8-wHXFs2ACdODWr5uNsKrg"
-                alt="Avatar"
-              />
+            {/* User dropdown */}
+            <div className="user-dropdown">
+              <div className="user-avatar">
+                <span className="avatar-text">
+                  {user?.username?.charAt(0)?.toUpperCase() || 'T'}
+                </span>
+              </div>
+              <div className="dropdown-menu">
+                <div className="dropdown-header">
+                  <strong>{user?.username}</strong>
+                  <span>{user?.email}</span>
+                </div>
+                <hr />
+                <button onClick={handleLogout} className="dropdown-item logout-btn">
+                  <span className="material-symbols-outlined">logout</span>
+                  Đăng Xuất
+                </button>
+              </div>
             </div>
           </div>
         </div>
