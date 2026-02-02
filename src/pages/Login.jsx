@@ -125,7 +125,6 @@ export default function Login() {
             <div className="login-container">
                 {/* Header */}
                 <div className="login-header">
-                    <div className="login-logo">修仙</div>
                     <h1 className="login-title">Tu Tiên Giới</h1>
                     <p className="login-subtitle">
                         {isRegisterMode ? 'Khai Môn Nhập Đạo' : 'Hồi Quy Tu Tiên Giới'}
