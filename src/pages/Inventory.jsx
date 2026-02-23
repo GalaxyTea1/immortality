@@ -32,20 +32,23 @@ const TABS = [
 ];
 
 function Inventory() {
-  const { 
-    gameState, 
-    getInventoryWithDetails, 
+  const {
+    gameState,
+    getInventoryWithDetails,
     getEquippedItems,
-    useItem, 
+    useItem,
     unequipItem,
     upgradeEquipment,
-    formatNumber, 
+    formatNumber,
     getRealmName,
-    REALMS 
+    REALMS,
+    saveToServer,
+    isServerLoading,
+    ITEM_DEFINITIONS,
   } = useGame();
-  
+
   const { player, resources, stats, baseStats, equipment, learnedSkills } = gameState;
-  
+
   // State cho UI
   const [activeTab, setActiveTab] = useState('all');
   const [selectedItem, setSelectedItem] = useState(null);
@@ -57,27 +60,32 @@ function Inventory() {
   // Lấy inventory với details
   const inventoryItems = useMemo(() => {
     let items = getInventoryWithDetails();
-    
+
     // Lọc theo tab
     if (activeTab !== 'all') {
       items = items.filter(item => item.type === activeTab);
     }
-    
+
     // Lọc theo search
     if (searchQuery) {
-      items = items.filter(item => 
+      items = items.filter(item =>
         item.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-    
+
     return items;
   }, [getInventoryWithDetails, activeTab, searchQuery]);
 
-  const equippedItems = useMemo(() => {
-    const result = getEquippedItems();
-    console.log('[Inventory] equippedItems:', result);
-    return result;
-  }, [getEquippedItems]);
+  // Compute equipped items directly from state (avoid stale useMemo)
+  const equippedItems = {};
+  for (const [slot, equipped] of Object.entries(equipment)) {
+    if (equipped && equipped.itemId) {
+      const itemDef = ITEM_DEFINITIONS[equipped.itemId];
+      equippedItems[slot] = { ...equipped, ...itemDef };
+    } else {
+      equippedItems[slot] = null;
+    }
+  }
 
   // Đếm số items theo loại
   const itemCounts = useMemo(() => {
@@ -101,25 +109,28 @@ function Inventory() {
   const handleUseItem = useCallback((itemId, qty = 1) => {
     const result = useItem(itemId, qty);
     showNotification(result);
-    
+
     if (result.success) {
       setSelectedItem(null);
       setUseQuantity(1);
+      saveToServer();
     }
-  }, [useItem, showNotification]);
+  }, [useItem, showNotification, saveToServer]);
 
   // Xử lý tháo trang bị
   const handleUnequip = useCallback((slot) => {
     const result = unequipItem(slot);
     showNotification(result);
     setSelectedSlot(null);
-  }, [unequipItem, showNotification]);
+    if (result.success) saveToServer();
+  }, [unequipItem, showNotification, saveToServer]);
 
   // Xử lý cường hóa
   const handleUpgrade = useCallback((slot) => {
     const result = upgradeEquipment(slot);
     showNotification(result);
-  }, [upgradeEquipment, showNotification]);
+    if (result.success) saveToServer();
+  }, [upgradeEquipment, showNotification, saveToServer]);
 
   // Tính toán tiến độ tu luyện
   const currentRealm = REALMS[player.realmIndex];
@@ -142,13 +153,22 @@ function Inventory() {
     return bonus;
   }, [equippedItems]);
 
+  // Loading guard — show loading while server data is being fetched
+  if (isServerLoading) {
+    return (
+      <div className="inventory-page" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
+        <p style={{ color: '#aaa', fontSize: '1.2rem' }}>Đang tải dữ liệu...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="inventory-page">
       {/* Sidebar */}
       <aside className="inventory-sidebar">
         <div className="sidebar-header">
           <div className="user-info">
-            <div 
+            <div
               className="user-avatar-lg"
               style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuCr_ChlCM2nOEuTodzG8E4zklR2G1qXN0BVvOtuPEuZefXf_kLi8RBQycLw-urtHaCVtW0q2tKPbgpWLT7os7J8AsZqY6aCeRRHONFW60lZsdm7GDP0j1LkXULL68wHir15SejK9PHLDUdhHGkYKztDhobIuXv3z69j2tEUvZaZhxkruB2uDQA6O4xUXhXcORioMtJZ-z6hUyki5e6BItH17xPmh5eX7pmjGSc5vnZ-mx-mxkLv3LH9Ld08fKRZOhQ0n5bFY7GFSoI")' }}
             ></div>
@@ -161,7 +181,7 @@ function Inventory() {
 
         <nav className="sidebar-nav">
           {menuItems.map((item, idx) => (
-            <Link 
+            <Link
               key={idx}
               to={item.link}
               className={`nav-item ${item.active ? 'active' : ''}`}
@@ -218,9 +238,9 @@ function Inventory() {
 
             <div className="search-box">
               <span className="material-symbols-outlined search-icon">search</span>
-              <input 
-                type="text" 
-                placeholder="Tìm kiếm pháp bảo..." 
+              <input
+                type="text"
+                placeholder="Tìm kiếm pháp bảo..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -235,7 +255,7 @@ function Inventory() {
             <div className="character-card">
               <div className="character-glow"></div>
               <div className="character-avatar-wrapper">
-                <div 
+                <div
                   className="character-avatar"
                   style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuBK_CGgF7iJ2caJrsq-HO-ikK231RQXbvuLykXdONLzCQ-zzIrj54gS9O9odURhDBIGM8eenxQGOxET0I4faKvw3MJC8kSPEkGA5a4lRzNkT7-xZ1p0k6Pl2VnI3EqQqoRx2GYZ8CONamEJViG7-PiRMNMF5pmYjbKoM0YbAZXw3zZ-t4P9Wc5wMbd6CQJFDiTWzmx-WjzEW39W1LrUhKTSxbDBRs7bM6TtIpDpTJstzLxUElaTJWUyEyFOZtI3WMFqmjb_X3old6A")' }}
                 ></div>
@@ -252,17 +272,17 @@ function Inventory() {
                 {EQUIPMENT_SLOTS.map((slot) => {
                   const equipped = equippedItems[slot.key];
                   const isSelected = selectedSlot === slot.key;
-                  
+
                   return (
-                    <div 
-                      key={slot.key} 
+                    <div
+                      key={slot.key}
                       className={`equipment-slot ${equipped ? 'equipped' : ''} ${isSelected ? 'selected' : ''}`}
                       onClick={() => setSelectedSlot(isSelected ? null : slot.key)}
                       title={equipped ? `${equipped.name} (+${equipped.enhanceLevel || 0})` : slot.label}
                     >
                       {equipped ? (
                         <>
-                          <div 
+                          <div
                             className="slot-item-bg"
                             style={{ backgroundImage: `url("${equipped.image}")` }}
                           ></div>
@@ -282,7 +302,7 @@ function Inventory() {
               {selectedSlot && equippedItems[selectedSlot] && (
                 <div className="slot-actions">
                   <p className="slot-info">
-                    {equippedItems[selectedSlot].name} 
+                    {equippedItems[selectedSlot].name}
                     <span className="enhance-level">+{equippedItems[selectedSlot].enhanceLevel || 0}</span>
                   </p>
                   <div className="slot-btns">
@@ -347,7 +367,7 @@ function Inventory() {
                   </span>
                 </div>
               </div>
-              
+
               {learnedSkills.length > 0 && (
                 <div className="learned-skills">
                   <p className="skills-label">Bí kíp đã học: {learnedSkills.length}</p>
@@ -367,7 +387,7 @@ function Inventory() {
           <div className="items-panel">
             <div className="tabs-header">
               {TABS.map((tab) => (
-                <button 
+                <button
                   key={tab.id}
                   className={`tab ${activeTab === tab.id ? 'active' : ''}`}
                   onClick={() => setActiveTab(tab.id)}
@@ -391,10 +411,10 @@ function Inventory() {
                 // Equipment dùng uid, pills/materials dùng itemId
                 const itemKey = item.uid || item.itemId;
                 const isSelected = selectedItem === itemKey;
-                
+
                 return (
-                  <button 
-                    key={`${itemKey}-${index}`} 
+                  <button
+                    key={`${itemKey}-${index}`}
                     className={`item-slot rarity-${item.rarity} ${isSelected ? 'selected' : ''}`}
                     onClick={() => {
                       setSelectedItem(isSelected ? null : itemKey);
@@ -403,7 +423,7 @@ function Inventory() {
                     onDoubleClick={() => handleUseItem(itemKey, 1)}
                     title={`${item.name}${item.enhanceLevel > 0 ? ` (+${item.enhanceLevel})` : ''}\n${item.description}\nNhấn đúp để sử dụng`}
                   >
-                    <div 
+                    <div
                       className="item-image"
                       style={{ backgroundImage: `url("${item.image}")` }}
                     ></div>
@@ -417,7 +437,7 @@ function Inventory() {
                   </button>
                 );
               })}
-              
+
               {/* Empty slots */}
               {inventoryItems.length < 20 && Array(Math.max(0, 8 - inventoryItems.length)).fill(null).map((_, idx) => (
                 <div key={`empty-${idx}`} className="item-slot empty">
@@ -431,13 +451,13 @@ function Inventory() {
               <div className="item-actions">
                 {(() => {
                   // Tìm theo uid hoặc itemId
-                  const item = inventoryItems.find(i => 
+                  const item = inventoryItems.find(i =>
                     (i.uid && i.uid === selectedItem) || (!i.uid && i.itemId === selectedItem)
                   );
                   if (!item) return null;
-                  
+
                   const itemKey = item.uid || item.itemId;
-                  
+
                   return (
                     <>
                       <div className="item-detail">
@@ -447,13 +467,13 @@ function Inventory() {
                         </p>
                         <p className="item-detail-desc">{item.description}</p>
                       </div>
-                      
+
                       {item.type === 'pill' && item.quantity > 1 && (
                         <div className="quantity-selector">
                           <label>Số lượng:</label>
-                          <input 
-                            type="number" 
-                            min="1" 
+                          <input
+                            type="number"
+                            min="1"
                             max={item.quantity}
                             value={useQuantity}
                             onChange={(e) => setUseQuantity(Math.min(Math.max(1, parseInt(e.target.value) || 1), item.quantity))}
@@ -461,9 +481,9 @@ function Inventory() {
                           <span>/ {item.quantity}</span>
                         </div>
                       )}
-                      
+
                       <div className="action-btns">
-                        <button 
+                        <button
                           className="action-btn use-btn"
                           onClick={() => handleUseItem(itemKey, item.type === 'pill' ? useQuantity : 1)}
                         >
@@ -472,7 +492,7 @@ function Inventory() {
                           </span>
                           {item.type === 'equipment' ? 'Trang Bị' : item.type === 'book' ? 'Học' : 'Sử dụng'}
                         </button>
-                        <button 
+                        <button
                           className="action-btn info-btn"
                           onClick={() => {
                             setSelectedItem(null);

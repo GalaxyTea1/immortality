@@ -1,9 +1,12 @@
 import express from 'express';
+import { createServer } from 'http';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './swagger.js';
 import { pool, testConnection } from './db/index.js';
+import { initSocket } from './socket.js';
+import { generalLimiter } from './middleware/rateLimit.js';
 
 // Import routes
 import characterRoutes from './routes/character.routes.js';
@@ -27,6 +30,9 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
+
+// Rate limiting
+app.use('/api/', generalLimiter);
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -76,8 +82,13 @@ const startServer = async () => {
     // Test database connection
     await testConnection();
 
-    app.listen(PORT, () => {
+    // Create HTTP server and init Socket.IO
+    const httpServer = createServer(app);
+    initSocket(httpServer);
+
+    httpServer.listen(PORT, () => {
       console.log(`Server is running at http://localhost:${PORT}`);
+      console.log(`WebSocket ready on same port`);
       console.log(`Swagger UI: http://localhost:${PORT}/api-docs`);
       console.log(`Health check: http://localhost:${PORT}/api/health`);
     });

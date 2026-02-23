@@ -31,10 +31,10 @@ const formatTimeAgo = (timestamp) => {
 const REFRESH_COST = 5000;
 
 function World() {
-  const { 
-    gameState, 
+  const {
+    gameState,
     setGameState,
-    formatNumber, 
+    formatNumber,
     REALMS,
     WORLD_ZONES,
     exploreLocation,
@@ -42,56 +42,42 @@ function World() {
     meditate,
     getInventoryWithDetails,
     addEvent,
+    saveToServer,
   } = useGame();
-  
+
   const { player, stats, exploration, quests, events, resources } = gameState;
   const currentRealm = REALMS[player.realmIndex];
-  
+
   // State
   const [notification, setNotification] = useState(null);
   const [isExploring, setIsExploring] = useState(false);
   const [showRefreshModal, setShowRefreshModal] = useState(false);
-  
-  // Kiểm tra và reset lượt hằng ngày
-  useEffect(() => {
-    const lastResetDate = localStorage.getItem('exploration_last_reset');
-    const today = new Date().toDateString();
-    
-    if (lastResetDate !== today) {
-      // Reset lượt khám phá
-      setGameState(prev => ({
-        ...prev,
-        exploration: {
-          ...prev.exploration,
-          explorationCount: 0,
-        },
-      }));
-      localStorage.setItem('exploration_last_reset', today);
-    }
-  }, [setGameState]);
-  
+
+  // Daily exploration reset is handled server-side in mapServerToGameState
+  // No localStorage needed
+
   // Xử lý khám phá với zone mới
   const handleExplore = useCallback((zoneId) => {
     if (isExploring) return;
-    
+
     setIsExploring(true);
-    
+
     setTimeout(() => {
       const result = exploreLocation(zoneId);
       setNotification(result);
       setIsExploring(false);
-      
+      saveToServer();
       setTimeout(() => setNotification(null), 4000);
     }, 1000);
-  }, [isExploring, exploreLocation]);
-  
+  }, [isExploring, exploreLocation, saveToServer]);
+
   const handleRefreshExploration = useCallback(() => {
     if (resources.spiritStones < REFRESH_COST) {
       setNotification({ success: false, message: `Không đủ Linh Thạch! Cần ${formatNumber(REFRESH_COST)}` });
       setTimeout(() => setNotification(null), 3000);
       return;
     }
-    
+
     setGameState(prev => ({
       ...prev,
       resources: {
@@ -103,46 +89,49 @@ function World() {
         explorationCount: 0,
       },
     }));
-    
+
     addEvent('info', `Đã làm mới lượt khám phá! -${formatNumber(REFRESH_COST)} Linh Thạch`);
     setNotification({ success: true, message: `Đã làm mới lượt khám phá! -${formatNumber(REFRESH_COST)} Linh Thạch` });
     setShowRefreshModal(false);
+    saveToServer();
     setTimeout(() => setNotification(null), 3000);
-  }, [resources.spiritStones, setGameState, addEvent, formatNumber]);
-  
+  }, [resources.spiritStones, setGameState, addEvent, formatNumber, saveToServer]);
+
   // Xử lý nhận thưởng quest
   const handleClaimQuest = useCallback(() => {
     const result = claimQuestReward();
     setNotification(result);
+    saveToServer();
     setTimeout(() => setNotification(null), 3000);
-  }, [claimQuestReward]);
-  
+  }, [claimQuestReward, saveToServer]);
+
   // Xử lý thiền định
   const handleMeditate = useCallback(() => {
     const result = meditate();
     setNotification(result);
+    saveToServer();
     setTimeout(() => setNotification(null), 3000);
-  }, [meditate]);
-  
+  }, [meditate, saveToServer]);
+
   // Kiểm tra có thể vào zone không
   const canEnterZone = (zone) => {
-    return player.realmIndex >= zone.minRealm && 
-           (player.realmIndex > zone.minRealm || player.level >= zone.minLevel);
+    return player.realmIndex >= zone.minRealm &&
+      (player.realmIndex > zone.minRealm || player.level >= zone.minLevel);
   };
-  
+
   // Progress percentages
   const expPercent = Math.floor((player.exp / player.maxExp) * 100);
   const hpPercent = Math.floor((stats.hp / stats.maxHp) * 100);
   const questPercent = quests.active ? Math.floor((quests.active.progress / quests.active.target) * 100) : 0;
   const explorationPercent = Math.floor((exploration.explorationCount / exploration.maxExplorationPerDay) * 100);
   const remainingExploration = exploration.maxExplorationPerDay - exploration.explorationCount;
-  
+
   // Lấy inventory preview
   const inventory = getInventoryWithDetails().slice(0, 4);
-  
+
   // Chuyển zones thành array
   const zones = Object.values(WORLD_ZONES);
-  
+
   return (
     <div className="world-page">
       <div className="world-container">
@@ -194,7 +183,7 @@ function World() {
               <div className="stat-progress-fill stat-mp" style={{ width: `${explorationPercent}%` }}></div>
             </div>
             {remainingExploration === 0 && (
-              <button 
+              <button
                 className="refresh-btn"
                 onClick={() => setShowRefreshModal(true)}
               >
@@ -230,7 +219,7 @@ function World() {
                 <span className="material-symbols-outlined">hiking</span>
                 {remainingExploration}/{exploration.maxExplorationPerDay} lượt còn lại
                 {remainingExploration === 0 && (
-                  <button 
+                  <button
                     className="refresh-inline-btn"
                     onClick={() => setShowRefreshModal(true)}
                     title={`Làm mới với ${formatNumber(REFRESH_COST)} Linh Thạch`}
@@ -247,13 +236,13 @@ function World() {
                 const canExplore = remainingExploration > 0;
                 const canEnter = canEnterZone(zone);
                 const requiredRealm = REALMS[zone.minRealm]?.name || '';
-                
+
                 return (
                   <div key={zone.id} className={`location-card ${isExploring ? 'exploring' : ''} ${!canEnter ? 'locked' : ''}`}>
                     <div className="location-image-wrapper">
-                      <div 
+                      <div
                         className="location-image"
-                        style={{ 
+                        style={{
                           backgroundImage: `url("https://picsum.photos/seed/${zone.id}/400/300")`,
                           filter: !canEnter ? 'grayscale(0.8)' : 'none'
                         }}
@@ -286,7 +275,7 @@ function World() {
                           <span className="info-value">{zone.drops.length} loại</span>
                         </div>
                       </div>
-                      <button 
+                      <button
                         className={`travel-btn ${zone.dangerLevel === 'safe' ? 'travel-btn-secondary' : ''} ${!canExplore || !canEnter ? 'disabled' : ''}`}
                         onClick={() => handleExplore(zone.id)}
                         disabled={!canExplore || isExploring || !canEnter}
@@ -415,7 +404,7 @@ function World() {
           <span className="fab-subtitle">Hồi Phục HP</span>
         </div>
       </button>
-      
+
       {/* Refresh Exploration Modal */}
       {showRefreshModal && (
         <div className="modal-overlay" onClick={() => setShowRefreshModal(false)}>
@@ -440,13 +429,13 @@ function World() {
                 </span>
               </p>
               <div className="refresh-actions">
-                <button 
+                <button
                   className="cancel-btn"
                   onClick={() => setShowRefreshModal(false)}
                 >
                   Hủy
                 </button>
-                <button 
+                <button
                   className="confirm-btn"
                   onClick={handleRefreshExploration}
                   disabled={resources.spiritStones < REFRESH_COST}

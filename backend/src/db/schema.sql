@@ -55,6 +55,11 @@ CREATE TABLE IF NOT EXISTS characters (
     alchemy_level INTEGER DEFAULT 1,
     alchemy_exp INTEGER DEFAULT 0,
     
+    -- Exploration
+    exploration_count INTEGER DEFAULT 0,
+    exploration_last_reset DATE DEFAULT CURRENT_DATE,
+    last_meditation_time TIMESTAMP,
+    
     -- Timestamps
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -68,8 +73,9 @@ CREATE TABLE IF NOT EXISTS inventory (
     character_id INTEGER REFERENCES characters(id) ON DELETE CASCADE,
     item_id VARCHAR(100) NOT NULL,           -- Item ID (e.g., 'small_recovery_pill')
     quantity INTEGER DEFAULT 1,
+    enhance_level INTEGER DEFAULT 0,         -- Equipment enhance level (0 for non-equipment)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(character_id, item_id)
+    UNIQUE(character_id, item_id, enhance_level)
 );
 
 -- ===========================

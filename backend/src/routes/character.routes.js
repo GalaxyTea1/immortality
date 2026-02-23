@@ -1,5 +1,8 @@
 import express from 'express';
 import { query } from '../db/index.js';
+import { broadcastLeaderboardUpdate, broadcastWorldAnnouncement } from '../socket.js';
+import { validate, updateCharacterSchema } from '../middleware/validation.js';
+import { saveLimiter } from '../middleware/rateLimit.js';
 
 const router = express.Router();
 
@@ -43,7 +46,7 @@ router.post('/', async (req, res) => {
 });
 
 // PUT /api/characters/:id - Update character (save game)
-router.put('/:id', async (req, res) => {
+router.put('/:id', saveLimiter, validate(updateCharacterSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -85,7 +88,10 @@ router.put('/:id', async (req, res) => {
       reputation_level,
       reputation_title,
       alchemy_level,
-      alchemy_exp
+      alchemy_exp,
+      exploration_count,
+      exploration_last_reset,
+      last_meditation_time
     } = req.body;
 
     const result = await query(
@@ -109,14 +115,18 @@ router.put('/:id', async (req, res) => {
         reputation_level = COALESCE($17, reputation_level),
         reputation_title = COALESCE($18, reputation_title),
         alchemy_level = COALESCE($19, alchemy_level),
-        alchemy_exp = COALESCE($20, alchemy_exp)
-      WHERE id = $21
+        alchemy_exp = COALESCE($20, alchemy_exp),
+        exploration_count = COALESCE($21, exploration_count),
+        exploration_last_reset = COALESCE($22, exploration_last_reset),
+        last_meditation_time = COALESCE($23, last_meditation_time)
+      WHERE id = $24
       RETURNING *`,
       [
         name, realm_index, level, exp, max_exp, spirit_stones,
         hp, max_hp, attack, defense, agility, spirit, cultivation_speed,
         foundation_value, inner_demon_value, reputation_points,
-        reputation_level, reputation_title, alchemy_level, alchemy_exp, id
+        reputation_level, reputation_title, alchemy_level, alchemy_exp,
+        exploration_count, exploration_last_reset, last_meditation_time, id
       ]
     );
 
@@ -124,10 +134,104 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Character not found' });
     }
 
+    // Broadcast leaderboard update to all subscribers
+    try {
+      broadcastLeaderboardUpdate();
+    } catch (e) {
+      // Socket not initialized yet — OK
+    }
+
     res.json(result.rows[0]);
   } catch (error) {
     console.error('Error updating character:', error);
     res.status(500).json({ error: 'Error updating character' });
+  }
+});
+
+// POST /api/characters/:id/beacon-save
+// Special endpoint for navigator.sendBeacon() on page unload
+// Token is sent in body (sendBeacon can't set headers)
+router.post('/:id/beacon-save', async (req, res) => {
+  try {
+    const characterId = req.params.id;
+    const { token, inventory, equipment, ...characterData } = req.body;
+
+    // Verify JWT from body
+    if (!token) {
+      return res.status(401).json({ error: 'Token required' });
+    }
+
+    let decoded;
+    try {
+      const jwt = await import('jsonwebtoken');
+      decoded = jwt.default.verify(token, process.env.JWT_SECRET || 'tu_tien_secret_key_2025');
+    } catch (e) {
+      return res.status(403).json({ error: 'Invalid token' });
+    }
+
+    // Build dynamic SET clause for character data
+    const allowedFields = [
+      'name', 'realm_index', 'level', 'exp', 'max_exp',
+      'spirit_stones', 'hp', 'max_hp', 'attack', 'defense',
+      'agility', 'spirit', 'cultivation_speed',
+      'foundation_value', 'foundation_max',
+      'inner_demon_value', 'inner_demon_max',
+      'reputation_points', 'reputation_level', 'reputation_title',
+      'alchemy_level', 'alchemy_exp',
+      'exploration_count', 'exploration_last_reset', 'last_meditation_time'
+    ];
+
+    const updates = [];
+    const values = [];
+    let paramIndex = 1;
+
+    for (const field of allowedFields) {
+      if (characterData[field] !== undefined) {
+        updates.push(`${field} = $${paramIndex}`);
+        values.push(characterData[field]);
+        paramIndex++;
+      }
+    }
+
+    if (updates.length > 0) {
+      updates.push(`updated_at = NOW()`);
+      values.push(characterId);
+      await query(
+        `UPDATE characters SET ${updates.join(', ')} WHERE id = $${paramIndex}`,
+        values
+      );
+    }
+
+    // Sync inventory if provided
+    if (Array.isArray(inventory)) {
+      await query('DELETE FROM inventory WHERE character_id = $1', [characterId]);
+      for (const item of inventory) {
+        if (item.itemId && item.quantity > 0) {
+          await query(
+            'INSERT INTO inventory (character_id, item_id, quantity, enhance_level) VALUES ($1, $2, $3, $4)',
+            [characterId, item.itemId, item.quantity, item.enhanceLevel || 0]
+          );
+        }
+      }
+    }
+
+    // Sync equipment if provided
+    if (equipment && typeof equipment === 'object') {
+      await query('DELETE FROM equipment WHERE character_id = $1', [characterId]);
+      for (const [slot, data] of Object.entries(equipment)) {
+        if (data && data.itemId) {
+          await query(
+            'INSERT INTO equipment (character_id, slot, item_id, enhance_level) VALUES ($1, $2, $3, $4)',
+            [characterId, slot, data.itemId, data.enhanceLevel || 0]
+          );
+        }
+      }
+    }
+
+    res.json({ saved: true });
+  } catch (error) {
+    console.error('Beacon save error:', error);
+    res.status(500).json({ error: 'Beacon save failed' });
   }
 });
 

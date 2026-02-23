@@ -33,6 +33,18 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
+/**
+ * Wrapper to pass characterId from auth to GameProvider
+ */
+function GameProviderWithAuth({ children }) {
+  const { user } = useAuth();
+  return (
+    <GameProvider characterId={user?.characterId}>
+      {children}
+    </GameProvider>
+  );
+}
+
 function AppContent() {
   return (
     <Router>
@@ -45,9 +57,9 @@ function AppContent() {
           path="/"
           element={
             <ProtectedRoute>
-              <GameProvider>
+              <GameProviderWithAuth>
                 <Layout />
-              </GameProvider>
+              </GameProviderWithAuth>
             </ProtectedRoute>
           }
         >

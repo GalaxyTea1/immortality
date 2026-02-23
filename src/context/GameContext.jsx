@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import * as api from '../services/api.js';
 
 // Import dữ liệu từ các file riêng biệt
 import { ITEM_DEFINITIONS } from '../data/items.js';
@@ -55,7 +56,7 @@ const initialState = {
     cultivationSpeed: 1.0,
   },
   learnedSkills: [],
-  
+
   // ===== HỆ THỐNG CĂN CƠ =====
   foundation: {
     value: 100,
@@ -64,7 +65,7 @@ const initialState = {
     expBonus: 0.05,
     lastRecovery: Date.now(),
   },
-  
+
   // ===== HỆ THỐNG TÂM MA =====
   innerDemon: {
     value: 0,
@@ -72,7 +73,7 @@ const initialState = {
     threshold: 70,
     suppressCount: 0,
   },
-  
+
   // ===== HỆ THỐNG DANH VỌNG =====
   reputation: {
     value: 0,
@@ -82,7 +83,7 @@ const initialState = {
     questPoints: 0,
     cultivationPoints: 0,
   },
-  
+
   // ===== HỆ THỐNG LUYỆN ĐAN =====
   alchemy: {
     level: 1,
@@ -91,10 +92,10 @@ const initialState = {
     successRate: 0.6,
     craftCount: 0,
   },
-  
+
   // ===== HỆ THỐNG THIỀN ĐỊNH =====
   lastMeditationTime: null, // Timestamp of last meditation
-  
+
   // Exploration system
   exploration: {
     currentLocation: null,
@@ -122,60 +123,328 @@ const initialState = {
 };
 
 const GameContext = createContext(null);
-const STORAGE_KEY = 'tutien_game_save';
 
-// Hàm load game từ localStorage
-const loadGameState = () => {
-  try {
-    const savedData = localStorage.getItem(STORAGE_KEY);
-    if (savedData) {
-      const parsed = JSON.parse(savedData);
-      return {
-        ...initialState,
-        ...parsed,
-        player: { ...initialState.player, ...parsed.player },
-        resources: { ...initialState.resources, ...parsed.resources },
-        stats: { ...initialState.stats, ...parsed.stats },
-        equipment: { ...initialState.equipment, ...parsed.equipment },
-        exploration: { ...initialState.exploration, ...parsed.exploration },
-        quests: { ...initialState.quests, ...parsed.quests },
-        foundation: { ...initialState.foundation, ...parsed.foundation },
-        innerDemon: { ...initialState.innerDemon, ...parsed.innerDemon },
-        reputation: { ...initialState.reputation, ...parsed.reputation },
-        alchemy: { ...initialState.alchemy, ...parsed.alchemy },
-        baseStats: { ...initialState.baseStats, ...parsed.baseStats },
+
+// ==================== SERVER SYNC HELPERS ====================
+
+const mapServerToGameState = (charData, inventoryData, equipmentData, skillsData) => {
+  const state = { ...initialState };
+
+  // Character data → player, resources, baseStats, foundation, innerDemon, reputation, alchemy
+  if (charData) {
+    state.player = {
+      name: charData.name || initialState.player.name,
+      realmIndex: charData.realm_index ?? initialState.player.realmIndex,
+      level: charData.level ?? initialState.player.level,
+      exp: Number(charData.exp) || initialState.player.exp,
+      maxExp: Number(charData.max_exp) || initialState.player.maxExp,
+    };
+    state.resources = {
+      ...initialState.resources,
+      spiritStones: Number(charData.spirit_stones) ?? initialState.resources.spiritStones,
+    };
+    state.baseStats = {
+      hp: charData.hp ?? initialState.baseStats.hp,
+      maxHp: charData.max_hp ?? initialState.baseStats.maxHp,
+      attack: charData.attack ?? initialState.baseStats.attack,
+      defense: charData.defense ?? initialState.baseStats.defense,
+      agility: charData.agility ?? initialState.baseStats.agility,
+      spirit: charData.spirit ?? initialState.baseStats.spirit,
+      cultivationSpeed: parseFloat(charData.cultivation_speed) || initialState.baseStats.cultivationSpeed,
+    };
+    state.stats = { ...state.baseStats };
+    state.foundation = {
+      ...initialState.foundation,
+      value: charData.foundation_value ?? initialState.foundation.value,
+      maxValue: charData.foundation_max ?? initialState.foundation.maxValue,
+    };
+    state.innerDemon = {
+      ...initialState.innerDemon,
+      value: charData.inner_demon_value ?? initialState.innerDemon.value,
+    };
+    state.reputation = {
+      ...initialState.reputation,
+      value: charData.reputation_points ?? initialState.reputation.value,
+      level: charData.reputation_level ?? initialState.reputation.level,
+      title: charData.reputation_title || initialState.reputation.title,
+    };
+    state.alchemy = {
+      ...initialState.alchemy,
+      level: charData.alchemy_level ?? initialState.alchemy.level,
+      exp: charData.alchemy_exp ?? initialState.alchemy.exp,
+    };
+
+    // Exploration data
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const serverResetDate = charData.exploration_last_reset
+      ? new Date(charData.exploration_last_reset).toISOString().split('T')[0]
+      : today;
+    const isNewDay = serverResetDate !== today;
+
+    state.exploration = {
+      ...initialState.exploration,
+      explorationCount: isNewDay ? 0 : (charData.exploration_count ?? 0),
+      lastResetDate: today,
+    };
+
+    // Meditation
+    state.lastMeditationTime = charData.last_meditation_time
+      ? new Date(charData.last_meditation_time).getTime()
+      : null;
+  }
+
+  // Inventory data → inventory array
+  if (Array.isArray(inventoryData) && inventoryData.length > 0) {
+    state.inventory = inventoryData.map(item => {
+      const itemDef = ITEM_DEFINITIONS[item.item_id];
+      const entry = {
+        itemId: item.item_id,
+        quantity: item.quantity,
+        enhanceLevel: item.enhance_level || 0,
+      };
+      // Equipment items need unique uid
+      if (itemDef && itemDef.type === 'equipment') {
+        entry.uid = `equip_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      }
+      return entry;
+    });
+  }
+
+  // Equipment data → equipment object (slot → {itemId, enhanceLevel})
+  if (equipmentData && typeof equipmentData === 'object') {
+    for (const [slot, data] of Object.entries(equipmentData)) {
+      if (data && data.itemId) {
+        state.equipment[slot] = {
+          itemId: data.itemId,
+          enhanceLevel: data.enhanceLevel || 0,
+          uid: `equip_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        };
+      }
+    }
+  }
+
+  // Skills data → learnedSkills array
+  if (Array.isArray(skillsData) && skillsData.length > 0) {
+    state.learnedSkills = skillsData.map(s => s.skill_id);
+  }
+
+  // Recalculate stats with equipment bonuses
+  const newStats = { ...state.baseStats };
+  for (const [, equipped] of Object.entries(state.equipment)) {
+    if (equipped && equipped.itemId) {
+      const equipDef = ITEM_DEFINITIONS[equipped.itemId];
+      if (equipDef && equipDef.effect) {
+        for (const [stat, value] of Object.entries(equipDef.effect)) {
+          if (newStats[stat] !== undefined) {
+            const enhanceBonus = Number.isInteger(value)
+              ? Math.floor(value * equipped.enhanceLevel)
+              : parseFloat((value * equipped.enhanceLevel).toFixed(2));
+            newStats[stat] += value + enhanceBonus;
+          }
+        }
+      }
+    }
+  }
+  state.stats = newStats;
+
+  return state;
+};
+
+
+const mapGameStateToServer = (state) => {
+  return {
+    name: state.player.name,
+    realm_index: state.player.realmIndex,
+    level: state.player.level,
+    exp: state.player.exp,
+    max_exp: state.player.maxExp,
+    spirit_stones: state.resources.spiritStones,
+    hp: state.baseStats.hp,
+    max_hp: state.baseStats.maxHp,
+    attack: state.baseStats.attack,
+    defense: state.baseStats.defense,
+    agility: state.baseStats.agility,
+    spirit: state.baseStats.spirit,
+    cultivation_speed: state.baseStats.cultivationSpeed,
+    foundation_value: state.foundation.value,
+    inner_demon_value: state.innerDemon.value,
+    reputation_points: state.reputation.value,
+    reputation_level: state.reputation.level,
+    reputation_title: state.reputation.title,
+    alchemy_level: state.alchemy.level,
+    alchemy_exp: state.alchemy.exp,
+    exploration_count: state.exploration.explorationCount,
+    exploration_last_reset: state.exploration.lastResetDate || new Date().toISOString().split('T')[0],
+    last_meditation_time: state.lastMeditationTime ? new Date(state.lastMeditationTime).toISOString() : null,
+  };
+};
+
+/**=
+ * Group by (itemId, enhanceLevel). Exclude items currently equipped.
+ */
+const mapInventoryToServer = (inventory, equipment) => {
+  // Collect equipped items as composite keys to subtract
+  const equippedKeys = {};
+  if (equipment) {
+    for (const [, data] of Object.entries(equipment)) {
+      if (data && data.itemId) {
+        const key = `${data.itemId}__${data.enhanceLevel || 0}`;
+        equippedKeys[key] = (equippedKeys[key] || 0) + 1;
+      }
+    }
+  }
+
+  // Group by (itemId, enhanceLevel)
+  const merged = {};
+  inventory.forEach(item => {
+    const key = `${item.itemId}__${item.enhanceLevel || 0}`;
+    if (merged[key]) {
+      merged[key].quantity += item.quantity;
+    } else {
+      merged[key] = { itemId: item.itemId, quantity: item.quantity, enhanceLevel: item.enhanceLevel || 0 };
+    }
+  });
+
+  // Subtract equipped items
+  for (const [key, eqCount] of Object.entries(equippedKeys)) {
+    if (merged[key]) {
+      merged[key].quantity -= eqCount;
+      if (merged[key].quantity <= 0) {
+        delete merged[key];
+      }
+    }
+  }
+
+  return Object.values(merged);
+};
+
+/**
+ * Map equipment state sang format backend
+ * { slot: { itemId, enhanceLevel, uid } } → { slot: { itemId, enhanceLevel } }
+ */
+const mapEquipmentToServer = (equipment) => {
+  const result = {};
+  for (const [slot, data] of Object.entries(equipment)) {
+    if (data && data.itemId) {
+      result[slot] = {
+        itemId: data.itemId,
+        enhanceLevel: data.enhanceLevel || 0,
       };
     }
-  } catch (error) {
-    console.error('Lỗi khi load game:', error);
   }
-  return initialState;
+  return result;
 };
 
-// Hàm save game vào localStorage
-const saveGameState = (state) => {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch (error) {
-    console.error('Lỗi khi save game:', error);
-  }
-};
+export function GameProvider({ children, characterId }) {
+  const [gameState, setGameStateRaw] = useState(initialState);
+  const [isServerLoading, setIsServerLoading] = useState(true);
+  const serverSaveTimerRef = useRef(null);
+  const prevStateRef = useRef(null);
+  const gameStateRef = useRef(gameState);
+  const characterIdRef = useRef(characterId);
 
-export function GameProvider({ children }) {
-  const [gameState, setGameState] = useState(() => loadGameState());
-  const [isLoaded, setIsLoaded] = useState(false);
+  // Wrapper: sync gameStateRef immediately (before React renders)
+  const setGameState = useCallback((updater) => {
+    setGameStateRaw(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      gameStateRef.current = next; // sync ref immediately
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
-    if (!isLoaded) {
-      setIsLoaded(true);
+    characterIdRef.current = characterId;
+  }, [characterId]);
+
+  // Load game from server when characterId is available
+  useEffect(() => {
+    if (!characterId) {
+      setIsServerLoading(false);
       return;
     }
-    const timeoutId = setTimeout(() => {
-      saveGameState(gameState);
-      console.log('Game đã lưu tự động');
-    }, 500);
-    return () => clearTimeout(timeoutId);
-  }, [gameState, isLoaded]);
+
+    const loadFromServer = async () => {
+      setIsServerLoading(true);
+      try {
+        const [charData, inventoryData, equipmentData, skillsData] = await Promise.all([
+          api.characters.get(characterId).catch(err => { console.warn('Load character failed:', err); return null; }),
+          api.inventory.get(characterId).catch(err => { console.warn('Load inventory failed:', err); return []; }),
+          api.equipment.get(characterId).catch(err => { console.warn('Load equipment failed:', err); return {}; }),
+          api.skills.get(characterId).catch(err => { console.warn('Load skills failed:', err); return []; }),
+        ]);
+
+        if (charData) {
+          const serverState = mapServerToGameState(charData, inventoryData, equipmentData, skillsData);
+          setGameState(serverState);
+          prevStateRef.current = serverState;
+        }
+      } catch (err) {
+        console.error('[GameContext] Failed to load from server:', err);
+      } finally {
+        setIsServerLoading(false);
+      }
+    };
+
+    loadFromServer();
+  }, [characterId]);
+
+  // Save to server — called after user actions (short debounce for React setState to flush)
+  const saveToServer = useCallback(() => {
+    const cId = characterIdRef.current;
+    if (!cId) return;
+
+    if (serverSaveTimerRef.current) {
+      clearTimeout(serverSaveTimerRef.current);
+    }
+
+    serverSaveTimerRef.current = setTimeout(async () => {
+      try {
+        const state = gameStateRef.current;
+        const charPayload = mapGameStateToServer(state);
+        const invPayload = mapInventoryToServer(state.inventory, state.equipment);
+        const equipPayload = mapEquipmentToServer(state.equipment);
+
+        await Promise.all([
+          api.characters.save(cId, charPayload),
+          api.inventory.sync(cId, invPayload),
+          api.equipment.sync(cId, equipPayload),
+        ]);
+
+        prevStateRef.current = state;
+      } catch (err) {
+        console.error('[GameContext] Failed to save to server:', err);
+      }
+    }, 50);
+  }, []);
+
+  // Save immediately before page unload (F5, close tab)
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // Cancel any pending debounced save
+      if (serverSaveTimerRef.current) {
+        clearTimeout(serverSaveTimerRef.current);
+      }
+
+      const cId = characterIdRef.current;
+      const state = gameStateRef.current;
+      if (!cId) return;
+
+      // Always send beacon on unload — don't skip even if prevState matches
+      const charPayload = mapGameStateToServer(state);
+      const invPayload = mapInventoryToServer(state.inventory, state.equipment);
+      const equipPayload = mapEquipmentToServer(state.equipment);
+      const token = api.getToken();
+      if (token) {
+        navigator.sendBeacon(
+          `http://localhost:3002/api/characters/${cId}/beacon-save`,
+          new Blob([JSON.stringify({ ...charPayload, token, inventory: invPayload, equipment: equipPayload })], { type: 'application/json' })
+        );
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
 
   // ===== RESOURCE MANAGEMENT =====
   const addSpiritStones = useCallback((amount) => {
@@ -224,12 +493,12 @@ export function GameProvider({ children }) {
         level++;
         maxExp = REALMS[realmIndex].expPerLevel * level;
       }
-      
+
       // Nếu đã đạt level tối đa của realm, giữ exp tại maxExp (không tràn)
       if (level >= REALMS[realmIndex].levels && exp > maxExp) {
         exp = maxExp;
       }
-      
+
       return { ...prev, player: { ...prev.player, exp, maxExp, level, realmIndex } };
     });
   }, []);
@@ -254,38 +523,38 @@ export function GameProvider({ children }) {
   const attemptBreakthrough = useCallback((usePill = false) => {
     const { realmIndex, level, exp, maxExp } = gameState.player;
     const tribInfo = TRIBULATION_REQUIREMENTS[realmIndex];
-    
+
     if (!tribInfo) {
       return { success: false, message: 'Không có thông tin độ kiếp!' };
     }
-    
+
     // Kiểm tra điều kiện
     if (level < REALMS[realmIndex].levels || exp < maxExp * 0.9) {
       return { success: false, message: 'Chưa đủ điều kiện độ kiếp!' };
     }
-    
+
     // Kiểm tra linh thạch
     if (gameState.resources.spiritStones < tribInfo.spiritStonesCost) {
       return { success: false, message: `Cần ${tribInfo.spiritStonesCost} Linh Thạch!` };
     }
-    
+
     // Kiểm tra đan dược nếu user muốn dùng
     if (usePill && tribInfo.requiredPill) {
       const pillInInventory = gameState.inventory.find(i => i.itemId === tribInfo.requiredPill);
       if (!pillInInventory || pillInInventory.quantity < 1) {
         const pillName = ITEM_DEFINITIONS[tribInfo.requiredPill]?.name || 'đan dược';
-        return { 
-          success: false, 
+        return {
+          success: false,
           needsConfirmation: true,
           message: `Không có ${pillName}! Tỷ lệ thành công sẽ giảm ${tribInfo.pillBonus * 100}%. Vẫn tiếp tục?`
         };
       }
     }
-    
+
     // Tính tỉ lệ thành công
     let successRate = tribInfo.baseSuccessRate;
     let pillUsed = false;
-    
+
     if (usePill && tribInfo.requiredPill) {
       const pillInInventory = gameState.inventory.find(i => i.itemId === tribInfo.requiredPill);
       if (pillInInventory && pillInInventory.quantity > 0) {
@@ -314,7 +583,7 @@ export function GameProvider({ children }) {
 
     // Random kết quả
     const roll = Math.random();
-    
+
     if (roll < successRate) {
       // THÀNH CÔNG - Lên cảnh giới mới
       setGameState(prev => ({
@@ -327,16 +596,16 @@ export function GameProvider({ children }) {
           maxExp: REALMS[prev.player.realmIndex + 1].expPerLevel,
         },
       }));
-      
-      return { 
-        success: true, 
+
+      return {
+        success: true,
         message: `Độ kiếp thành công! Chúc mừng đạo hữu đã bước vào cảnh giới ${REALMS[realmIndex + 1].name}!`,
         newRealm: REALMS[realmIndex + 1].name,
       };
     } else {
       // THẤT BẠI
       const penalty = tribInfo.failurePenalty;
-      
+
       setGameState(prev => {
         const newExp = Math.floor(prev.player.exp * (1 - penalty.exp));
         return {
@@ -345,9 +614,9 @@ export function GameProvider({ children }) {
           innerDemon: { ...prev.innerDemon, value: Math.min(prev.innerDemon.maxValue, prev.innerDemon.value + penalty.innerDemon) },
         };
       });
-      
-      return { 
-        success: false, 
+
+      return {
+        success: false,
         message: `Độ kiếp thất bại! Mất ${Math.floor(penalty.exp * 100)}% EXP và +${penalty.innerDemon} Tâm Ma. Đen thôi đỏ là bờ lách`,
       };
     }
@@ -357,24 +626,24 @@ export function GameProvider({ children }) {
   const meditate = useCallback(() => {
     const now = Date.now();
     const cooldown = 5 * 60 * 1000; // 5 minutes in milliseconds
-    
+
     if (gameState.lastMeditationTime && now - gameState.lastMeditationTime < cooldown) {
       const remaining = Math.ceil((cooldown - (now - gameState.lastMeditationTime)) / 1000);
       const minutes = Math.floor(remaining / 60);
       const seconds = remaining % 60;
-      return { 
-        success: false, 
+      return {
+        success: false,
         cooldownRemaining: remaining,
-        message: `Còn ${minutes}:${seconds.toString().padStart(2, '0')} để có thể thiền định` 
+        message: `Còn ${minutes}:${seconds.toString().padStart(2, '0')} để có thể thiền định`
       };
     }
-    
+
     setGameState(prev => ({
       ...prev,
       stats: { ...prev.stats, hp: Math.min(prev.stats.maxHp, prev.stats.hp + 20) },
       lastMeditationTime: now
     }));
-    
+
     return { success: true, message: 'Thiền định thành công! +20 HP' };
   }, [gameState.lastMeditationTime, gameState.stats.hp, gameState.stats.maxHp]);
 
@@ -384,19 +653,19 @@ export function GameProvider({ children }) {
   const addItem = useCallback((itemId, quantity = 1) => {
     const itemDef = ITEM_DEFINITIONS[itemId];
     if (!itemDef) return false;
-    
+
     setGameState(prev => {
       let newInventory = [...prev.inventory];
-      
+
       // Equipment: mỗi item riêng biệt với uid
       if (itemDef.type === 'equipment') {
         for (let i = 0; i < quantity; i++) {
           const newUid = `equip_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${i}`;
-          newInventory.push({ 
-            itemId, 
-            quantity: 1, 
-            uid: newUid, 
-            enhanceLevel: 0 
+          newInventory.push({
+            itemId,
+            quantity: 1,
+            uid: newUid,
+            enhanceLevel: 0
           });
         }
       } else {
@@ -410,7 +679,7 @@ export function GameProvider({ children }) {
           newInventory.push({ itemId, quantity });
         }
       }
-      
+
       return { ...prev, inventory: newInventory };
     });
     return true;
@@ -440,24 +709,24 @@ export function GameProvider({ children }) {
     // Tìm item trong inventory - có thể là itemId hoặc uid
     let inventoryItem = gameState.inventory.find(i => i.uid === itemIdOrUid);
     let itemId = inventoryItem?.itemId;
-    
+
     // Nếu không tìm thấy theo uid, thử tìm theo itemId (cho pills/materials)
     if (!inventoryItem) {
       inventoryItem = gameState.inventory.find(i => i.itemId === itemIdOrUid);
       itemId = itemIdOrUid;
     }
-    
+
     const itemDef = ITEM_DEFINITIONS[itemId];
     if (!itemDef) return { success: false, message: 'Vật phẩm không tồn tại' };
-    
+
     if (!inventoryItem || inventoryItem.quantity < quantity) {
       return { success: false, message: 'Không đủ vật phẩm trong túi' };
     }
-    
+
     if (itemDef.type === 'pill') {
       let messages = [];
       const effect = itemDef.effect;
-      
+
       if (effect.type === 'exp' || effect.exp) {
         const value = effect.value || effect.exp;
         const totalExp = value * quantity;
@@ -481,45 +750,45 @@ export function GameProvider({ children }) {
         }));
         messages.push(`-${value} Tâm Ma`);
       }
-      
+
       removeItem(itemId, quantity);
       return { success: true, message: `Sử dụng ${quantity}x ${itemDef.name}: ${messages.join(', ')}!` };
-      
+
     } else if (itemDef.type === 'equipment') {
       const oldEquipment = gameState.equipment[itemDef.slot];
       const enhanceLevelFromInventory = inventoryItem?.enhanceLevel || 0;
       const uidFromInventory = inventoryItem?.uid;
-      
+
       if (!uidFromInventory) {
         return { success: false, message: 'Lỗi: Trang bị không có uid!' };
       }
-      
+
       setGameState(prev => {
         // Xóa equipment item theo uid (chỉ xóa item có uid khớp)
         let newInventory = prev.inventory.filter(item => {
           if (!item.uid) return true; // Giữ lại items không có uid (pills, materials)
           return item.uid !== uidFromInventory;
         });
-        
+
         // Trả trang bị cũ về inventory VỚI UID MỚI
         if (oldEquipment && oldEquipment.itemId) {
           const newUid = `equip_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-          newInventory.push({ 
-            itemId: oldEquipment.itemId, 
-            quantity: 1, 
+          newInventory.push({
+            itemId: oldEquipment.itemId,
+            quantity: 1,
             uid: newUid,
-            enhanceLevel: oldEquipment.enhanceLevel || 0 
+            enhanceLevel: oldEquipment.enhanceLevel || 0
           });
         }
-        
+
         // Đeo trang bị mới VỚI ENHANCELEVEL TỪ INVENTORY
-        const newEquipment = { 
-          ...prev.equipment, 
-          [itemDef.slot]: { 
-            itemId, 
+        const newEquipment = {
+          ...prev.equipment,
+          [itemDef.slot]: {
+            itemId,
             enhanceLevel: enhanceLevelFromInventory,
             uid: uidFromInventory
-          } 
+          }
         };
         const newStats = { ...prev.baseStats };
         for (const [slotKey, equipped] of Object.entries(newEquipment)) {
@@ -529,7 +798,7 @@ export function GameProvider({ children }) {
               for (const [stat, value] of Object.entries(equipDef.effect)) {
                 if (newStats[stat] !== undefined) {
                   // Mỗi cấp cường hóa tăng thêm FULL effect value
-                  const enhanceBonus = Number.isInteger(value) 
+                  const enhanceBonus = Number.isInteger(value)
                     ? Math.floor(value * equipped.enhanceLevel)
                     : parseFloat((value * equipped.enhanceLevel).toFixed(2));
                   newStats[stat] += value + enhanceBonus;
@@ -541,7 +810,7 @@ export function GameProvider({ children }) {
         return { ...prev, inventory: newInventory, equipment: newEquipment, stats: newStats };
       });
       return { success: true, message: `Đã trang bị ${itemDef.name}${enhanceLevelFromInventory > 0 ? ` (+${enhanceLevelFromInventory})` : ''}!` };
-      
+
     } else if (itemDef.type === 'book') {
       if (gameState.learnedSkills.includes(itemId)) {
         return { success: false, message: 'Bạn đã học bí kíp này rồi!' };
@@ -551,7 +820,7 @@ export function GameProvider({ children }) {
         for (const [stat, value] of Object.entries(itemDef.effect)) {
           if (newBaseStats[stat] !== undefined) newBaseStats[stat] += value;
         }
-        
+
         // Recalculate stats from baseStats + equipment
         const newStats = { ...newBaseStats };
         for (const [slotKey, equipped] of Object.entries(prev.equipment)) {
@@ -560,7 +829,7 @@ export function GameProvider({ children }) {
             if (equipDef && equipDef.effect) {
               for (const [stat, value] of Object.entries(equipDef.effect)) {
                 if (newStats[stat] !== undefined) {
-                  const enhanceBonus = Number.isInteger(value) 
+                  const enhanceBonus = Number.isInteger(value)
                     ? Math.floor(value * equipped.enhanceLevel)
                     : parseFloat((value * equipped.enhanceLevel).toFixed(2));
                   newStats[stat] += value + enhanceBonus;
@@ -569,16 +838,16 @@ export function GameProvider({ children }) {
             }
           }
         }
-        
+
         return { ...prev, baseStats: newBaseStats, stats: newStats, learnedSkills: [...prev.learnedSkills, itemId] };
       });
       removeItem(itemId, 1);
       return { success: true, message: `Học được ${itemDef.name}!` };
-      
+
     } else if (itemDef.type === 'material') {
       return { success: false, message: 'Nguyên liệu không thể sử dụng trực tiếp' };
     }
-    
+
     return { success: false, message: 'Không thể sử dụng vật phẩm này' };
   }, [gameState.inventory, gameState.equipment, gameState.learnedSkills, addExp, removeItem]);
 
@@ -592,7 +861,7 @@ export function GameProvider({ children }) {
             for (const [stat, value] of Object.entries(itemDef.effect)) {
               if (newStats[stat] !== undefined) {
                 // Mỗi cấp cường hóa tăng thêm FULL effect value
-                const enhanceBonus = Number.isInteger(value) 
+                const enhanceBonus = Number.isInteger(value)
                   ? Math.floor(value * equipped.enhanceLevel)
                   : parseFloat((value * equipped.enhanceLevel).toFixed(2));
                 newStats[stat] += value + enhanceBonus;
@@ -613,16 +882,16 @@ export function GameProvider({ children }) {
     const itemDef = ITEM_DEFINITIONS[equipped.itemId];
     setGameState(prev => {
       let newInventory = [...prev.inventory];
-      
+
       // Tạo uid mới cho equipment khi tháo ra
       const newUid = `equip_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      newInventory.push({ 
-        itemId: equipped.itemId, 
-        quantity: 1, 
+      newInventory.push({
+        itemId: equipped.itemId,
+        quantity: 1,
         uid: newUid,
-        enhanceLevel: equipped.enhanceLevel || 0 
+        enhanceLevel: equipped.enhanceLevel || 0
       });
-      
+
       const newEquipment = { ...prev.equipment, [slot]: null };
       const newStats = { ...prev.baseStats };
       for (const [slotKey, equip] of Object.entries(newEquipment)) {
@@ -632,7 +901,7 @@ export function GameProvider({ children }) {
             for (const [stat, value] of Object.entries(equipDef.effect)) {
               if (newStats[stat] !== undefined) {
                 // Mỗi cấp cường hóa tăng thêm FULL effect value
-                const enhanceBonus = Number.isInteger(value) 
+                const enhanceBonus = Number.isInteger(value)
                   ? Math.floor(value * equip.enhanceLevel)
                   : parseFloat((value * equip.enhanceLevel).toFixed(2));
                 newStats[stat] += value + enhanceBonus;
@@ -653,29 +922,29 @@ export function GameProvider({ children }) {
     }
     const itemDef = ITEM_DEFINITIONS[equipped.itemId];
     if (!itemDef) return { success: false, message: 'Trang bị không hợp lệ!' };
-    
+
     // Tìm 1 item cùng loại để làm nguyên liệu (ưu tiên enhanceLevel thấp nhất)
     const materialItem = gameState.inventory
       .filter(i => i.itemId === equipped.itemId)
       .sort((a, b) => (a.enhanceLevel || 0) - (b.enhanceLevel || 0))[0];
-    
+
     if (!materialItem) {
       return { success: false, message: `Cần 1x ${itemDef.name} trong kho để cường hóa!` };
     }
-    
+
     const enhanceStoneRequired = Math.max(1, equipped.enhanceLevel + 1);
     const enhanceStoneInInventory = gameState.inventory.find(i => i.itemId === 'cuong_hoa_thach');
     if (!enhanceStoneInInventory || enhanceStoneInInventory.quantity < enhanceStoneRequired) {
       return { success: false, message: `Cần ${enhanceStoneRequired}x Cường Hóa Thạch!` };
     }
-    
+
     const newEnhanceLevel = equipped.enhanceLevel + 1;
     const materialUidToConsume = materialItem.uid;
-    
+
     setGameState(prev => {
       let materialConsumed = false;
       let stoneConsumed = false;
-      
+
       let newInventory = prev.inventory.map(item => {
         // Tiêu thụ nguyên liệu (equipment) - chỉ 1 item
         if (!materialConsumed) {
@@ -687,19 +956,19 @@ export function GameProvider({ children }) {
             return { ...item, quantity: item.quantity - 1 };
           }
         }
-        
+
         // Tiêu thụ đá cường hóa
         if (!stoneConsumed && item.itemId === 'cuong_hoa_thach') {
           stoneConsumed = true;
           return { ...item, quantity: item.quantity - enhanceStoneRequired };
         }
-        
+
         return item;
       }).filter(item => item.quantity > 0);
-      
+
       const newEquipment = { ...prev.equipment, [slot]: { ...equipped, enhanceLevel: newEnhanceLevel } };
       const newStats = { ...prev.baseStats };
-      
+
       for (const [slotKey, equip] of Object.entries(newEquipment)) {
         if (equip && equip.itemId) {
           const equipDef = ITEM_DEFINITIONS[equip.itemId];
@@ -707,7 +976,7 @@ export function GameProvider({ children }) {
             for (const [stat, value] of Object.entries(equipDef.effect)) {
               if (newStats[stat] !== undefined) {
                 // Mỗi cấp cường hóa tăng thêm FULL effect value
-                const enhanceBonus = Number.isInteger(value) 
+                const enhanceBonus = Number.isInteger(value)
                   ? Math.floor(value * equip.enhanceLevel)
                   : parseFloat((value * equip.enhanceLevel).toFixed(2));
                 newStats[stat] += value + enhanceBonus;
@@ -764,29 +1033,29 @@ export function GameProvider({ children }) {
   const exploreLocation = useCallback((zoneId) => {
     const zone = WORLD_ZONES[zoneId];
     if (!zone) return { success: false, message: 'Khu vực không tồn tại!' };
-    
+
     const { exploration } = gameState;
     if (exploration.explorationCount >= exploration.maxExplorationPerDay) {
       return { success: false, message: 'Đã hết lượt khám phá hôm nay!' };
     }
-    
+
     // Kiểm tra điều kiện vào zone
     if (!canEnterZone(zone, gameState.player.realmIndex, gameState.player.level)) {
       return { success: false, message: `Cần đạt ${REALMS[zone.minRealm].name} Tầng ${zone.minLevel}!` };
     }
-    
+
     const baseRewards = calculateZoneRewards(zone, gameState.player.realmIndex, gameState.player.level);
     const rewards = { exp: 0, spiritStones: 0, items: [] };
     let eventMessage = '';
-    
+
     const roll = Math.random();
-    
+
     if (roll > zone.encounterChance) {
       // Thành công
       rewards.exp = baseRewards.exp + Math.floor(Math.random() * baseRewards.exp * 0.5);
       rewards.spiritStones = baseRewards.spiritStones + Math.floor(Math.random() * baseRewards.spiritStones * 0.3);
       eventMessage = `Khám phá ${zone.name} thành công! +${rewards.exp} EXP, +${rewards.spiritStones} Linh Thạch`;
-      
+
       // Check drops
       zone.drops.forEach(drop => {
         if (Math.random() < drop.chance) {
@@ -807,18 +1076,18 @@ export function GameProvider({ children }) {
       rewards.exp = Math.floor(baseRewards.exp * 0.3);
       eventMessage = `Gặp nguy hiểm tại ${zone.name}! Mất ${damage} HP, +${rewards.exp} EXP`;
     }
-    
+
     if (rewards.exp > 0) addExp(rewards.exp);
     if (rewards.spiritStones > 0) addSpiritStones(rewards.spiritStones);
     rewards.items.forEach(item => addItem(item.itemId, item.quantity));
-    
+
     setGameState(prev => ({
       ...prev,
       exploration: { ...prev.exploration, explorationCount: prev.exploration.explorationCount + 1 },
     }));
-    
+
     addEvent(roll > zone.encounterChance ? 'success' : 'danger', eventMessage);
-    
+
     return { success: true, message: eventMessage, rewards };
   }, [gameState.exploration, gameState.player, addExp, addSpiritStones, addItem, addEvent]);
 
@@ -920,20 +1189,20 @@ export function GameProvider({ children }) {
     if (gameState.alchemy.level < recipe.minLevel) {
       return { success: false, message: `Cần cấp luyện đan ${recipe.minLevel}!` };
     }
-    
+
     for (const material of recipe.materials) {
       const invItem = gameState.inventory.find(i => i.itemId === material.itemId);
       if (!invItem || invItem.quantity < material.quantity) {
         return { success: false, message: `Thiếu ${ITEM_DEFINITIONS[material.itemId]?.name}!` };
       }
     }
-    
+
     recipe.materials.forEach(mat => removeItem(mat.itemId, mat.quantity));
-    
+
     const levelBonus = (gameState.alchemy.level - recipe.minLevel) * 0.1;
     const finalRate = Math.min(0.95, recipe.baseSuccessRate + gameState.alchemy.successRate - 0.6 + levelBonus);
     const isSuccess = Math.random() < finalRate;
-    
+
     if (isSuccess) {
       addItem(recipe.output.itemId, recipe.output.quantity);
       setGameState(prev => {
@@ -1042,6 +1311,8 @@ export function GameProvider({ children }) {
     // Alchemy
     craftPill,
     // Save/Load
+    saveToServer,
+    isServerLoading,
     resetGame,
     exportSave,
     importSave,

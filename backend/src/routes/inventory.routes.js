@@ -100,16 +100,16 @@ router.put('/:characterId/sync', async (req, res) => {
     // Add new inventory
     if (inventory && inventory.length > 0) {
       const values = inventory.map((item, i) =>
-        `($1, $${i * 2 + 2}, $${i * 2 + 3})`
+        `($1, $${i * 3 + 2}, $${i * 3 + 3}, $${i * 3 + 4})`
       ).join(', ');
 
       const params = [characterId];
       inventory.forEach(item => {
-        params.push(item.itemId, item.quantity);
+        params.push(item.itemId, item.quantity, item.enhanceLevel || 0);
       });
 
       await query(
-        `INSERT INTO inventory (character_id, item_id, quantity) VALUES ${values}`,
+        `INSERT INTO inventory (character_id, item_id, quantity, enhance_level) VALUES ${values}`,
         params
       );
     }

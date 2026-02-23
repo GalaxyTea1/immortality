@@ -107,9 +107,9 @@ const getTierStyle = (tier) => {
 };
 
 function Shop() {
-  const { gameState, buyItem, formatNumber, getRealmName, REALMS, ITEM_DEFINITIONS } = useGame();
+  const { gameState, buyItem, formatNumber, getRealmName, REALMS, ITEM_DEFINITIONS, saveToServer } = useGame();
   const { player, resources } = gameState;
-  
+
   // State
   const [activeCategory, setActiveCategory] = useState('all');
   const [activeTier, setActiveTier] = useState('all');
@@ -120,7 +120,7 @@ function Shop() {
   // Filter items
   const filteredItems = useMemo(() => {
     let items = shopItems;
-    
+
     // Filter by category (based on itemId's type in ITEM_DEFINITIONS)
     if (activeCategory !== 'all') {
       items = items.filter(item => {
@@ -128,20 +128,20 @@ function Shop() {
         return def && def.type === activeCategory;
       });
     }
-    
+
     // Filter by tier
     if (activeTier !== 'all') {
       items = items.filter(item => item.tier === activeTier);
     }
-    
+
     // Filter by search
     if (searchQuery) {
-      items = items.filter(item => 
+      items = items.filter(item =>
         item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.description.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-    
+
     return items;
   }, [activeCategory, activeTier, searchQuery, ITEM_DEFINITIONS]);
 
@@ -149,12 +149,13 @@ function Shop() {
   const handleBuy = (item) => {
     const qty = buyQuantity[item.id] || 1;
     const result = buyItem(item.itemId, item.price, qty);
-    
+
     setNotification(result);
     setTimeout(() => setNotification(null), 3000);
-    
+
     if (result.success) {
       setBuyQuantity(prev => ({ ...prev, [item.id]: 1 }));
+      saveToServer();
     }
   };
 
@@ -174,9 +175,9 @@ function Shop() {
         <div className="shop-header-right">
           <div className="search-bar">
             <span className="material-symbols-outlined">search</span>
-            <input 
-              type="text" 
-              placeholder="Tìm kiếm vật phẩm..." 
+            <input
+              type="text"
+              placeholder="Tìm kiếm vật phẩm..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -191,7 +192,7 @@ function Shop() {
           </div>
           <div className="divider"></div>
           <div className="user-profile">
-            <div 
+            <div
               className="profile-avatar"
               style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuDv-63PQVo5OkaV80GeL6tmyZESKy0fPBw_MMGQRmOeAvWcAVDSzn4-BcHKNhFHplGhCYYpO_w599IBr3wUxxxX_iqcScQ3Jtx8PNvPVhHlx-JR1trzTGI6s-p5fVwwXWaJXEw8EBsaF9O6DetmCyBXm_oqal9voSCiS2XT4selmD2dLXNjFZLAVa3XaA3co2j9SPyh-rueKZweCfOnnzHnsse_Je0GIx7SI9jbntuYGGZCX_QQordNHvNv28-r4CGdYKPu8NF9RGw")' }}
             ></div>
@@ -209,8 +210,8 @@ function Shop() {
           <div className="categories">
             <h3>Danh Mục</h3>
             {categories.map((cat) => (
-              <button 
-                key={cat.id} 
+              <button
+                key={cat.id}
                 className={`category-item ${activeCategory === cat.id ? 'active' : ''}`}
                 onClick={() => setActiveCategory(cat.id)}
               >
@@ -221,7 +222,7 @@ function Shop() {
           </div>
 
           <div className="auction-banner">
-            <div 
+            <div
               className="auction-bg"
               style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuD1jzwFYVOfPAP8AFao6QlB04bgVx1vSQxpnfUCiARJJ0M1aruZi2ykoGTGYmfAl84kGyNIZrqa0HVZLjWZWRKYgTUiHqR_tcXYrtjDG5TUesAQ0cKtBZewOtFuonWz8JV0A_bd3iGx2vL0ar1V8ptBXS-_Du2Rd5FCkE6dn6KqbFMvif_J8b7NdilRIygWAajQAhhULVkL6TmnDiy01xZ57QrUsU5p_F9vLoSLTNxcKBqubzJ4QCLQBitb5711SOfIrXQouSk13D4")' }}
             ></div>
@@ -278,32 +279,32 @@ function Shop() {
           {/* Filters */}
           <div className="filters-bar">
             <div className="tier-filters">
-              <button 
+              <button
                 className={`tier-btn ${activeTier === 'all' ? 'active' : ''}`}
                 onClick={() => setActiveTier('all')}
               >Tất Cả</button>
-              <button 
+              <button
                 className={`tier-btn tier-heaven-btn ${activeTier === 'heaven' ? 'active' : ''}`}
                 onClick={() => setActiveTier('heaven')}
               >
                 <span className="tier-dot yellow"></span>
                 Thiên Cấp
               </button>
-              <button 
+              <button
                 className={`tier-btn tier-earth-btn ${activeTier === 'earth' ? 'active' : ''}`}
                 onClick={() => setActiveTier('earth')}
               >
                 <span className="tier-dot orange"></span>
                 Địa Cấp
               </button>
-              <button 
+              <button
                 className={`tier-btn tier-black-btn ${activeTier === 'black' ? 'active' : ''}`}
                 onClick={() => setActiveTier('black')}
               >
                 <span className="tier-dot purple"></span>
                 Huyền Cấp
               </button>
-              <button 
+              <button
                 className={`tier-btn tier-yellow-btn ${activeTier === 'yellow' ? 'active' : ''}`}
                 onClick={() => setActiveTier('yellow')}
               >
@@ -335,7 +336,7 @@ function Shop() {
                   <div key={item.id} className={`product-card ${tierStyle.class}`}>
                     <div className="product-image-wrapper">
                       <div className="product-gradient"></div>
-                      <div 
+                      <div
                         className="product-image"
                         style={{ backgroundImage: `url("${item.image}")` }}
                       ></div>
@@ -355,7 +356,7 @@ function Shop() {
                           <span className="material-symbols-outlined text-blue">diamond</span>
                         </div>
                       </div>
-                      <button 
+                      <button
                         className={`add-cart-btn ${!canAfford ? 'disabled' : ''}`}
                         onClick={() => handleBuy(item)}
                         disabled={!canAfford}

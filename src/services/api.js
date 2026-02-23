@@ -121,10 +121,10 @@ export const characters = {
     get: async (userId) => {
         try {
             const data = await authFetch(`/characters/${userId}`);
-            return data.character;
+            return data;
         } catch (error) {
             // If no character, return null
-            if (error.message.includes('not found') || error.message.includes('không tìm thấy')) {
+            if (error.message.includes('not found') || error.message.includes('Character not found')) {
                 return null;
             }
             throw error;
@@ -136,12 +136,12 @@ export const characters = {
      * @param {number} userId - ID of user
      * @returns {Promise<object>} new character
      */
-    create: async (userId) => {
+    create: async (userId, name) => {
         const data = await authFetch('/characters', {
             method: 'POST',
-            body: JSON.stringify({ userId }),
+            body: JSON.stringify({ userId, name }),
         });
-        return data.character;
+        return data;
     },
 
     /**
@@ -150,10 +150,11 @@ export const characters = {
      * @param {object} characterData - Character data
      */
     save: async (characterId, characterData) => {
-        return authFetch(`/characters/${characterId}`, {
+        const data = await authFetch(`/characters/${characterId}`, {
             method: 'PUT',
             body: JSON.stringify(characterData),
         });
+        return data;
     },
 };
 
@@ -166,7 +167,7 @@ export const inventory = {
      */
     get: async (characterId) => {
         const data = await authFetch(`/inventory/${characterId}`);
-        return data.items;
+        return data;
     },
 
     /**
@@ -177,7 +178,7 @@ export const inventory = {
     sync: async (characterId, items) => {
         return authFetch(`/inventory/${characterId}/sync`, {
             method: 'PUT',
-            body: JSON.stringify({ items }),
+            body: JSON.stringify({ inventory: items }),
         });
     },
 
@@ -204,7 +205,7 @@ export const equipment = {
      */
     get: async (characterId) => {
         const data = await authFetch(`/equipment/${characterId}`);
-        return data.equipment;
+        return data;
     },
 
     /**
@@ -229,6 +230,18 @@ export const equipment = {
         return authFetch(`/equipment/${characterId}/unequip`, {
             method: 'POST',
             body: JSON.stringify({ slot }),
+        });
+    },
+
+    /**
+     * sync entire equipment state
+     * @param {number} characterId
+     * @param {object} equipmentData - { slot: { itemId, enhanceLevel } }
+     */
+    sync: async (characterId, equipmentData) => {
+        return authFetch(`/equipment/${characterId}/sync`, {
+            method: 'PUT',
+            body: JSON.stringify({ equipment: equipmentData }),
         });
     },
 };
@@ -338,7 +351,7 @@ export const skills = {
      */
     get: async (characterId) => {
         const data = await authFetch(`/skills/${characterId}`);
-        return data.skills;
+        return data;
     },
 
     /**

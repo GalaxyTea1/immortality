@@ -246,4 +246,33 @@ router.post('/:characterId/upgrade', authMiddleware, async (req, res) => {
     }
 });
 
+// PUT /api/equipment/:characterId/sync - Sync entire equipment (bulk update)
+router.put('/:characterId/sync', authMiddleware, async (req, res) => {
+    try {
+        const { characterId } = req.params;
+        const { equipment: equipmentData } = req.body;
+
+        // Clear old equipment
+        await query('DELETE FROM equipment WHERE character_id = $1', [characterId]);
+
+        // Insert new equipment
+        if (equipmentData && typeof equipmentData === 'object') {
+            const entries = Object.entries(equipmentData).filter(([, data]) => data && data.itemId);
+
+            for (const [slot, data] of entries) {
+                await query(
+                    `INSERT INTO equipment (character_id, slot, item_id, enhance_level)
+                     VALUES ($1, $2, $3, $4)`,
+                    [characterId, slot, data.itemId, data.enhanceLevel || 0]
+                );
+            }
+        }
+
+        res.json({ message: 'Equipment synced' });
+    } catch (error) {
+        console.error('Error syncing equipment:', error);
+        res.status(500).json({ error: 'Error syncing equipment' });
+    }
+});
+
 export default router;

@@ -4,6 +4,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import * as api from '../services/api.js';
+import { connectSocket, disconnectSocket } from '../services/socket.js';
 
 const AuthContext = createContext(null);
 
@@ -23,7 +24,14 @@ export function AuthProvider({ children }) {
 
             try {
                 const userData = await api.auth.me();
-                setUser(userData);
+                // Map snake_case from /auth/me to camelCase for consistency
+                setUser({
+                    id: userData.id,
+                    username: userData.username,
+                    email: userData.email,
+                    characterId: userData.character_id,
+                });
+                connectSocket(token);
             } catch (err) {
                 console.error('Auth check failed:', err);
                 api.clearToken();
@@ -47,6 +55,7 @@ export function AuthProvider({ children }) {
             const { token, user: userData } = await api.auth.register(username, email, password);
             api.setToken(token);
             setUser(userData);
+            connectSocket(token);
             return { success: true };
         } catch (err) {
             setError(err.message);
@@ -64,6 +73,7 @@ export function AuthProvider({ children }) {
             const { token, user: userData } = await api.auth.login(email, password);
             api.setToken(token);
             setUser(userData);
+            connectSocket(token);
             return { success: true };
         } catch (err) {
             setError(err.message);
@@ -72,6 +82,7 @@ export function AuthProvider({ children }) {
     }, []);
 
     const logout = useCallback(() => {
+        disconnectSocket();
         api.clearToken();
         setUser(null);
         setError(null);

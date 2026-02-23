@@ -23,6 +23,7 @@ function Cultivation() {
     addEvent,
     canBreakthrough,
     attemptBreakthrough,
+    saveToServer,
   } = useGame();
 
   const { player, foundation, innerDemon, reputation, alchemy, stats } = gameState;
@@ -63,12 +64,9 @@ function Cultivation() {
     ]);
   }, []);
 
-  console.log(foundation, "player")
-
   // Kiểm tra có thể độ kiếp không
   const breakthroughStatus = canBreakthrough();
   const tribInfo = TRIBULATION_REQUIREMENTS[player.realmIndex];
-  console.log(tribInfo, "tribInfo")
 
   // Xử lý độ kiếp
   const handleBreakthrough = useCallback(() => {
@@ -80,11 +78,13 @@ function Cultivation() {
         "success"
       );
       addEvent("success", result.message);
+      saveToServer();
     } else {
       addLog(`<span class="text-danger">${result.message}</span>`, "danger");
       addEvent("danger", result.message);
+      saveToServer();
     }
-  }, [attemptBreakthrough, usePillForBreakthrough, addLog, addEvent]);
+  }, [attemptBreakthrough, usePillForBreakthrough, addLog, addEvent, saveToServer]);
 
   // Xử lý click tu luyện (thủ công)
   const handleCultivateClick = useCallback(() => {
@@ -105,16 +105,16 @@ function Cultivation() {
       addReputation(1, "cultivation");
     }
 
-    // Mỗi 5 click thì log
+    // Mỗi 5 click thì log + save
     if ((clickCount + 1) % 5 === 0) {
       addLog(
-        `Bạn đã hấp thụ <span class="text-primary">${
-          expGain * 5
+        `Bạn đã hấp thụ <span class="text-primary">${expGain * 5
         } Linh Khí</span> từ thiên địa.`,
         "primary"
       );
+      saveToServer();
     }
-  }, [addExp, clickCount, addLog, getFoundationStatus, addReputation]);
+  }, [addExp, clickCount, addLog, getFoundationStatus, addReputation, saveToServer]);
 
   // Xử lý thiền định (tự động tu luyện)
   const handleMeditation = useCallback(() => {
@@ -124,8 +124,9 @@ function Cultivation() {
       addEvent("info", "Bắt đầu thiền định");
     } else {
       addLog("Kết thúc thiền định.", "");
+      saveToServer();
     }
-  }, [isMeditating, addLog, addEvent]);
+  }, [isMeditating, addLog, addEvent, saveToServer]);
 
   // Auto tu luyện khi thiền định
   useEffect(() => {
@@ -146,8 +147,7 @@ function Cultivation() {
       // Random event
       if (Math.random() < 0.1) {
         addLog(
-          `Tâm cảnh ổn định, bạn nhận được <span class="text-success">+${
-            expGain * 2 * stats.cultivationSpeed.toFixed(1)
+          `Tâm cảnh ổn định, bạn nhận được <span class="text-success">+${expGain * 2 * stats.cultivationSpeed.toFixed(1)
           } Linh Lực</span> bonus!`,
           "success"
         );
@@ -181,9 +181,10 @@ function Cultivation() {
           "danger"
         );
       }
+      saveToServer();
       setTimeout(() => setAlchemyNotification(null), 3000);
     },
-    [craftPill, addLog, ALCHEMY_RECIPES]
+    [craftPill, addLog, ALCHEMY_RECIPES, saveToServer]
   );
 
   // Tính toán tiến độ
@@ -218,9 +219,8 @@ function Cultivation() {
             {activityLog.map((log, index) => (
               <div
                 key={index}
-                className={`activity-item ${
-                  log.type ? `activity-${log.type}` : ""
-                }`}
+                className={`activity-item ${log.type ? `activity-${log.type}` : ""
+                  }`}
               >
                 <span className="activity-time">{log.time}</span>
                 <p dangerouslySetInnerHTML={{ __html: log.message }} />
@@ -307,9 +307,8 @@ function Cultivation() {
 
           <div className="action-buttons">
             <button
-              className={`action-btn ${
-                isMeditating ? "action-btn-danger" : "action-btn-primary"
-              }`}
+              className={`action-btn ${isMeditating ? "action-btn-danger" : "action-btn-primary"
+                }`}
               onClick={handleMeditation}
             >
               <span className="material-symbols-outlined">
@@ -348,11 +347,10 @@ function Cultivation() {
           <div className="stat-card">
             <div className="stat-header">
               <span
-                className={`material-symbols-outlined stat-icon stat-icon-${
-                  foundationStatus.color === "success"
+                className={`material-symbols-outlined stat-icon stat-icon-${foundationStatus.color === "success"
                     ? "primary"
                     : foundationStatus.color
-                }`}
+                  }`}
               >
                 fitness_center
               </span>
@@ -380,9 +378,8 @@ function Cultivation() {
           <div className="stat-card">
             <div className="stat-header">
               <span
-                className={`material-symbols-outlined stat-icon stat-icon-${
-                  demonStatus.color === "success" ? "primary" : "danger"
-                }`}
+                className={`material-symbols-outlined stat-icon stat-icon-${demonStatus.color === "success" ? "primary" : "danger"
+                  }`}
               >
                 psychology_alt
               </span>
@@ -495,9 +492,8 @@ function Cultivation() {
 
             {alchemyNotification && (
               <div
-                className={`alchemy-notification ${
-                  alchemyNotification.success ? "success" : "error"
-                }`}
+                className={`alchemy-notification ${alchemyNotification.success ? "success" : "error"
+                  }`}
               >
                 {alchemyNotification.message}
               </div>
@@ -529,9 +525,8 @@ function Cultivation() {
                         return (
                           <span
                             key={idx}
-                            className={`material-tag ${
-                              hasEnough ? "" : "missing"
-                            }`}
+                            className={`material-tag ${hasEnough ? "" : "missing"
+                              }`}
                           >
                             {mat.quantity}x {mat.itemId.replace(/_/g, " ")}
                           </span>
@@ -550,8 +545,8 @@ function Cultivation() {
                         {!canCraft
                           ? "Chưa đủ cấp"
                           : !hasMaterials
-                          ? "Thiếu NL"
-                          : "Luyện Chế"}
+                            ? "Thiếu NL"
+                            : "Luyện Chế"}
                       </button>
                     </div>
                   </div>
@@ -588,9 +583,8 @@ function Cultivation() {
             <div className="breakthrough-content">
               {breakthroughResult ? (
                 <div
-                  className={`breakthrough-result ${
-                    breakthroughResult.success ? "success" : "failure"
-                  }`}
+                  className={`breakthrough-result ${breakthroughResult.success ? "success" : "failure"
+                    }`}
                 >
                   <p>{breakthroughResult.message}</p>
                   <button
@@ -634,7 +628,7 @@ function Cultivation() {
                         {Math.floor(
                           (tribInfo.baseSuccessRate +
                             (usePillForBreakthrough ? tribInfo.pillBonus : 0)) *
-                            100
+                          100
                         )}
                         %
                       </strong>
@@ -643,13 +637,12 @@ function Cultivation() {
                       <div
                         className="rate-fill"
                         style={{
-                          width: `${
-                            (tribInfo.baseSuccessRate +
+                          width: `${(tribInfo.baseSuccessRate +
                               (usePillForBreakthrough
                                 ? tribInfo.pillBonus
                                 : 0)) *
                             100
-                          }%`,
+                            }%`,
                         }}
                       ></div>
                     </div>

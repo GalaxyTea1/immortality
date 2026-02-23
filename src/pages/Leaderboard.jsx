@@ -1,3 +1,5 @@
+import { useState, useEffect } from 'react';
+import { getSocket } from '../services/socket.js';
 import './Leaderboard.css';
 
 const topCultivators = [
@@ -42,6 +44,37 @@ const news = [
 ];
 
 function Leaderboard() {
+  const [announcements, setAnnouncements] = useState([]);
+
+  // Listen for real-time updates via WebSocket
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    // Subscribe to leaderboard updates
+    socket.emit('leaderboard:subscribe');
+
+    const handleLeaderboardUpdate = () => {
+      // TODO: When API is connected, fetch fresh leaderboard data here
+      // For now, leaderboard uses hardcoded data
+    };
+
+    const handleWorldAnnouncement = (data) => {
+      setAnnouncements(prev => [
+        { message: data.message, time: 'Vừa xong', timestamp: data.timestamp },
+        ...prev.slice(0, 9), // Keep max 10
+      ]);
+    };
+
+    socket.on('leaderboard:updated', handleLeaderboardUpdate);
+    socket.on('world:announcement', handleWorldAnnouncement);
+
+    return () => {
+      socket.emit('leaderboard:unsubscribe');
+      socket.off('leaderboard:updated', handleLeaderboardUpdate);
+      socket.off('world:announcement', handleWorldAnnouncement);
+    };
+  }, []);
   return (
     <div className="leaderboard-page">
       <div className="leaderboard-container">
@@ -75,7 +108,7 @@ function Leaderboard() {
             <div className="podium-content">
               <div className="rank-badge silver">2</div>
               <div className="podium-avatar silver">
-                <div 
+                <div
                   className="avatar-img"
                   style={{ backgroundImage: `url("${topCultivators[1].avatar}")` }}
                 ></div>
@@ -97,7 +130,7 @@ function Leaderboard() {
             <div className="podium-content">
               <div className="rank-badge gold">1</div>
               <div className="podium-avatar gold">
-                <div 
+                <div
                   className="avatar-img"
                   style={{ backgroundImage: `url("${topCultivators[0].avatar}")` }}
                 ></div>
@@ -121,7 +154,7 @@ function Leaderboard() {
             <div className="podium-content">
               <div className="rank-badge bronze">3</div>
               <div className="podium-avatar bronze">
-                <div 
+                <div
                   className="avatar-img"
                   style={{ backgroundImage: `url("${topCultivators[2].avatar}")` }}
                 ></div>
@@ -169,7 +202,7 @@ function Leaderboard() {
                       </td>
                       <td>
                         <div className="user-cell">
-                          <div 
+                          <div
                             className="table-avatar"
                             style={{ backgroundImage: `url("${row.avatar}")` }}
                           ></div>
@@ -210,7 +243,7 @@ function Leaderboard() {
                 Tu Vi Của Bạn
               </h4>
               <div className="my-profile">
-                <div 
+                <div
                   className="my-avatar"
                   style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuBJu_ptbTajUE7FCY7SDrRSaZI0qO6P5NPGmTpwPfZrcFC2nFDzME3BXeOUotm57WBKv90x6YEGksQuOvwKXsv6UHs8VSHz3QGrRkWXqivgvoPnCnQB2leH2Sj80ORDhlYqXdWnEco80wNjV8z0kxeWwSDTNXX9vzFkdtXw64ZURR36yW2ZV5_Y296LiACytkLZoTeBXePVFg4qOqw6-wLsAy4NUXLS-jbVNs27ptrv_L0ggZt0QVq8MVyio5AuvctLDeYsxLGtDmA")' }}
                 ></div>
