@@ -1,0 +1,123 @@
+.tu-tien-loader-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  width: 100%;
+}
+
+.magic-array {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+
+/* Outer glowing ring */
+.outer-ring {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+  border: 2px dashed #ff9800; /* Hỏa/Thổ: Cam viền */
+  border-radius: 50%;
+  box-shadow: 0 0 15px rgba(255, 152, 0, 0.5), inset 0 0 15px rgba(255, 152, 0, 0.5);
+  animation: spin-right 8s linear infinite;
+  box-sizing: border-box;
+}
+
+/* Middle ring holding the trigrams */
+.middle-ring {
+  position: absolute;
+  width: 85%;
+  height: 85%;
+  border: 1px solid rgba(255, 193, 7, 0.4); /* Vàng chanh */
+  border-radius: 50%;
+  animation: spin-left 12s linear infinite;
+  box-sizing: border-box;
+}
+
+.trigram {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 2px;
+  background-color: #ff5722; /* Cam đậm / Đỏ hoả */
+  box-shadow: 0 0 5px #ff5722;
+  transform-origin: 0 50%;
+  /* 8 positions for Bagua */
+  transform: rotate(calc(var(--i) * 45deg)) translateX(40px) translateY(-50%);
+}
+
+/* Inner Taiji / Yin Yang */
+.inner-taiji {
+  position: absolute;
+  width: 50%;
+  height: 50%;
+  border-radius: 50%;
+  background: linear-gradient(to right, #fff 50%, #2f1b12 50%); /* Trắng và Nâu đậm (Thổ) */
+  border: 2px solid #ff9800;
+  box-shadow: 0 0 20px rgba(255, 87, 34, 0.6);
+  animation: spin-right 3s linear infinite;
+  box-sizing: border-box;
+}
+
+.inner-taiji::before,
+.inner-taiji::after {
+  content: "";
+  position: absolute;
+  width: 50%;
+  height: 50%;
+  border-radius: 50%;
+  box-sizing: border-box;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.inner-taiji::before {
+  top: 0;
+  background: #2f1b12; /* Nâu */
+  border: 4px solid #fff;
+}
+
+.inner-taiji::after {
+  bottom: 0;
+  background: #fff;
+  border: 4px solid #2f1b12; /* Nâu */
+}
+
+.loader-text {
+  color: #ff9800;
+  font-size: 1.1rem;
+  font-family: 'Courier New', Courier, monospace;
+  font-weight: bold;
+  letter-spacing: 2px;
+  text-shadow: 0 0 10px rgba(255, 152, 0, 0.8);
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes spin-right {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes spin-left {
+  0% { transform: rotate(360deg); }
+  100% { transform: rotate(0deg); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 0.6;
+    text-shadow: 0 0 5px rgba(255, 152, 0, 0.5);
+  }
+  50% {
+    opacity: 1;
+    text-shadow: 0 0 15px rgba(255, 152, 0, 1), 0 0 30px rgba(255, 87, 34, 0.8);
+  }
+}
