@@ -61,6 +61,7 @@ JWT_EXPIRES_IN=7d
 - `src/context/useGameProgression.js`: resource, EXP/level, độ kiếp, thiền định.
 - `src/context/useGameInventoryEquipment.js`: inventory, dùng item, equipment, cường hóa, shop helper.
 - `src/context/useGameWorldSystems.js`: event, exploration, quest, foundation/inner demon, reputation, alchemy.
+- `shared/shopCatalog.js`: catalog item shop dùng chung cho frontend/backend để thống nhất itemId, category, tier và price.
 - `src/services/api.js`: wrapper API dùng `VITE_API_BASE_URL`, fallback `http://localhost:3002/api`.
 - `src/services/socket.js`: Socket.IO client dùng `VITE_SOCKET_URL`, fallback `http://localhost:3002`.
 - `src/data/*.js`: dữ liệu tĩnh cho items, realms, recipes, zones.
@@ -188,6 +189,7 @@ Nên luôn cấu hình `JWT_SECRET` trong `.env`, và tốt nhất sửa fallbac
 - Leaderboard backend đã trả `leaderboard` để khớp client wrapper.
 - Các route character/inventory/equipment/events/skills/shop đã có auth ownership check theo character.
 - Một số mutation nhiều query đã được bọc transaction: inventory remove/sync, equipment equip/unequip/upgrade/sync, shop buy/sell, skill learn, beacon-save.
+- Shop frontend/backend đã dùng chung `shared/shopCatalog.js` cho danh sách item bán, category, tier và giá.
 - Đã thêm `.env.example`, `backend/.env.example`, README root/backend mới.
 
 1. Text tiếng Việt bị lỗi encoding ở nhiều file.
@@ -215,7 +217,6 @@ Nên luôn cấu hình `JWT_SECRET` trong `.env`, và tốt nhất sửa fallbac
 Ưu tiên trung hạn:
 
 - Tách `GameContext.jsx` thành module domain nhỏ.
-- Tạo shared constants hoặc copy rõ ràng giữa shop backend và item definitions frontend.
 - Thêm tests tối thiểu cho mapper state và API contract.
 - Đưa game calculations quan trọng về backend nếu cần chống gian lận.
 

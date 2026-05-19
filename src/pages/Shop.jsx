@@ -1,91 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useGame } from '../context/GameContext';
+import { SHOP_CATALOG } from '../../shared/shopCatalog.js';
 import './Shop.css';
-
-// Shop items với itemId mapping đến ITEM_DEFINITIONS trong context
-const shopItems = [
-  {
-    id: 1,
-    itemId: 'kim_dan_dan', // Map to context item
-    name: 'Kim Đan Đan',
-    description: 'Đan dược thượng phẩm, tăng 500 EXP tu luyện.',
-    tier: 'heaven',
-    price: 2000,
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCMc7qKuJp6nJadwXsSBJAZ86biCkK5GZUSuBOBsrdHYblX18Ky6lsp7u5y56w9jvq242_oka6NMtbCUo7pcWjkWQlw-hJDlDHZiAsGMG00Wuu1OQ2wmygBlxWdoj9O2NobVIwrYLlb9r96kG3p-E4fiWGRVS-N_4NxxaEXV-pkS57nCblch89h321A1N51dCnwU9UiUTgTBpZczH-RQSELSXynU_tOdr3_MXzQUsl_C0yv96r86126FGk5fNFEHYUfh704HVar9jI'
-  },
-  {
-    id: 2,
-    itemId: 'tu_ha_bi_dien',
-    name: 'Tử Hà Bí Điển',
-    description: 'Công pháp thượng cổ, tăng tốc độ tu luyện +10%.',
-    tier: 'earth',
-    price: 5000,
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAywGvbe58JVysUnb3mB3oiOf99f-pWBGtpx_1J1cTSRZnbePwT_iWHjxAzv_Gesw5hRqN0xnf8UAv6CmdgkGqRRgI9pkQVOrjt_l_QMv1y8fSckUfF1QYv52Uqsi9slZ988ztgHbTdO9cD2mLstvk1V9Wsj9AmL-JWCJNH1nObitb1q9F9ZkBDRQotKEmUSUPUT3hruEAL96GbuE_rmnnDuhVOta0l5nET-FEShjP-wf6f2XwDz560VkOfSB5tNoXDxeKmYpv6bb8'
-  },
-  {
-    id: 3,
-    itemId: 'huyet_ma_kiem',
-    name: 'Huyết Ma Kiếm',
-    description: 'Kiếm ma đạo, tăng 50 điểm công kích.',
-    tier: 'heaven',
-    price: 10000,
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCmig9T3VNe8tsp4kjHeELlD5bgAc6jgjbqBN0_roLlswhGNPkYCyzS3sO61vMqqCmeuiJaUP5vQiP29pDGiqbKwf2qME758M-oiJe8CqGIspgspzmm7fa9VKDhom2xw8alMHQh6K_DFYzsAYI4ylooOBW_sAkpzMqXksmIjr3iPeyzAzIgQY_JmX0gb-A-EeA5ENa19k25ug_phao3mXOl1oJb1OpHtKI3vMO7B8KRQWtf89l67C-A5owdx_ECxTMlh3lD2YW42Ik'
-  },
-  {
-    id: 4,
-    itemId: 'thao_duoc',
-    name: 'Thảo Dược',
-    description: 'Nguyên liệu luyện đan cơ bản.',
-    tier: 'yellow',
-    price: 10,
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBjTgNqYNBE8w4O8_4AeqhuJO85e4eHh1hflKHmhxg1hSXCQNT6R5QRt0GCXMWmdkpKbx02CQpxN3LGM42rT4t0vK1veU0avXYEsB64D2u3OGcjhXu-FykMVVNYaZbgmHQfD1oQsOxXiFXMAfFaHOKxu9v_Uu_WnOQUll0gPH5JxupJZQRamZDpN8RVJHBKGT6o0ljoZrXVMdevFq9ObAFF_AWQ_d4I1BCP4MokJ3UBcz0GaYMuTl_-3qj0TG85Ez93hf_H8Papujg'
-  },
-  {
-    id: 5,
-    itemId: 'truc_co_dan',
-    name: 'Trúc Cơ Đan',
-    description: 'Đan dược quý hiếm, tăng 100 EXP tu luyện.',
-    tier: 'black',
-    price: 500,
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAv7fQxKJuPGAaf0fVLszZvwE15BBGaBdB-cigmMKrUbN9oGGSTNot5tYOYn1dUEW9ay2BJWRJrA3QuhvcH6NhT3Su6lO1zM35EjxSS-IB9OwDgw3P3qTGlS-NN_LLMYkWINjqyHl01wr_BxU1_1sisua7GPc0yW1AXqwlojefRfVIiTHw-m8kRnlwr6UdRIjo8RGGUfDPCIayNjntw2JPCb148k3Phn_yVDPuFDtuGB61iYFyoZvMaiiz9nVVIBpg6Z4nB2o8F284'
-  },
-  {
-    id: 6,
-    itemId: 'tieu_hoan_dan',
-    name: 'Tiểu Hoàn Đan',
-    description: 'Đan dược cấp thấp, hồi phục 50 HP.',
-    tier: 'yellow',
-    price: 50,
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCcUSF5Jp1KCMM4AmFyXCH_QNUDiZASzxBk8mCYH6mBB3lfH7SLmX_nLf4M9hMi2gemTMH7mwIbyYHPiouVTSzzAHLYw8IEcOagQ5s5uI2udgsdZwK2IFp_IyuLixyX-U2_b6wEUZWaMuP2nFJJtwxeARFlYnoKxcZv2QsVTscWINbz2qBldhl4bCsw9qrNBUNFNydp9QAY5d6nMAyBEG3RI7sQnC6LJI6lJqyCMVaBUtuCKBn1JT2W0jqaqh5DXrrABuImCMURNqs'
-  },
-  {
-    id: 7,
-    itemId: 'tu_khi_dan',
-    name: 'Tụ Khí Đan',
-    description: 'Tăng 20 EXP tu luyện.',
-    tier: 'yellow',
-    price: 100,
-    image: 'https://images.unsplash.com/photo-1550989460-0adf9ea622e2?q=80&w=200'
-  },
-  {
-    id: 8,
-    itemId: 'ngoc_boi',
-    name: 'Ngọc Bội',
-    description: 'Trang sức phòng thủ, tăng 20 điểm phòng.',
-    tier: 'black',
-    price: 800,
-    image: 'https://i.etsystatic.com/29320864/r/il/7d221a/4206023060/il_340x270.4206023060_di3b.jpg'
-  },
-  {
-    id: 9,
-    itemId: 'cuong_hoa_thach',
-    name: 'Cường Hóa Thạch',
-    description: 'Đá cường hóa trang bị, có thể nâng cấp vũ khí lên +1.',
-    tier: 'black',
-    price: 500,
-    image: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=200'
-  },
-];
 
 const categories = [
   { icon: 'grid_view', label: 'Tất Cả', id: 'all', active: true },
@@ -110,6 +26,20 @@ function Shop() {
   const { gameState, buyItem, formatNumber, REALMS, ITEM_DEFINITIONS, saveToServer } = useGame();
   const { player, resources } = gameState;
 
+  const shopItems = useMemo(() => (
+    SHOP_CATALOG.map((catalogItem) => {
+      const itemDef = ITEM_DEFINITIONS[catalogItem.itemId] || {};
+      return {
+        ...catalogItem,
+        id: catalogItem.itemId,
+        name: itemDef.name || catalogItem.itemId,
+        description: itemDef.description || '',
+        image: itemDef.image || '',
+        category: itemDef.type || catalogItem.category,
+      };
+    })
+  ), [ITEM_DEFINITIONS]);
+
   // State
   const [activeCategory, setActiveCategory] = useState('all');
   const [activeTier, setActiveTier] = useState('all');
@@ -121,12 +51,9 @@ function Shop() {
   const filteredItems = useMemo(() => {
     let items = shopItems;
 
-    // Filter by category (based on itemId's type in ITEM_DEFINITIONS)
+    // Filter by category
     if (activeCategory !== 'all') {
-      items = items.filter(item => {
-        const def = ITEM_DEFINITIONS[item.itemId];
-        return def && def.type === activeCategory;
-      });
+      items = items.filter(item => item.category === activeCategory);
     }
 
     // Filter by tier
@@ -143,7 +70,7 @@ function Shop() {
     }
 
     return items;
-  }, [activeCategory, activeTier, searchQuery, ITEM_DEFINITIONS]);
+  }, [activeCategory, activeTier, searchQuery, shopItems]);
 
   // Handle buy
   const handleBuy = (item) => {

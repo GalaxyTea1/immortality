@@ -1,28 +1,10 @@
 import express from 'express';
+import { SHOP_CATALOG, findShopCatalogItem } from '../../../shared/shopCatalog.js';
 import { withTransaction } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { assertCharacterOwner } from '../middleware/ownership.middleware.js';
 
 const router = express.Router();
-
-// List of items available in shop
-// (Can be moved to separate file or database later)
-const SHOP_ITEMS = [
-    // Pills
-    { id: 'tieu_hoan_dan', name: 'Minor Restoration Pill', price: 50, category: 'pill', description: '+30 EXP' },
-    { id: 'tu_khi_dan', name: 'Qi Gathering Pill', price: 100, category: 'pill', description: '+80 EXP' },
-    { id: 'hoi_phuc_dan', name: 'Recovery Pill', price: 80, category: 'pill', description: '+50 HP' },
-    { id: 'tram_tam_dan', name: 'Mind Calming Pill', price: 150, category: 'pill', description: '-15 Inner Demon' },
-
-    // Materials
-    { id: 'thao_duoc', name: 'Herbs', price: 20, category: 'material', description: 'Alchemy material' },
-    { id: 'hoa_tam', name: 'Fire Core', price: 50, category: 'material', description: 'Alchemy material' },
-    { id: 'cuong_hoa_thach', name: 'Enhancement Stone', price: 200, category: 'material', description: 'Equipment enhancement' },
-
-    // Basic Equipment
-    { id: 'moc_kiem', name: 'Wooden Sword', price: 500, category: 'equipment', description: '+5 Attack' },
-    { id: 'bo_y', name: 'Cloth Armor', price: 300, category: 'equipment', description: '+3 Defense' },
-];
 
 const requireOwnedBodyCharacter = async (req, res) => {
     const { characterId } = req.body;
@@ -44,7 +26,13 @@ const requireOwnedBodyCharacter = async (req, res) => {
 router.get('/items', (req, res) => {
     const { category } = req.query;
 
-    let items = SHOP_ITEMS;
+    let items = SHOP_CATALOG.map((item) => ({
+        ...item,
+        id: item.itemId,
+        name: item.itemId,
+        description: '',
+    }));
+
     if (category) {
         items = items.filter(item => item.category === category);
     }
@@ -67,7 +55,7 @@ router.post('/buy', authMiddleware, async (req, res) => {
             return res.status(400).json({ error: 'Invalid quantity (1-99)' });
         }
 
-        const shopItem = SHOP_ITEMS.find(item => item.id === itemId);
+        const shopItem = findShopCatalogItem(itemId);
         if (!shopItem) {
             return res.status(404).json({ error: 'Item not found in shop' });
         }
@@ -109,10 +97,11 @@ router.post('/buy', authMiddleware, async (req, res) => {
             );
 
             return {
-                message: `Successfully purchased ${quantity}x ${shopItem.name}!`,
+                message: `Successfully purchased ${quantity}x ${shopItem.itemId}!`,
                 itemPurchased: {
                     id: itemId,
-                    name: shopItem.name,
+                    name: shopItem.itemId,
+                    itemId: shopItem.itemId,
                     quantity,
                     totalCost
                 }
@@ -158,7 +147,7 @@ router.post('/sell', authMiddleware, async (req, res) => {
                 throw error;
             }
 
-            const shopItem = SHOP_ITEMS.find(item => item.id === itemId);
+            const shopItem = findShopCatalogItem(itemId);
             const sellPrice = shopItem ? Math.floor(shopItem.price * 0.5) : 10;
             const totalEarn = sellPrice * quantity;
 
