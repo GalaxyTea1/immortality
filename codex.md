@@ -56,6 +56,8 @@ JWT_EXPIRES_IN=7d
 - `src/App.jsx`: router chính, route `/login` public, các route game được bọc `ProtectedRoute`, `AuthProvider`, `GameProvider`.
 - `src/context/AuthContext.jsx`: quản lý token, login/register/logout, gọi `/auth/me`, kết nối socket sau khi xác thực.
 - `src/context/GameContext.jsx`: lõi game client-side: state, load/save server, tu luyện, đột phá, thiền, inventory, equipment, explore, reputation, alchemy.
+- `src/context/gameStateMappers.js`: mapper giữa dữ liệu backend và state frontend, gồm character/inventory/equipment payload.
+- `src/context/useGameServerSync.js`: hook riêng cho load server, debounce save, và beacon-save khi unload.
 - `src/services/api.js`: wrapper API dùng `VITE_API_BASE_URL`, fallback `http://localhost:3002/api`.
 - `src/services/socket.js`: Socket.IO client dùng `VITE_SOCKET_URL`, fallback `http://localhost:3002`.
 - `src/data/*.js`: dữ liệu tĩnh cho items, realms, recipes, zones.

@@ -1,11 +1,12 @@
-import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
-import * as api from '../services/api.js';
+import { createContext, useContext, useState, useCallback, useRef } from 'react';
 
 // Import dữ liệu từ các file riêng biệt
 import { ITEM_DEFINITIONS } from '../data/items.js';
 import { REALMS, TRIBULATION_REQUIREMENTS, REPUTATION_TITLES } from '../data/realms.js';
 import { ALCHEMY_RECIPES } from '../data/recipes.js';
 import { WORLD_ZONES, canEnterZone, calculateZoneRewards } from '../data/zones.js';
+import { createGameStateMappers } from './gameStateMappers.js';
+import { useGameServerSync } from './useGameServerSync.js';
 
 // Trạng thái ban đầu của game
 const initialState = {
@@ -128,215 +129,12 @@ const STORAGE_KEY = 'immortality_save';
 
 // ==================== SERVER SYNC HELPERS ====================
 
-const mapServerToGameState = (charData, inventoryData, equipmentData, skillsData) => {
-  const state = { ...initialState };
-
-  // Character data → player, resources, baseStats, foundation, innerDemon, reputation, alchemy
-  if (charData) {
-    state.player = {
-      name: charData.name || initialState.player.name,
-      realmIndex: charData.realm_index ?? initialState.player.realmIndex,
-      level: charData.level ?? initialState.player.level,
-      exp: Number(charData.exp) || initialState.player.exp,
-      maxExp: Number(charData.max_exp) || initialState.player.maxExp,
-    };
-    state.resources = {
-      ...initialState.resources,
-      spiritStones: charData.spirit_stones !== undefined
-        ? Number(charData.spirit_stones)
-        : initialState.resources.spiritStones,
-    };
-    state.baseStats = {
-      hp: charData.hp ?? initialState.baseStats.hp,
-      maxHp: charData.max_hp ?? initialState.baseStats.maxHp,
-      attack: charData.attack ?? initialState.baseStats.attack,
-      defense: charData.defense ?? initialState.baseStats.defense,
-      agility: charData.agility ?? initialState.baseStats.agility,
-      spirit: charData.spirit ?? initialState.baseStats.spirit,
-      cultivationSpeed: parseFloat(charData.cultivation_speed) || initialState.baseStats.cultivationSpeed,
-    };
-    state.stats = { ...state.baseStats };
-    state.foundation = {
-      ...initialState.foundation,
-      value: charData.foundation_value ?? initialState.foundation.value,
-      maxValue: charData.foundation_max ?? initialState.foundation.maxValue,
-    };
-    state.innerDemon = {
-      ...initialState.innerDemon,
-      value: charData.inner_demon_value ?? initialState.innerDemon.value,
-    };
-    state.reputation = {
-      ...initialState.reputation,
-      value: charData.reputation_points ?? initialState.reputation.value,
-      level: charData.reputation_level ?? initialState.reputation.level,
-      title: charData.reputation_title || initialState.reputation.title,
-    };
-    state.alchemy = {
-      ...initialState.alchemy,
-      level: charData.alchemy_level ?? initialState.alchemy.level,
-      exp: charData.alchemy_exp ?? initialState.alchemy.exp,
-    };
-
-    // Exploration data
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-    const serverResetDate = charData.exploration_last_reset
-      ? new Date(charData.exploration_last_reset).toISOString().split('T')[0]
-      : today;
-    const isNewDay = serverResetDate !== today;
-
-    state.exploration = {
-      ...initialState.exploration,
-      explorationCount: isNewDay ? 0 : (charData.exploration_count ?? 0),
-      lastResetDate: today,
-    };
-
-    // Meditation
-    state.lastMeditationTime = charData.last_meditation_time
-      ? new Date(charData.last_meditation_time).getTime()
-      : null;
-  }
-
-  // Inventory data → inventory array
-  if (Array.isArray(inventoryData) && inventoryData.length > 0) {
-    state.inventory = inventoryData.map(item => {
-      const itemDef = ITEM_DEFINITIONS[item.item_id];
-      const entry = {
-        itemId: item.item_id,
-        quantity: item.quantity,
-        enhanceLevel: item.enhance_level || 0,
-      };
-      // Equipment items need unique uid
-      if (itemDef && itemDef.type === 'equipment') {
-        entry.uid = `equip_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      }
-      return entry;
-    });
-  }
-
-  // Equipment data → equipment object (slot → {itemId, enhanceLevel})
-  if (equipmentData && typeof equipmentData === 'object') {
-    for (const [slot, data] of Object.entries(equipmentData)) {
-      if (data && data.itemId) {
-        state.equipment[slot] = {
-          itemId: data.itemId,
-          enhanceLevel: data.enhanceLevel || 0,
-          uid: `equip_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        };
-      }
-    }
-  }
-
-  // Skills data → learnedSkills array
-  if (Array.isArray(skillsData) && skillsData.length > 0) {
-    state.learnedSkills = skillsData.map(s => s.skill_id);
-  }
-
-  // Recalculate stats with equipment bonuses
-  const newStats = { ...state.baseStats };
-  for (const [, equipped] of Object.entries(state.equipment)) {
-    if (equipped && equipped.itemId) {
-      const equipDef = ITEM_DEFINITIONS[equipped.itemId];
-      if (equipDef && equipDef.effect) {
-        for (const [stat, value] of Object.entries(equipDef.effect)) {
-          if (newStats[stat] !== undefined) {
-            const enhanceBonus = Number.isInteger(value)
-              ? Math.floor(value * equipped.enhanceLevel)
-              : parseFloat((value * equipped.enhanceLevel).toFixed(2));
-            newStats[stat] += value + enhanceBonus;
-          }
-        }
-      }
-    }
-  }
-  state.stats = newStats;
-
-  return state;
-};
-
-
-const mapGameStateToServer = (state) => {
-  return {
-    name: state.player.name,
-    realm_index: state.player.realmIndex,
-    level: state.player.level,
-    exp: state.player.exp,
-    max_exp: state.player.maxExp,
-    spirit_stones: state.resources.spiritStones,
-    hp: state.baseStats.hp,
-    max_hp: state.baseStats.maxHp,
-    attack: state.baseStats.attack,
-    defense: state.baseStats.defense,
-    agility: state.baseStats.agility,
-    spirit: state.baseStats.spirit,
-    cultivation_speed: state.baseStats.cultivationSpeed,
-    foundation_value: state.foundation.value,
-    inner_demon_value: state.innerDemon.value,
-    reputation_points: state.reputation.value,
-    reputation_level: state.reputation.level,
-    reputation_title: state.reputation.title,
-    alchemy_level: state.alchemy.level,
-    alchemy_exp: state.alchemy.exp,
-    exploration_count: state.exploration.explorationCount,
-    exploration_last_reset: state.exploration.lastResetDate || new Date().toISOString().split('T')[0],
-    last_meditation_time: state.lastMeditationTime ? new Date(state.lastMeditationTime).toISOString() : null,
-  };
-};
-
-/**=
- * Group by (itemId, enhanceLevel). Exclude items currently equipped.
- */
-const mapInventoryToServer = (inventory, equipment) => {
-  // Collect equipped items as composite keys to subtract
-  const equippedKeys = {};
-  if (equipment) {
-    for (const [, data] of Object.entries(equipment)) {
-      if (data && data.itemId) {
-        const key = `${data.itemId}__${data.enhanceLevel || 0}`;
-        equippedKeys[key] = (equippedKeys[key] || 0) + 1;
-      }
-    }
-  }
-
-  // Group by (itemId, enhanceLevel)
-  const merged = {};
-  inventory.forEach(item => {
-    const key = `${item.itemId}__${item.enhanceLevel || 0}`;
-    if (merged[key]) {
-      merged[key].quantity += item.quantity;
-    } else {
-      merged[key] = { itemId: item.itemId, quantity: item.quantity, enhanceLevel: item.enhanceLevel || 0 };
-    }
-  });
-
-  // Subtract equipped items
-  for (const [key, eqCount] of Object.entries(equippedKeys)) {
-    if (merged[key]) {
-      merged[key].quantity -= eqCount;
-      if (merged[key].quantity <= 0) {
-        delete merged[key];
-      }
-    }
-  }
-
-  return Object.values(merged);
-};
-
-/**
- * Map equipment state sang format backend
- * { slot: { itemId, enhanceLevel, uid } } → { slot: { itemId, enhanceLevel } }
- */
-const mapEquipmentToServer = (equipment) => {
-  const result = {};
-  for (const [slot, data] of Object.entries(equipment)) {
-    if (data && data.itemId) {
-      result[slot] = {
-        itemId: data.itemId,
-        enhanceLevel: data.enhanceLevel || 0,
-      };
-    }
-  }
-  return result;
-};
+const {
+  mapServerToGameState,
+  mapGameStateToServer,
+  mapInventoryToServer,
+  mapEquipmentToServer,
+} = createGameStateMappers(initialState);
 
 export const gameStateTestUtils = {
   initialState,
@@ -348,9 +146,6 @@ export const gameStateTestUtils = {
 
 export function GameProvider({ children, characterId }) {
   const [gameState, setGameStateRaw] = useState(initialState);
-  const [isServerLoading, setIsServerLoading] = useState(true);
-  const serverSaveTimerRef = useRef(null);
-  const prevStateRef = useRef(null);
   const gameStateRef = useRef(gameState);
   const characterIdRef = useRef(characterId);
 
@@ -363,99 +158,16 @@ export function GameProvider({ children, characterId }) {
     });
   }, []);
 
-  useEffect(() => {
-    characterIdRef.current = characterId;
-  }, [characterId]);
-
-  // Load game from server when characterId is available
-  useEffect(() => {
-    if (!characterId) {
-      setIsServerLoading(false);
-      return;
-    }
-
-    const loadFromServer = async () => {
-      setIsServerLoading(true);
-      try {
-        const [charData, inventoryData, equipmentData, skillsData] = await Promise.all([
-          api.characters.get(characterId).catch(err => { console.warn('Load character failed:', err); return null; }),
-          api.inventory.get(characterId).catch(err => { console.warn('Load inventory failed:', err); return []; }),
-          api.equipment.get(characterId).catch(err => { console.warn('Load equipment failed:', err); return {}; }),
-          api.skills.get(characterId).catch(err => { console.warn('Load skills failed:', err); return []; }),
-        ]);
-
-        if (charData) {
-          const serverState = mapServerToGameState(charData, inventoryData, equipmentData, skillsData);
-          setGameState(serverState);
-          prevStateRef.current = serverState;
-        }
-      } catch (err) {
-        console.error('[GameContext] Failed to load from server:', err);
-      } finally {
-        setIsServerLoading(false);
-      }
-    };
-
-    loadFromServer();
-  }, [characterId]);
-
-  // Save to server — called after user actions (short debounce for React setState to flush)
-  const saveToServer = useCallback(() => {
-    const cId = characterIdRef.current;
-    if (!cId) return;
-
-    if (serverSaveTimerRef.current) {
-      clearTimeout(serverSaveTimerRef.current);
-    }
-
-    serverSaveTimerRef.current = setTimeout(async () => {
-      try {
-        const state = gameStateRef.current;
-        const charPayload = mapGameStateToServer(state);
-        const invPayload = mapInventoryToServer(state.inventory, state.equipment);
-        const equipPayload = mapEquipmentToServer(state.equipment);
-
-        await Promise.all([
-          api.characters.save(cId, charPayload),
-          api.inventory.sync(cId, invPayload),
-          api.equipment.sync(cId, equipPayload),
-        ]);
-
-        prevStateRef.current = state;
-      } catch (err) {
-        console.error('[GameContext] Failed to save to server:', err);
-      }
-    }, 50);
-  }, []);
-
-  // Save immediately before page unload (F5, close tab)
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      // Cancel any pending debounced save
-      if (serverSaveTimerRef.current) {
-        clearTimeout(serverSaveTimerRef.current);
-      }
-
-      const cId = characterIdRef.current;
-      const state = gameStateRef.current;
-      if (!cId) return;
-
-      // Always send beacon on unload — don't skip even if prevState matches
-      const charPayload = mapGameStateToServer(state);
-      const invPayload = mapInventoryToServer(state.inventory, state.equipment);
-      const equipPayload = mapEquipmentToServer(state.equipment);
-      const token = api.getToken();
-      if (token) {
-        navigator.sendBeacon(
-          `${api.API_BASE_URL}/characters/${cId}/beacon-save`,
-          new Blob([JSON.stringify({ ...charPayload, token, inventory: invPayload, equipment: equipPayload })], { type: 'application/json' })
-        );
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, []);
+  const { isServerLoading, saveToServer } = useGameServerSync({
+    characterId,
+    setGameState,
+    gameStateRef,
+    characterIdRef,
+    mapServerToGameState,
+    mapGameStateToServer,
+    mapInventoryToServer,
+    mapEquipmentToServer,
+  });
 
   // ===== RESOURCE MANAGEMENT =====
   const addSpiritStones = useCallback((amount) => {
@@ -1100,7 +812,7 @@ export function GameProvider({ children, characterId }) {
     addEvent(roll > zone.encounterChance ? 'success' : 'danger', eventMessage);
 
     return { success: true, message: eventMessage, rewards };
-  }, [gameState.exploration, gameState.player, addExp, addSpiritStones, addItem, addEvent]);
+  }, [gameState, addExp, addSpiritStones, addItem, addEvent, setGameState]);
 
   const claimQuestReward = useCallback(() => {
     const { quests } = gameState;
@@ -1116,7 +828,7 @@ export function GameProvider({ children, characterId }) {
     }));
     addEvent('quest', `Hoàn thành nhiệm vụ "${quests.active.name}"!`);
     return { success: true, message: `Hoàn thành! +${rewards.spiritStones} Linh Thạch, +${rewards.exp} EXP` };
-  }, [gameState.quests, addSpiritStones, addExp, addEvent]);
+  }, [gameState, addSpiritStones, addExp, addEvent, setGameState]);
 
   const restoreHp = useCallback((amount) => {
     setGameState(prev => ({
