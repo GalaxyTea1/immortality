@@ -1,15 +1,13 @@
 # Immortality Backend
 
-Backend Express + PostgreSQL + Socket.IO cho game Immortality.
-
-## Cai dat
+## Install
 
 ```bash
 npm install
 cp .env.example .env
 ```
 
-Sua `backend/.env`:
+Update `backend/.env`:
 
 ```env
 PORT=3002
@@ -30,13 +28,13 @@ createdb immortality_db
 psql -U postgres -d immortality_db -f src/db/schema.sql
 ```
 
-Neu `psql` da cau hinh san user/database local:
+If `psql` configured user/database local:
 
 ```bash
 npm run db:schema
 ```
 
-## Chay server
+## Run server
 
 ```bash
 npm run dev
@@ -48,9 +46,9 @@ Production/local simple:
 npm start
 ```
 
-Server mac dinh: `http://localhost:3002`
+Server default: `http://localhost:3002`
 
-## Endpoint chinh
+## Main endpoint
 
 - `GET /api/health`
 - `POST /api/auth/register`
