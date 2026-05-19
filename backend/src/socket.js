@@ -1,7 +1,6 @@
 import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'tu_tien_secret_key';
+import { CORS_ORIGINS, JWT_SECRET } from './config.js';
 
 let io;
 
@@ -13,7 +12,7 @@ let io;
 export function initSocket(httpServer) {
     io = new Server(httpServer, {
         cors: {
-            origin: ['http://localhost:5173', 'http://localhost:3002', 'http://localhost:3001'],
+            origin: CORS_ORIGINS,
             credentials: true,
         },
     });
@@ -28,7 +27,7 @@ export function initSocket(httpServer) {
             const decoded = jwt.verify(token, JWT_SECRET);
             socket.user = decoded; // { userId, username }
             next();
-        } catch (err) {
+        } catch {
             next(new Error('Invalid or expired token'));
         }
     });

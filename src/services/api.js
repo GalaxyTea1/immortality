@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:3002/api';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api';
 
 // ==================== TOKEN MANAGEMENT ====================
 
@@ -255,7 +255,7 @@ export const leaderboard = {
      */
     getCultivation: async (limit = 10) => {
         const data = await authFetch(`/leaderboard?limit=${limit}`);
-        return data.leaderboard;
+        return data.leaderboard || data.data || data;
     },
 
     /**
@@ -264,7 +264,7 @@ export const leaderboard = {
      */
     getPower: async (limit = 10) => {
         const data = await authFetch(`/leaderboard/power?limit=${limit}`);
-        return data.leaderboard;
+        return data.leaderboard || data.data || data;
     },
 
     /**
@@ -273,7 +273,7 @@ export const leaderboard = {
      */
     getReputation: async (limit = 10) => {
         const data = await authFetch(`/leaderboard/reputation?limit=${limit}`);
-        return data.leaderboard;
+        return data.leaderboard || data.data || data;
     },
 };
 
@@ -325,7 +325,7 @@ export const events = {
      */
     get: async (characterId, limit = 20) => {
         const data = await authFetch(`/events/${characterId}?limit=${limit}`);
-        return data.events;
+        return data.events || data;
     },
 
     /**
@@ -351,7 +351,7 @@ export const skills = {
      */
     get: async (characterId) => {
         const data = await authFetch(`/skills/${characterId}`);
-        return data;
+        return data.skills || data;
     },
 
     /**

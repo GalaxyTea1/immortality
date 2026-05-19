@@ -35,12 +35,10 @@ function Inventory() {
   const {
     gameState,
     getInventoryWithDetails,
-    getEquippedItems,
-    useItem,
+    useItem: consumeItem,
     unequipItem,
     upgradeEquipment,
     formatNumber,
-    getRealmName,
     REALMS,
     saveToServer,
     isServerLoading,
@@ -77,15 +75,18 @@ function Inventory() {
   }, [getInventoryWithDetails, activeTab, searchQuery]);
 
   // Compute equipped items directly from state (avoid stale useMemo)
-  const equippedItems = {};
-  for (const [slot, equipped] of Object.entries(equipment)) {
-    if (equipped && equipped.itemId) {
-      const itemDef = ITEM_DEFINITIONS[equipped.itemId];
-      equippedItems[slot] = { ...equipped, ...itemDef };
-    } else {
-      equippedItems[slot] = null;
+  const equippedItems = useMemo(() => {
+    const items = {};
+    for (const [slot, equipped] of Object.entries(equipment)) {
+      if (equipped && equipped.itemId) {
+        const itemDef = ITEM_DEFINITIONS[equipped.itemId];
+        items[slot] = { ...equipped, ...itemDef };
+      } else {
+        items[slot] = null;
+      }
     }
-  }
+    return items;
+  }, [equipment, ITEM_DEFINITIONS]);
 
   // Đếm số items theo loại
   const itemCounts = useMemo(() => {
@@ -107,7 +108,7 @@ function Inventory() {
 
   // Xử lý sử dụng item
   const handleUseItem = useCallback((itemId, qty = 1) => {
-    const result = useItem(itemId, qty);
+    const result = consumeItem(itemId, qty);
     showNotification(result);
 
     if (result.success) {
@@ -115,7 +116,7 @@ function Inventory() {
       setUseQuantity(1);
       saveToServer();
     }
-  }, [useItem, showNotification, saveToServer]);
+  }, [consumeItem, showNotification, saveToServer]);
 
   // Xử lý tháo trang bị
   const handleUnequip = useCallback((slot) => {

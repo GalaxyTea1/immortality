@@ -107,7 +107,7 @@ const getTierStyle = (tier) => {
 };
 
 function Shop() {
-  const { gameState, buyItem, formatNumber, getRealmName, REALMS, ITEM_DEFINITIONS, saveToServer } = useGame();
+  const { gameState, buyItem, formatNumber, REALMS, ITEM_DEFINITIONS, saveToServer } = useGame();
   const { player, resources } = gameState;
 
   // State

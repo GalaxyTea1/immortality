@@ -1,12 +1,12 @@
 import express from 'express';
 import { createServer } from 'http';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './swagger.js';
-import { pool, testConnection } from './db/index.js';
+import { testConnection } from './db/index.js';
 import { initSocket } from './socket.js';
 import { generalLimiter } from './middleware/rateLimit.js';
+import { CORS_ORIGINS, PORT } from './config.js';
 
 // Import routes
 import characterRoutes from './routes/character.routes.js';
@@ -18,15 +18,11 @@ import skillsRoutes from './routes/skills.routes.js';
 import eventsRoutes from './routes/events.routes.js';
 import shopRoutes from './routes/shop.routes.js';
 
-// Load environment variables
-dotenv.config();
-
 const app = express();
-const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3002', 'http://localhost:3001'],
+  origin: CORS_ORIGINS,
   credentials: true
 }));
 app.use(express.json());
@@ -71,7 +67,7 @@ app.use((req, res) => {
 });
 
 // Error Handler
-app.use((err, req, res, next) => {
+app.use((err, req, res) => {
   console.error('Server Error:', err);
   res.status(500).json({ error: 'Internal server error' });
 });

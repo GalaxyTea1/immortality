@@ -1,18 +1,22 @@
 import express from 'express';
-import { query } from '../db/index.js';
-import { broadcastLeaderboardUpdate, broadcastWorldAnnouncement } from '../socket.js';
+import jwt from 'jsonwebtoken';
+import { query, withTransaction } from '../db/index.js';
+import { broadcastLeaderboardUpdate } from '../socket.js';
 import { validate, updateCharacterSchema } from '../middleware/validation.js';
 import { saveLimiter } from '../middleware/rateLimit.js';
+import { authMiddleware } from '../middleware/auth.middleware.js';
+import { assertCharacterOwner, requireCharacterOwner } from '../middleware/ownership.middleware.js';
+import { JWT_SECRET } from '../config.js';
 
 const router = express.Router();
 
-// GET /api/characters/:userId - Get character info for user
-router.get('/:userId', async (req, res) => {
+// GET /api/characters/:id - Get character info
+router.get('/:id', authMiddleware, requireCharacterOwner('id'), async (req, res) => {
   try {
-    const { userId } = req.params;
+    const { id } = req.params;
     const result = await query(
-      'SELECT * FROM characters WHERE user_id = $1',
-      [userId]
+      'SELECT * FROM characters WHERE id = $1',
+      [id]
     );
 
     if (result.rows.length === 0) {
@@ -27,15 +31,15 @@ router.get('/:userId', async (req, res) => {
 });
 
 // POST /api/characters - Create new character
-router.post('/', async (req, res) => {
+router.post('/', authMiddleware, async (req, res) => {
   try {
-    const { userId, name } = req.body;
+    const { name } = req.body;
 
     const result = await query(
-      `INSERT INTO characters (user_id, name) 
-       VALUES ($1, $2) 
+      `INSERT INTO characters (user_id, name)
+       VALUES ($1, $2)
        RETURNING *`,
-      [userId, name || 'Daoist']
+      [req.user.id, name || 'Daoist']
     );
 
     res.status(201).json(result.rows[0]);
@@ -46,29 +50,10 @@ router.post('/', async (req, res) => {
 });
 
 // PUT /api/characters/:id - Update character (save game)
-router.put('/:id', saveLimiter, validate(updateCharacterSchema), async (req, res) => {
+router.put('/:id', authMiddleware, requireCharacterOwner('id'), saveLimiter, validate(updateCharacterSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const {
-      // ... (omitting lengthy destructuring lines for brevity, assuming tool keeps context or I should be precise if not omitting) 
-      // To allow multiple replacement, I need to match StartLine and EndLine precisely.
-      // I will target the comment first, then key lines.
-      // Actually, I can just replace the whole blocks that have text.
-      // Let's do partial replacement for the big update query block.
-      // Wait, I can't partially match, I need exact TargetContent.
-      // I'll break it down.
-
-      // UPDATE 1: Comment
-      // PUT /api/characters/:id - Cập nhật nhân vật (save game) -> Update character (save game)
-      // UPDATE 2: 404
-      // Không tìm thấy nhân vật -> Character not found
-      // UPDATE 3: 500
-      // Lỗi khi cập nhật nhân vật -> Error updating character
-      // UPDATE 4: 
-      // name, realm_index.... -> (no translation needed)
-
-      // Let's replace the whole route if possible, or key parts.
-      // The route is long. I'll replace top and bottom.
       name,
       realm_index,
       level,
@@ -134,13 +119,7 @@ router.put('/:id', saveLimiter, validate(updateCharacterSchema), async (req, res
       return res.status(404).json({ error: 'Character not found' });
     }
 
-    // Broadcast leaderboard update to all subscribers
-    try {
-      broadcastLeaderboardUpdate();
-    } catch (e) {
-      // Socket not initialized yet — OK
-    }
-
+    broadcastLeaderboardUpdate();
     res.json(result.rows[0]);
   } catch (error) {
     console.error('Error updating character:', error);
@@ -149,27 +128,28 @@ router.put('/:id', saveLimiter, validate(updateCharacterSchema), async (req, res
 });
 
 // POST /api/characters/:id/beacon-save
-// Special endpoint for navigator.sendBeacon() on page unload
-// Token is sent in body (sendBeacon can't set headers)
+// Special endpoint for navigator.sendBeacon() on page unload.
 router.post('/:id/beacon-save', async (req, res) => {
   try {
     const characterId = req.params.id;
     const { token, inventory, equipment, ...characterData } = req.body;
 
-    // Verify JWT from body
     if (!token) {
       return res.status(401).json({ error: 'Token required' });
     }
 
     let decoded;
     try {
-      const jwt = await import('jsonwebtoken');
-      decoded = jwt.default.verify(token, process.env.JWT_SECRET || 'tu_tien_secret_key_2025');
-    } catch (e) {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch {
       return res.status(403).json({ error: 'Invalid token' });
     }
 
-    // Build dynamic SET clause for character data
+    const isOwner = await assertCharacterOwner(decoded.userId, characterId);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'Forbidden character access' });
+    }
+
     const allowedFields = [
       'name', 'realm_index', 'level', 'exp', 'max_exp',
       'spirit_stones', 'hp', 'max_hp', 'attack', 'defense',
@@ -193,40 +173,40 @@ router.post('/:id/beacon-save', async (req, res) => {
       }
     }
 
-    if (updates.length > 0) {
-      updates.push(`updated_at = NOW()`);
-      values.push(characterId);
-      await query(
-        `UPDATE characters SET ${updates.join(', ')} WHERE id = $${paramIndex}`,
-        values
-      );
-    }
+    await withTransaction(async (client) => {
+      if (updates.length > 0) {
+        updates.push('updated_at = NOW()');
+        values.push(characterId);
+        await client.query(
+          `UPDATE characters SET ${updates.join(', ')} WHERE id = $${paramIndex}`,
+          values
+        );
+      }
 
-    // Sync inventory if provided
-    if (Array.isArray(inventory)) {
-      await query('DELETE FROM inventory WHERE character_id = $1', [characterId]);
-      for (const item of inventory) {
-        if (item.itemId && item.quantity > 0) {
-          await query(
-            'INSERT INTO inventory (character_id, item_id, quantity, enhance_level) VALUES ($1, $2, $3, $4)',
-            [characterId, item.itemId, item.quantity, item.enhanceLevel || 0]
-          );
+      if (Array.isArray(inventory)) {
+        await client.query('DELETE FROM inventory WHERE character_id = $1', [characterId]);
+        for (const item of inventory) {
+          if (item.itemId && item.quantity > 0) {
+            await client.query(
+              'INSERT INTO inventory (character_id, item_id, quantity, enhance_level) VALUES ($1, $2, $3, $4)',
+              [characterId, item.itemId, item.quantity, item.enhanceLevel || 0]
+            );
+          }
         }
       }
-    }
 
-    // Sync equipment if provided
-    if (equipment && typeof equipment === 'object') {
-      await query('DELETE FROM equipment WHERE character_id = $1', [characterId]);
-      for (const [slot, data] of Object.entries(equipment)) {
-        if (data && data.itemId) {
-          await query(
-            'INSERT INTO equipment (character_id, slot, item_id, enhance_level) VALUES ($1, $2, $3, $4)',
-            [characterId, slot, data.itemId, data.enhanceLevel || 0]
-          );
+      if (equipment && typeof equipment === 'object') {
+        await client.query('DELETE FROM equipment WHERE character_id = $1', [characterId]);
+        for (const [slot, data] of Object.entries(equipment)) {
+          if (data && data.itemId) {
+            await client.query(
+              'INSERT INTO equipment (character_id, slot, item_id, enhance_level) VALUES ($1, $2, $3, $4)',
+              [characterId, slot, data.itemId, data.enhanceLevel || 0]
+            );
+          }
         }
       }
-    }
+    });
 
     res.json({ saved: true });
   } catch (error) {

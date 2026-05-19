@@ -1,7 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { query } from '../db/index.js';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'tu_tien_secret_key_2024';
+import { JWT_SECRET } from '../config.js';
 
 // Middleware for JWT verification
 export const authMiddleware = async (req, res, next) => {

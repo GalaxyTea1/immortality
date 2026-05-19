@@ -1,5 +1,4 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { useGame } from '../context/GameContext';
 import { useAuth } from '../context/AuthContext';
 import './Layout.css';
 
@@ -15,9 +14,7 @@ const navItems = [
 function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { gameState, formatNumber } = useGame();
   const { user, logout } = useAuth();
-  const { resources } = gameState;
 
   const handleLogout = () => {
     if (window.confirm('Bạn có chắc muốn đăng xuất?')) {

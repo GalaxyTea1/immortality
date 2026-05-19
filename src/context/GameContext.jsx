@@ -123,6 +123,7 @@ const initialState = {
 };
 
 const GameContext = createContext(null);
+const STORAGE_KEY = 'immortality_save';
 
 
 // ==================== SERVER SYNC HELPERS ====================
@@ -141,7 +142,9 @@ const mapServerToGameState = (charData, inventoryData, equipmentData, skillsData
     };
     state.resources = {
       ...initialState.resources,
-      spiritStones: Number(charData.spirit_stones) ?? initialState.resources.spiritStones,
+      spiritStones: charData.spirit_stones !== undefined
+        ? Number(charData.spirit_stones)
+        : initialState.resources.spiritStones,
     };
     state.baseStats = {
       hp: charData.hp ?? initialState.baseStats.hp,
@@ -335,6 +338,14 @@ const mapEquipmentToServer = (equipment) => {
   return result;
 };
 
+export const gameStateTestUtils = {
+  initialState,
+  mapServerToGameState,
+  mapGameStateToServer,
+  mapInventoryToServer,
+  mapEquipmentToServer,
+};
+
 export function GameProvider({ children, characterId }) {
   const [gameState, setGameStateRaw] = useState(initialState);
   const [isServerLoading, setIsServerLoading] = useState(true);
@@ -436,7 +447,7 @@ export function GameProvider({ children, characterId }) {
       const token = api.getToken();
       if (token) {
         navigator.sendBeacon(
-          `http://localhost:3002/api/characters/${cId}/beacon-save`,
+          `${api.API_BASE_URL}/characters/${cId}/beacon-save`,
           new Blob([JSON.stringify({ ...charPayload, token, inventory: invPayload, equipment: equipPayload })], { type: 'application/json' })
         );
       }
@@ -791,7 +802,7 @@ export function GameProvider({ children, characterId }) {
           }
         };
         const newStats = { ...prev.baseStats };
-        for (const [slotKey, equipped] of Object.entries(newEquipment)) {
+        for (const equipped of Object.values(newEquipment)) {
           if (equipped && equipped.itemId) {
             const equipDef = ITEM_DEFINITIONS[equipped.itemId];
             if (equipDef && equipDef.effect) {
@@ -823,7 +834,7 @@ export function GameProvider({ children, characterId }) {
 
         // Recalculate stats from baseStats + equipment
         const newStats = { ...newBaseStats };
-        for (const [slotKey, equipped] of Object.entries(prev.equipment)) {
+        for (const equipped of Object.values(prev.equipment)) {
           if (equipped && equipped.itemId) {
             const equipDef = ITEM_DEFINITIONS[equipped.itemId];
             if (equipDef && equipDef.effect) {
@@ -854,7 +865,7 @@ export function GameProvider({ children, characterId }) {
   const recalculateStats = useCallback(() => {
     setGameState(prev => {
       const newStats = { ...prev.baseStats };
-      for (const [slotKey, equipped] of Object.entries(prev.equipment)) {
+      for (const equipped of Object.values(prev.equipment)) {
         if (equipped && equipped.itemId) {
           const itemDef = ITEM_DEFINITIONS[equipped.itemId];
           if (itemDef && itemDef.effect) {
@@ -894,7 +905,7 @@ export function GameProvider({ children, characterId }) {
 
       const newEquipment = { ...prev.equipment, [slot]: null };
       const newStats = { ...prev.baseStats };
-      for (const [slotKey, equip] of Object.entries(newEquipment)) {
+      for (const equip of Object.values(newEquipment)) {
         if (equip && equip.itemId) {
           const equipDef = ITEM_DEFINITIONS[equip.itemId];
           if (equipDef && equipDef.effect) {
@@ -969,7 +980,7 @@ export function GameProvider({ children, characterId }) {
       const newEquipment = { ...prev.equipment, [slot]: { ...equipped, enhanceLevel: newEnhanceLevel } };
       const newStats = { ...prev.baseStats };
 
-      for (const [slotKey, equip] of Object.entries(newEquipment)) {
+      for (const equip of Object.values(newEquipment)) {
         if (equip && equip.itemId) {
           const equipDef = ITEM_DEFINITIONS[equip.itemId];
           if (equipDef && equipDef.effect) {

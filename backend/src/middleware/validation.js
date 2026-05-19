@@ -77,6 +77,7 @@ export const inventorySyncSchema = Joi.object({
         Joi.object({
             itemId: Joi.string().required(),
             quantity: Joi.number().integer().min(0).required(),
+            enhanceLevel: Joi.number().integer().min(0).default(0),
         })
     ).required(),
 });
@@ -84,6 +85,13 @@ export const inventorySyncSchema = Joi.object({
 export const addItemSchema = Joi.object({
     itemId: Joi.string().required(),
     quantity: Joi.number().integer().min(1).default(1),
+    enhanceLevel: Joi.number().integer().min(0).default(0),
+});
+
+export const removeItemSchema = Joi.object({
+    itemId: Joi.string().required(),
+    quantity: Joi.number().integer().min(1).default(1),
+    enhanceLevel: Joi.number().integer().min(0).default(0),
 });
 
 // ==================== EQUIPMENT SCHEMAS ====================

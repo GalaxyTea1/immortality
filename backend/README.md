@@ -1,79 +1,70 @@
-## Cài đặt
+# Immortality Backend
 
-### 1. Cài đặt dependencies
+Backend Express + PostgreSQL + Socket.IO cho game Immortality.
+
+## Cai dat
 
 ```bash
-cd backend
 npm install
-```
-
-### 2. Cấu hình Database
-
-1. Tạo file `.env` từ template:
-
-```bash
 cp .env.example .env
 ```
 
-2. Cập nhật thông tin database trong `.env`:
+Sua `backend/.env`:
 
-```
+```env
+PORT=3002
+CORS_ORIGINS=http://localhost:5173,http://localhost:3002
 DB_HOST=localhost
 DB_PORT=5432
 DB_USER=postgres
 DB_PASSWORD=your_password
 DB_NAME=immortality_db
+JWT_SECRET=change_me_in_local_env
+JWT_EXPIRES_IN=7d
 ```
 
-3. Tạo database và chạy schema:
-
-```sql
-CREATE DATABASE immortality_db;
-```
-
-4. Chạy file schema để tạo các bảng:
+## Database
 
 ```bash
+createdb immortality_db
 psql -U postgres -d immortality_db -f src/db/schema.sql
 ```
 
-### 3. Chạy server
+Neu `psql` da cau hinh san user/database local:
 
-**Development mode (với hot-reload):**
+```bash
+npm run db:schema
+```
+
+## Chay server
 
 ```bash
 npm run dev
 ```
 
-**Production mode:**
+Production/local simple:
 
 ```bash
 npm start
 ```
 
-Server sẽ chạy tại: `http://localhost:3001`
+Server mac dinh: `http://localhost:3002`
 
-## API Endpoints
+## Endpoint chinh
 
-### Health Check
+- `GET /api/health`
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `GET /api/characters/:id`
+- `PUT /api/characters/:id`
+- `GET /api/inventory/:characterId`
+- `PUT /api/inventory/:characterId/sync`
+- `GET /api/equipment/:characterId`
+- `PUT /api/equipment/:characterId/sync`
+- `GET /api/leaderboard`
+- `GET /api/shop/items`
+- `POST /api/shop/buy`
+- `POST /api/shop/sell`
 
-- `GET /api/health` - Kiểm tra trạng thái server
-
-### Characters
-
-- `GET /api/characters/:userId` - Lấy thông tin nhân vật
-- `POST /api/characters` - Tạo nhân vật mới
-- `PUT /api/characters/:id` - Cập nhật nhân vật (save game)
-
-### Leaderboard
-
-- `GET /api/leaderboard` - Bảng xếp hạng tu luyện
-- `GET /api/leaderboard/power` - Xếp hạng lực chiến
-- `GET /api/leaderboard/reputation` - Xếp hạng danh vọng
-
-### Inventory
-
-- `GET /api/inventory/:characterId` - Lấy inventory
-- `POST /api/inventory/:characterId/add` - Thêm vật phẩm
-- `POST /api/inventory/:characterId/remove` - Xóa/giảm vật phẩm
-- `PUT /api/inventory/:characterId/sync` - Đồng bộ toàn bộ inventory
+Swagger UI: `/api-docs`

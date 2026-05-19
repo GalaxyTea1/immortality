@@ -1,11 +1,14 @@
 import express from 'express';
 import { query } from '../db/index.js';
-import { authMiddleware, optionalAuth } from '../middleware/auth.middleware.js';
+import { authMiddleware } from '../middleware/auth.middleware.js';
+import { requireCharacterOwner } from '../middleware/ownership.middleware.js';
 
 const router = express.Router();
 
+router.use('/:characterId', authMiddleware, requireCharacterOwner('characterId'));
+
 // GET /api/events/:characterId - Get event logs
-router.get('/:characterId', optionalAuth, async (req, res) => {
+router.get('/:characterId', async (req, res) => {
     try {
         const { characterId } = req.params;
         const { limit = 20, offset = 0 } = req.query;
@@ -19,12 +22,14 @@ router.get('/:characterId', optionalAuth, async (req, res) => {
             [characterId, parseInt(limit), parseInt(offset)]
         );
 
-        res.json(result.rows.map(row => ({
+        const events = result.rows.map(row => ({
             id: row.id,
             type: row.event_type,
             message: row.message,
             time: row.created_at
-        })));
+        }));
+
+        res.json({ events });
     } catch (error) {
         console.error('Error fetching events:', error);
         res.status(500).json({ error: 'Error fetching event logs' });
@@ -32,7 +37,7 @@ router.get('/:characterId', optionalAuth, async (req, res) => {
 });
 
 // POST /api/events/:characterId - Add event log
-router.post('/:characterId', authMiddleware, async (req, res) => {
+router.post('/:characterId', async (req, res) => {
     try {
         const { characterId } = req.params;
         const { type, message } = req.body;
@@ -69,7 +74,7 @@ router.post('/:characterId', authMiddleware, async (req, res) => {
 });
 
 // DELETE /api/events/:characterId/clear - Clear old logs (keep latest 100)
-router.delete('/:characterId/clear', authMiddleware, async (req, res) => {
+router.delete('/:characterId/clear', async (req, res) => {
     try {
         const { characterId } = req.params;
 

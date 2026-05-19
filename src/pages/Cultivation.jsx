@@ -8,7 +8,6 @@ function Cultivation() {
   const {
     gameState,
     addExp,
-    getRealmName,
     formatNumber,
     REALMS,
     ALCHEMY_RECIPES,

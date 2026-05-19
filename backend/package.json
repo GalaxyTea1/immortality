@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "dev": "nodemon src/index.js",
+    "db:schema": "psql -d immortality_db -f src/db/schema.sql"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

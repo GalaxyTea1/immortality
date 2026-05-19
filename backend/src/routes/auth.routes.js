@@ -5,9 +5,8 @@ import { query } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { validate, registerSchema, loginSchema } from '../middleware/validation.js';
 import { authLimiter } from '../middleware/rateLimit.js';
+import { JWT_EXPIRES_IN, JWT_SECRET } from '../config.js';
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'tu_tien_secret_key_2024';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
 // POST /api/auth/register - Register account
 router.post('/register', authLimiter, validate(registerSchema), async (req, res) => {

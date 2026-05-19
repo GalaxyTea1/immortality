@@ -44,7 +44,7 @@ const news = [
 ];
 
 function Leaderboard() {
-  const [announcements, setAnnouncements] = useState([]);
+  const [, setAnnouncements] = useState([]);
 
   // Listen for real-time updates via WebSocket
   useEffect(() => {

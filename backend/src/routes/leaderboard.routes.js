@@ -28,7 +28,7 @@ router.get('/', async (req, res) => {
     );
 
     res.json({
-      data: result.rows,
+      leaderboard: result.rows,
       total: result.rowCount,
       limit: parseInt(limit),
       offset: parseInt(offset)
@@ -64,7 +64,7 @@ router.get('/power', async (req, res) => {
       [parseInt(limit)]
     );
 
-    res.json(result.rows);
+    res.json({ leaderboard: result.rows, total: result.rowCount, limit: parseInt(limit) });
   } catch (error) {
     console.error('Error fetching power leaderboard:', error);
     res.status(500).json({ error: 'Error fetching power leaderboard' });
@@ -92,7 +92,7 @@ router.get('/reputation', async (req, res) => {
       [parseInt(limit)]
     );
 
-    res.json(result.rows);
+    res.json({ leaderboard: result.rows, total: result.rowCount, limit: parseInt(limit) });
   } catch (error) {
     console.error('Error fetching reputation leaderboard:', error);
     res.status(500).json({ error: 'Error fetching reputation leaderboard' });

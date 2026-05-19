@@ -1,11 +1,14 @@
 import express from 'express';
-import { query } from '../db/index.js';
-import { authMiddleware, optionalAuth } from '../middleware/auth.middleware.js';
+import { query, withTransaction } from '../db/index.js';
+import { authMiddleware } from '../middleware/auth.middleware.js';
+import { requireCharacterOwner } from '../middleware/ownership.middleware.js';
 
 const router = express.Router();
 
+router.use('/:characterId', authMiddleware, requireCharacterOwner('characterId'));
+
 // GET /api/skills/:characterId - Get learned skills list
-router.get('/:characterId', optionalAuth, async (req, res) => {
+router.get('/:characterId', async (req, res) => {
     try {
         const { characterId } = req.params;
 
@@ -28,7 +31,7 @@ router.get('/:characterId', optionalAuth, async (req, res) => {
 });
 
 // POST /api/skills/:characterId/learn - Learn new skill from book
-router.post('/:characterId/learn', authMiddleware, async (req, res) => {
+router.post('/:characterId/learn', async (req, res) => {
     try {
         const { characterId } = req.params;
         const { skillId, bookItemId } = req.body;
@@ -37,46 +40,50 @@ router.post('/:characterId/learn', authMiddleware, async (req, res) => {
             return res.status(400).json({ error: 'Missing skillId' });
         }
 
-        // Check if skill already learned
-        const existingSkill = await query(
-            'SELECT * FROM learned_skills WHERE character_id = $1 AND skill_id = $2',
-            [characterId, skillId]
-        );
-
-        if (existingSkill.rows.length > 0) {
-            return res.status(400).json({ error: 'Skill already learned!' });
-        }
-
-        // If bookItemId exists, check and remove book from inventory
-        if (bookItemId) {
-            const bookResult = await query(
-                'SELECT quantity FROM inventory WHERE character_id = $1 AND item_id = $2',
-                [characterId, bookItemId]
+        const result = await withTransaction(async (client) => {
+            const existingSkill = await client.query(
+                'SELECT * FROM learned_skills WHERE character_id = $1 AND skill_id = $2',
+                [characterId, skillId]
             );
 
-            if (bookResult.rows.length === 0 || bookResult.rows[0].quantity < 1) {
-                return res.status(400).json({ error: 'Book not found in inventory!' });
+            if (existingSkill.rows.length > 0) {
+                const error = new Error('Skill already learned!');
+                error.status = 400;
+                throw error;
             }
 
-            // Remove book from inventory
-            await query(
-                'UPDATE inventory SET quantity = quantity - 1 WHERE character_id = $1 AND item_id = $2',
-                [characterId, bookItemId]
-            );
+            if (bookItemId) {
+                const bookResult = await client.query(
+                    `SELECT id, quantity FROM inventory
+                     WHERE character_id = $1 AND item_id = $2 AND enhance_level = 0
+                     FOR UPDATE`,
+                    [characterId, bookItemId]
+                );
 
-            await query(
-                'DELETE FROM inventory WHERE character_id = $1 AND quantity <= 0',
-                [characterId]
-            );
-        }
+                if (bookResult.rows.length === 0 || bookResult.rows[0].quantity < 1) {
+                    const error = new Error('Book not found in inventory!');
+                    error.status = 400;
+                    throw error;
+                }
 
-        // Add skill to learned_skills
-        const result = await query(
-            `INSERT INTO learned_skills (character_id, skill_id)
-       VALUES ($1, $2)
-       RETURNING *`,
-            [characterId, skillId]
-        );
+                await client.query(
+                    'UPDATE inventory SET quantity = quantity - 1 WHERE id = $1',
+                    [bookResult.rows[0].id]
+                );
+
+                await client.query(
+                    'DELETE FROM inventory WHERE character_id = $1 AND quantity <= 0',
+                    [characterId]
+                );
+            }
+
+            return client.query(
+                `INSERT INTO learned_skills (character_id, skill_id)
+                 VALUES ($1, $2)
+                 RETURNING *`,
+                [characterId, skillId]
+            );
+        });
 
         res.json({
             message: 'Skill learned successfully!',
@@ -86,6 +93,9 @@ router.post('/:characterId/learn', authMiddleware, async (req, res) => {
             }
         });
     } catch (error) {
+        if (error.status) {
+            return res.status(error.status).json({ error: error.message });
+        }
         console.error('Error learning skill:', error);
         res.status(500).json({ error: 'Error learning skill' });
     }
