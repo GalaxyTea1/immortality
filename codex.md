@@ -190,6 +190,7 @@ Nên luôn cấu hình `JWT_SECRET` trong `.env`, và tốt nhất sửa fallbac
 - Các route character/inventory/equipment/events/skills/shop đã có auth ownership check theo character.
 - Một số mutation nhiều query đã được bọc transaction: inventory remove/sync, equipment equip/unequip/upgrade/sync, shop buy/sell, skill learn, beacon-save.
 - Shop frontend/backend đã dùng chung `shared/shopCatalog.js` cho danh sách item bán, category, tier và giá.
+- Đã thêm `npm test` với test tối thiểu cho mapper state và shop catalog contract.
 - Đã thêm `.env.example`, `backend/.env.example`, README root/backend mới.
 
 1. Text tiếng Việt bị lỗi encoding ở nhiều file.
@@ -217,7 +218,6 @@ Nên luôn cấu hình `JWT_SECRET` trong `.env`, và tốt nhất sửa fallbac
 Ưu tiên trung hạn:
 
 - Tách `GameContext.jsx` thành module domain nhỏ.
-- Thêm tests tối thiểu cho mapper state và API contract.
 - Đưa game calculations quan trọng về backend nếu cần chống gian lận.
 
 ## Quy ước khi code tiếp
