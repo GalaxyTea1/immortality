@@ -162,6 +162,7 @@ function Cultivation() {
     recoverFoundation,
     suppressInnerDemon,
     innerDemon.value,
+    stats.cultivationSpeed,
   ]);
 
   // Xử lý luyện đan

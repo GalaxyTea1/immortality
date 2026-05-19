@@ -58,6 +58,9 @@ JWT_EXPIRES_IN=7d
 - `src/context/GameContext.jsx`: lõi game client-side: state, load/save server, tu luyện, đột phá, thiền, inventory, equipment, explore, reputation, alchemy.
 - `src/context/gameStateMappers.js`: mapper giữa dữ liệu backend và state frontend, gồm character/inventory/equipment payload.
 - `src/context/useGameServerSync.js`: hook riêng cho load server, debounce save, và beacon-save khi unload.
+- `src/context/useGameProgression.js`: resource, EXP/level, độ kiếp, thiền định.
+- `src/context/useGameInventoryEquipment.js`: inventory, dùng item, equipment, cường hóa, shop helper.
+- `src/context/useGameWorldSystems.js`: event, exploration, quest, foundation/inner demon, reputation, alchemy.
 - `src/services/api.js`: wrapper API dùng `VITE_API_BASE_URL`, fallback `http://localhost:3002/api`.
 - `src/services/socket.js`: Socket.IO client dùng `VITE_SOCKET_URL`, fallback `http://localhost:3002`.
 - `src/data/*.js`: dữ liệu tĩnh cho items, realms, recipes, zones.
