@@ -213,11 +213,12 @@ export const equipment = {
      * @param {number} characterId 
      * @param {string} slot 
      * @param {string} itemId 
+     * @param {number} enhanceLevel
      */
-    equip: async (characterId, slot, itemId) => {
+    equip: async (characterId, slot, itemId, enhanceLevel = 0) => {
         return authFetch(`/equipment/${characterId}/equip`, {
             method: 'POST',
-            body: JSON.stringify({ slot, itemId }),
+            body: JSON.stringify({ slot, itemId, enhanceLevel }),
         });
     },
 
@@ -228,6 +229,18 @@ export const equipment = {
      */
     unequip: async (characterId, slot) => {
         return authFetch(`/equipment/${characterId}/unequip`, {
+            method: 'POST',
+            body: JSON.stringify({ slot }),
+        });
+    },
+
+    /**
+     * upgrade equipped item
+     * @param {number} characterId
+     * @param {string} slot
+     */
+    upgrade: async (characterId, slot) => {
+        return authFetch(`/equipment/${characterId}/upgrade`, {
             method: 'POST',
             body: JSON.stringify({ slot }),
         });

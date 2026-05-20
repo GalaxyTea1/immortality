@@ -191,6 +191,7 @@ Nên luôn cấu hình `JWT_SECRET` trong `.env`, và tốt nhất sửa fallbac
 - Một số mutation nhiều query đã được bọc transaction: inventory remove/sync, equipment equip/unequip/upgrade/sync, shop buy/sell, skill learn, beacon-save.
 - Shop frontend/backend đã dùng chung `shared/shopCatalog.js` cho danh sách item bán, category, tier và giá.
 - Shop purchase trên frontend đã gọi backend `POST /api/shop/buy` khi có `characterId`, sau đó reload state từ server thay vì tự tính local.
+- Inventory equipment actions đã gọi backend `equip`, `unequip`, `upgrade` khi có `characterId`, sau đó reload state từ server.
 - Đã thêm `npm test` với test tối thiểu cho mapper state và shop catalog contract.
 - Đã thêm `.env.example`, `backend/.env.example`, README root/backend mới.
 

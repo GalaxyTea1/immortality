@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
+import { equipment as equipmentApi } from '../services/api.js';
 import './Inventory.css';
 
 // Định nghĩa 6 slots trang bị
@@ -34,11 +35,13 @@ const TABS = [
 function Inventory() {
   const {
     gameState,
+    characterId,
     getInventoryWithDetails,
     useItem: consumeItem,
     unequipItem,
     upgradeEquipment,
     formatNumber,
+    loadFromServer,
     REALMS,
     saveToServer,
     isServerLoading,
@@ -54,6 +57,7 @@ function Inventory() {
   const [notification, setNotification] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [useQuantity, setUseQuantity] = useState(1);
+  const [equipmentAction, setEquipmentAction] = useState(null);
 
   // Lấy inventory với details
   const inventoryItems = useMemo(() => {
@@ -107,7 +111,27 @@ function Inventory() {
   }, []);
 
   // Xử lý sử dụng item
-  const handleUseItem = useCallback((itemId, qty = 1) => {
+  const handleUseItem = useCallback(async (itemId, qty = 1) => {
+    const item = getInventoryWithDetails().find(i =>
+      (i.uid && i.uid === itemId) || (!i.uid && i.itemId === itemId)
+    );
+
+    if (characterId && item?.type === 'equipment') {
+      setEquipmentAction(`equip:${itemId}`);
+      try {
+        await equipmentApi.equip(characterId, item.slot, item.itemId, item.enhanceLevel || 0);
+        await loadFromServer();
+        showNotification({ success: true, message: `Đã trang bị ${item.name}!` });
+        setSelectedItem(null);
+        setUseQuantity(1);
+      } catch (error) {
+        showNotification({ success: false, message: error.message || 'Không thể trang bị vật phẩm.' });
+      } finally {
+        setEquipmentAction(null);
+      }
+      return;
+    }
+
     const result = consumeItem(itemId, qty);
     showNotification(result);
 
@@ -116,22 +140,54 @@ function Inventory() {
       setUseQuantity(1);
       saveToServer();
     }
-  }, [consumeItem, showNotification, saveToServer]);
+  }, [characterId, consumeItem, getInventoryWithDetails, loadFromServer, showNotification, saveToServer]);
 
   // Xử lý tháo trang bị
-  const handleUnequip = useCallback((slot) => {
+  const handleUnequip = useCallback(async (slot) => {
+    if (characterId) {
+      setEquipmentAction(`unequip:${slot}`);
+      try {
+        await equipmentApi.unequip(characterId, slot);
+        await loadFromServer();
+        showNotification({ success: true, message: 'Đã tháo trang bị!' });
+        setSelectedSlot(null);
+      } catch (error) {
+        showNotification({ success: false, message: error.message || 'Không thể tháo trang bị.' });
+      } finally {
+        setEquipmentAction(null);
+      }
+      return;
+    }
+
     const result = unequipItem(slot);
     showNotification(result);
     setSelectedSlot(null);
     if (result.success) saveToServer();
-  }, [unequipItem, showNotification, saveToServer]);
+  }, [characterId, loadFromServer, unequipItem, showNotification, saveToServer]);
 
   // Xử lý cường hóa
-  const handleUpgrade = useCallback((slot) => {
+  const handleUpgrade = useCallback(async (slot) => {
+    if (characterId) {
+      setEquipmentAction(`upgrade:${slot}`);
+      try {
+        const result = await equipmentApi.upgrade(characterId, slot);
+        await loadFromServer();
+        showNotification({
+          success: true,
+          message: result.message || 'Cường hóa trang bị thành công!',
+        });
+      } catch (error) {
+        showNotification({ success: false, message: error.message || 'Không thể cường hóa trang bị.' });
+      } finally {
+        setEquipmentAction(null);
+      }
+      return;
+    }
+
     const result = upgradeEquipment(slot);
     showNotification(result);
     if (result.success) saveToServer();
-  }, [upgradeEquipment, showNotification, saveToServer]);
+  }, [characterId, loadFromServer, upgradeEquipment, showNotification, saveToServer]);
 
   // Tính toán tiến độ tu luyện
   const currentRealm = REALMS[player.realmIndex];
@@ -307,12 +363,22 @@ function Inventory() {
                     <span className="enhance-level">+{equippedItems[selectedSlot].enhanceLevel || 0}</span>
                   </p>
                   <div className="slot-btns">
-                    <button className="slot-btn unequip" onClick={() => handleUnequip(selectedSlot)}>
+                    <button
+                      className="slot-btn unequip"
+                      onClick={() => handleUnequip(selectedSlot)}
+                      disabled={equipmentAction === `unequip:${selectedSlot}`}
+                    >
                       <span className="material-symbols-outlined">close</span>
                       Tháo
                     </button>
-                    <button className="slot-btn upgrade" onClick={() => handleUpgrade(selectedSlot)}>
-                      <span className="material-symbols-outlined">upgrade</span>
+                    <button
+                      className="slot-btn upgrade"
+                      onClick={() => handleUpgrade(selectedSlot)}
+                      disabled={equipmentAction === `upgrade:${selectedSlot}`}
+                    >
+                      <span className="material-symbols-outlined">
+                        {equipmentAction === `upgrade:${selectedSlot}` ? 'sync' : 'upgrade'}
+                      </span>
                       Cường Hóa
                     </button>
                   </div>
@@ -487,9 +553,10 @@ function Inventory() {
                         <button
                           className="action-btn use-btn"
                           onClick={() => handleUseItem(itemKey, item.type === 'pill' ? useQuantity : 1)}
+                          disabled={equipmentAction === `equip:${itemKey}`}
                         >
                           <span className="material-symbols-outlined">
-                            {item.type === 'equipment' ? 'checkroom' : item.type === 'book' ? 'menu_book' : 'play_arrow'}
+                            {equipmentAction === `equip:${itemKey}` ? 'sync' : item.type === 'equipment' ? 'checkroom' : item.type === 'book' ? 'menu_book' : 'play_arrow'}
                           </span>
                           {item.type === 'equipment' ? 'Trang Bị' : item.type === 'book' ? 'Học' : 'Sử dụng'}
                         </button>
