@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
+import { world as worldApi } from '../services/api.js';
 import './World.css';
 
 const getDangerStyle = (danger) => {
@@ -33,8 +34,11 @@ const REFRESH_COST = 5000;
 function World() {
   const {
     gameState,
+    cancelPendingSave,
+    characterId,
     setGameState,
     formatNumber,
+    loadFromServer,
     REALMS,
     WORLD_ZONES,
     exploreLocation,
@@ -62,14 +66,26 @@ function World() {
 
     setIsExploring(true);
 
-    setTimeout(() => {
-      const result = exploreLocation(zoneId);
+    setTimeout(async () => {
+      let result;
+      try {
+        if (characterId) {
+          cancelPendingSave();
+          result = await worldApi.explore(characterId, zoneId);
+          await loadFromServer();
+        } else {
+          result = exploreLocation(zoneId);
+          saveToServer();
+        }
+      } catch (error) {
+        result = { success: false, message: error.message || 'Không thể khám phá khu vực.' };
+      }
+
       setNotification(result);
       setIsExploring(false);
-      saveToServer();
       setTimeout(() => setNotification(null), 4000);
     }, 1000);
-  }, [isExploring, exploreLocation, saveToServer]);
+  }, [cancelPendingSave, characterId, isExploring, exploreLocation, loadFromServer, saveToServer]);
 
   const handleRefreshExploration = useCallback(() => {
     if (resources.spiritStones < REFRESH_COST) {

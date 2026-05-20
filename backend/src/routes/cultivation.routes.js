@@ -7,7 +7,12 @@ import {
 import { withTransaction } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireCharacterOwner } from '../middleware/ownership.middleware.js';
-import { breakthroughSchema, cultivateSchema, validate } from '../middleware/validation.js';
+import {
+  breakthroughSchema,
+  cultivateSchema,
+  meditationSessionSchema,
+  validate,
+} from '../middleware/validation.js';
 
 const router = express.Router();
 
@@ -75,6 +80,81 @@ router.post('/:characterId/cultivate', validate(cultivateSchema), async (req, re
     }
     console.error('Error cultivating:', error);
     res.status(500).json({ error: 'Error cultivating' });
+  }
+});
+
+router.post('/:characterId/meditation-session', validate(meditationSessionSchema), async (req, res) => {
+  try {
+    const { characterId } = req.params;
+    const { durationSeconds } = req.body;
+    const ticks = Math.min(300, Math.max(1, Math.floor(durationSeconds)));
+
+    const result = await withTransaction(async (client) => {
+      const characterResult = await client.query(
+        `SELECT realm_index, level, exp, max_exp, foundation_value, foundation_max,
+                inner_demon_value, inner_demon_max, cultivation_speed
+         FROM characters
+         WHERE id = $1
+         FOR UPDATE`,
+        [characterId]
+      );
+
+      if (characterResult.rows.length === 0) {
+        const error = new Error('Character not found');
+        error.status = 404;
+        throw error;
+      }
+
+      const character = characterResult.rows[0];
+      const speedMultiplier = Number(character.cultivation_speed) || 1;
+      let expGain = 0;
+      let foundationRecovered = 0;
+      let demonSuppressed = 0;
+
+      for (let i = 0; i < ticks; i += 1) {
+        expGain += Math.max(1, Math.floor((Math.floor(Math.random() * 3) + 1) * speedMultiplier));
+        if (Math.random() < 0.2) foundationRecovered += 1;
+        if (Math.random() < 0.1) demonSuppressed += 1;
+      }
+
+      const nextProgress = calculateExpProgress({
+        realmIndex: character.realm_index,
+        level: character.level,
+        exp: character.exp,
+        maxExp: character.max_exp,
+      }, expGain);
+
+      const nextFoundation = Math.min(
+        Number(character.foundation_max) || 100,
+        Number(character.foundation_value) + foundationRecovered
+      );
+      const nextDemon = Math.max(0, Number(character.inner_demon_value) - demonSuppressed);
+
+      await client.query(
+        `UPDATE characters
+         SET exp = $2, level = $3, max_exp = $4,
+             foundation_value = $5, inner_demon_value = $6,
+             last_meditation_time = NOW()
+         WHERE id = $1`,
+        [characterId, nextProgress.exp, nextProgress.level, nextProgress.maxExp, nextFoundation, nextDemon]
+      );
+
+      return {
+        ticks,
+        expGain,
+        foundationRecovered,
+        demonSuppressed,
+        message: `Meditation completed! +${expGain} EXP`,
+      };
+    });
+
+    res.json(result);
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ error: error.message });
+    }
+    console.error('Error completing meditation session:', error);
+    res.status(500).json({ error: 'Error completing meditation session' });
   }
 });
 

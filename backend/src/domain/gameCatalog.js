@@ -1,5 +1,7 @@
 import { ITEM_DEFINITIONS } from '../../../src/data/items.js';
 import { REALMS, TRIBULATION_REQUIREMENTS } from '../../../src/data/realms.js';
+import { ALCHEMY_RECIPES } from '../../../src/data/recipes.js';
+import { WORLD_ZONES, calculateZoneRewards, canEnterZone } from '../../../src/data/zones.js';
 
 export const VALID_EQUIPMENT_SLOTS = new Set([
   'spirit',
@@ -21,7 +23,14 @@ const STAT_COLUMNS = {
 };
 
 export const getItemDefinition = (itemId) => ITEM_DEFINITIONS[itemId] || null;
-export { REALMS, TRIBULATION_REQUIREMENTS };
+export {
+  ALCHEMY_RECIPES,
+  REALMS,
+  TRIBULATION_REQUIREMENTS,
+  WORLD_ZONES,
+  calculateZoneRewards,
+  canEnterZone,
+};
 
 export const assertKnownItem = (itemId) => {
   const itemDef = getItemDefinition(itemId);
@@ -102,4 +111,21 @@ export const buildStatIncrementFragments = (effect = {}) => {
   }
 
   return { fragments, values };
+};
+
+export const getReputationTitle = (points) => {
+  const titles = [
+    { level: 1, minPoints: 0, title: 'Nameless' },
+    { level: 2, minPoints: 100, title: 'Newcomer' },
+    { level: 3, minPoints: 300, title: 'Known Cultivator' },
+    { level: 4, minPoints: 600, title: 'Regional Name' },
+    { level: 5, minPoints: 1000, title: 'Storm Figure' },
+    { level: 6, minPoints: 2000, title: 'Grandmaster' },
+    { level: 7, minPoints: 5000, title: 'Peerless' },
+    { level: 8, minPoints: 10000, title: 'Legendary' },
+  ];
+
+  return titles.reduce((current, title) => (
+    points >= title.minPoints ? title : current
+  ), titles[0]);
 };

@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useGame } from "../context/GameContext";
-import { cultivation as cultivationApi } from "../services/api.js";
+import { alchemy as alchemyApi, cultivation as cultivationApi } from "../services/api.js";
 import "./Cultivation.css";
 
 function Cultivation() {
@@ -48,6 +48,7 @@ function Cultivation() {
   // Modal luyện đan
   const [showAlchemyModal, setShowAlchemyModal] = useState(false);
   const [alchemyNotification, setAlchemyNotification] = useState(null);
+  const [meditationStartedAt, setMeditationStartedAt] = useState(null);
 
   // Modal độ kiếp
   const [showBreakthroughModal, setShowBreakthroughModal] = useState(false);
@@ -159,19 +160,41 @@ function Cultivation() {
   const handleMeditation = useCallback(() => {
     setIsMeditating((prev) => !prev);
     if (!isMeditating) {
+      setMeditationStartedAt(Date.now());
       addLog("Bắt đầu thiền định...", "primary");
       addEvent("info", "Bắt đầu thiền định");
     } else {
       addLog("Kết thúc thiền định.", "");
-      saveToServer();
+      if (characterId && meditationStartedAt) {
+        const durationSeconds = Math.max(1, Math.floor((Date.now() - meditationStartedAt) / 1000));
+        cancelPendingSave();
+        cultivationApi.completeMeditation(characterId, durationSeconds)
+          .then((result) => {
+            addLog(`<span class="text-success">${result.message}</span>`, "success");
+            return loadFromServer();
+          })
+          .catch((error) => {
+            addLog(`<span class="text-danger">${error.message || "Thiền định thất bại."}</span>`, "danger");
+          });
+      } else {
+        saveToServer();
+      }
+      setMeditationStartedAt(null);
     }
-  }, [isMeditating, addLog, addEvent, saveToServer]);
+  }, [cancelPendingSave, characterId, isMeditating, meditationStartedAt, addLog, addEvent, loadFromServer, saveToServer]);
 
   // Auto tu luyện khi thiền định
   useEffect(() => {
     if (!isMeditating) return;
 
     const interval = setInterval(() => {
+      if (characterId) {
+        if (Math.random() < 0.1) {
+          addLog("Đang nhập định, linh khí lưu chuyển quanh thân...", "primary");
+        }
+        return;
+      }
+
       const expGain = (Math.floor(Math.random() * 3) + 1) * stats.cultivationSpeed.toFixed(1);
       addExp(expGain);
 
@@ -197,6 +220,7 @@ function Cultivation() {
     return () => clearInterval(interval);
   }, [
     isMeditating,
+    characterId,
     addExp,
     addLog,
     recoverFoundation,
@@ -207,8 +231,20 @@ function Cultivation() {
 
   // Xử lý luyện đan
   const handleCraft = useCallback(
-    (recipeId) => {
-      const result = craftPill(recipeId);
+    async (recipeId) => {
+      let result;
+      if (characterId) {
+        try {
+          cancelPendingSave();
+          result = await alchemyApi.craft(characterId, recipeId);
+          await loadFromServer();
+        } catch (error) {
+          result = { success: false, message: error.message || "Luyện đan thất bại!" };
+        }
+      } else {
+        result = craftPill(recipeId);
+      }
+
       setAlchemyNotification(result);
       if (result.success) {
         addLog(
@@ -221,10 +257,10 @@ function Cultivation() {
           "danger"
         );
       }
-      saveToServer();
+      if (!characterId) saveToServer();
       setTimeout(() => setAlchemyNotification(null), 3000);
     },
-    [craftPill, addLog, ALCHEMY_RECIPES, saveToServer]
+    [cancelPendingSave, characterId, craftPill, addLog, ALCHEMY_RECIPES, loadFromServer, saveToServer]
   );
 
   // Tính toán tiến độ

@@ -114,8 +114,22 @@ export const cultivateSchema = Joi.object({
     mode: Joi.string().valid('manual', 'meditation').default('manual'),
 });
 
+export const meditationSessionSchema = Joi.object({
+    durationSeconds: Joi.number().integer().min(1).max(3600).required(),
+});
+
 export const breakthroughSchema = Joi.object({
     usePill: Joi.boolean().default(false),
+});
+
+// ==================== WORLD / ALCHEMY SCHEMAS ====================
+
+export const exploreSchema = Joi.object({
+    zoneId: Joi.string().required(),
+});
+
+export const craftPillSchema = Joi.object({
+    recipeId: Joi.string().required(),
 });
 
 // ==================== VALIDATION MIDDLEWARE ====================

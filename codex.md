@@ -195,6 +195,7 @@ Nên luôn cấu hình `JWT_SECRET` trong `.env`, và tốt nhất sửa fallbac
 - Backend đã validate item/equipment bằng item definitions chung; inventory use pill/book đã chạy qua backend transaction khi có `characterId`.
 - Server sync có `cancelPendingSave()` để tránh autosave cũ đè lên mutation backend vừa thực hiện.
 - Manual cultivation và breakthrough đã có backend route `POST /api/cultivation/:characterId/cultivate|breakthrough`; frontend dùng route này khi có `characterId`.
+- Meditation session, world exploration và alchemy craft đã có backend action route, frontend gọi backend khi có `characterId` rồi reload state.
 - Đã thêm `npm test` với test tối thiểu cho mapper state và shop catalog contract.
 - Đã thêm `.env.example`, `backend/.env.example`, README root/backend mới.
 

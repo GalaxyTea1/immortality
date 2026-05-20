@@ -18,6 +18,8 @@ import skillsRoutes from './routes/skills.routes.js';
 import eventsRoutes from './routes/events.routes.js';
 import shopRoutes from './routes/shop.routes.js';
 import cultivationRoutes from './routes/cultivation.routes.js';
+import worldRoutes from './routes/world.routes.js';
+import alchemyRoutes from './routes/alchemy.routes.js';
 
 const app = express();
 
@@ -62,6 +64,8 @@ app.use('/api/skills', skillsRoutes);
 app.use('/api/events', eventsRoutes);
 app.use('/api/shop', shopRoutes);
 app.use('/api/cultivation', cultivationRoutes);
+app.use('/api/world', worldRoutes);
+app.use('/api/alchemy', alchemyRoutes);
 
 // 404 Handler
 app.use((req, res) => {

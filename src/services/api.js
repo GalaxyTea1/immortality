@@ -420,6 +420,50 @@ export const cultivation = {
             body: JSON.stringify({ usePill }),
         });
     },
+
+    /**
+     * complete a batched meditation session
+     * @param {number} characterId
+     * @param {number} durationSeconds
+     */
+    completeMeditation: async (characterId, durationSeconds) => {
+        return authFetch(`/cultivation/${characterId}/meditation-session`, {
+            method: 'POST',
+            body: JSON.stringify({ durationSeconds }),
+        });
+    },
+};
+
+// ==================== WORLD API ====================
+
+export const world = {
+    /**
+     * explore a world zone
+     * @param {number} characterId
+     * @param {string} zoneId
+     */
+    explore: async (characterId, zoneId) => {
+        return authFetch(`/world/${characterId}/explore`, {
+            method: 'POST',
+            body: JSON.stringify({ zoneId }),
+        });
+    },
+};
+
+// ==================== ALCHEMY API ====================
+
+export const alchemy = {
+    /**
+     * craft a pill by recipe id
+     * @param {number} characterId
+     * @param {string} recipeId
+     */
+    craft: async (characterId, recipeId) => {
+        return authFetch(`/alchemy/${characterId}/craft`, {
+            method: 'POST',
+            body: JSON.stringify({ recipeId }),
+        });
+    },
 };
 
 // ==================== HEALTH CHECK ====================
