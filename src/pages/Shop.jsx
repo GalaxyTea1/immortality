@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useGame } from '../context/GameContext';
+import { shop as shopApi } from '../services/api.js';
 import { SHOP_CATALOG } from '../../shared/shopCatalog.js';
 import './Shop.css';
 
@@ -23,7 +24,16 @@ const getTierStyle = (tier) => {
 };
 
 function Shop() {
-  const { gameState, buyItem, formatNumber, REALMS, ITEM_DEFINITIONS, saveToServer } = useGame();
+  const {
+    gameState,
+    buyItem,
+    characterId,
+    formatNumber,
+    loadFromServer,
+    REALMS,
+    ITEM_DEFINITIONS,
+    saveToServer,
+  } = useGame();
   const { player, resources } = gameState;
 
   const shopItems = useMemo(() => (
@@ -46,6 +56,7 @@ function Shop() {
   const [notification, setNotification] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [buyQuantity, setBuyQuantity] = useState({});
+  const [buyingItemId, setBuyingItemId] = useState(null);
 
   // Filter items
   const filteredItems = useMemo(() => {
@@ -73,16 +84,33 @@ function Shop() {
   }, [activeCategory, activeTier, searchQuery, shopItems]);
 
   // Handle buy
-  const handleBuy = (item) => {
+  const handleBuy = async (item) => {
     const qty = buyQuantity[item.id] || 1;
-    const result = buyItem(item.itemId, item.price, qty);
+    setBuyingItemId(item.id);
 
-    setNotification(result);
-    setTimeout(() => setNotification(null), 3000);
+    try {
+      if (characterId) {
+        const result = await shopApi.buy(characterId, item.itemId, qty);
+        await loadFromServer();
+        setNotification({
+          success: true,
+          message: result.message || `Mua thành công ${qty}x ${item.name}!`,
+        });
+      } else {
+        const result = buyItem(item.itemId, item.price, qty);
+        setNotification(result);
+        if (result.success) saveToServer();
+      }
 
-    if (result.success) {
       setBuyQuantity(prev => ({ ...prev, [item.id]: 1 }));
-      saveToServer();
+    } catch (error) {
+      setNotification({
+        success: false,
+        message: error.message || 'Không thể mua vật phẩm.',
+      });
+    } finally {
+      setBuyingItemId(null);
+      setTimeout(() => setNotification(null), 3000);
     }
   };
 
@@ -259,6 +287,7 @@ function Shop() {
               filteredItems.map((item) => {
                 const tierStyle = getTierStyle(item.tier);
                 const canAfford = resources.spiritStones >= item.price;
+                const isBuying = buyingItemId === item.id;
                 return (
                   <div key={item.id} className={`product-card ${tierStyle.class}`}>
                     <div className="product-image-wrapper">
@@ -284,13 +313,13 @@ function Shop() {
                         </div>
                       </div>
                       <button
-                        className={`add-cart-btn ${!canAfford ? 'disabled' : ''}`}
+                        className={`add-cart-btn ${!canAfford || isBuying ? 'disabled' : ''}`}
                         onClick={() => handleBuy(item)}
-                        disabled={!canAfford}
+                        disabled={!canAfford || isBuying}
                         title={canAfford ? 'Mua ngay' : 'Không đủ Linh Thạch'}
                       >
                         <span className="material-symbols-outlined">
-                          {canAfford ? 'add_shopping_cart' : 'money_off'}
+                          {isBuying ? 'sync' : canAfford ? 'add_shopping_cart' : 'money_off'}
                         </span>
                       </button>
                     </div>

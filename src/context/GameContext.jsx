@@ -161,7 +161,7 @@ export function GameProvider({ children, characterId }) {
     });
   }, []);
 
-  const { isServerLoading, saveToServer } = useGameServerSync({
+  const { isServerLoading, loadFromServer, saveToServer } = useGameServerSync({
     characterId,
     setGameState,
     gameStateRef,
@@ -264,6 +264,7 @@ export function GameProvider({ children, characterId }) {
   const value = {
     gameState,
     setGameState,
+    characterId,
     addSpiritStones,
     spendSpiritStones,
     addPills,
@@ -306,6 +307,7 @@ export function GameProvider({ children, characterId }) {
     craftPill,
     // Save/Load
     saveToServer,
+    loadFromServer,
     isServerLoading,
     resetGame,
     exportSave,

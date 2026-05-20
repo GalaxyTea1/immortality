@@ -19,36 +19,39 @@ export function useGameServerSync({
     characterIdRef.current = characterId;
   }, [characterId, characterIdRef]);
 
-  useEffect(() => {
+  const loadFromServer = useCallback(async () => {
     if (!characterId) {
       setIsServerLoading(false);
-      return;
+      return null;
     }
 
-    const loadFromServer = async () => {
-      setIsServerLoading(true);
-      try {
-        const [charData, inventoryData, equipmentData, skillsData] = await Promise.all([
-          api.characters.get(characterId).catch(err => { console.warn('Load character failed:', err); return null; }),
-          api.inventory.get(characterId).catch(err => { console.warn('Load inventory failed:', err); return []; }),
-          api.equipment.get(characterId).catch(err => { console.warn('Load equipment failed:', err); return {}; }),
-          api.skills.get(characterId).catch(err => { console.warn('Load skills failed:', err); return []; }),
-        ]);
+    setIsServerLoading(true);
+    try {
+      const [charData, inventoryData, equipmentData, skillsData] = await Promise.all([
+        api.characters.get(characterId).catch(err => { console.warn('Load character failed:', err); return null; }),
+        api.inventory.get(characterId).catch(err => { console.warn('Load inventory failed:', err); return []; }),
+        api.equipment.get(characterId).catch(err => { console.warn('Load equipment failed:', err); return {}; }),
+        api.skills.get(characterId).catch(err => { console.warn('Load skills failed:', err); return []; }),
+      ]);
 
-        if (charData) {
-          const serverState = mapServerToGameState(charData, inventoryData, equipmentData, skillsData);
-          setGameState(serverState);
-          prevStateRef.current = serverState;
-        }
-      } catch (err) {
-        console.error('[GameContext] Failed to load from server:', err);
-      } finally {
-        setIsServerLoading(false);
+      if (charData) {
+        const serverState = mapServerToGameState(charData, inventoryData, equipmentData, skillsData);
+        setGameState(serverState);
+        prevStateRef.current = serverState;
+        return serverState;
       }
-    };
+    } catch (err) {
+      console.error('[GameContext] Failed to load from server:', err);
+    } finally {
+      setIsServerLoading(false);
+    }
 
-    loadFromServer();
+    return null;
   }, [characterId, mapServerToGameState, setGameState]);
+
+  useEffect(() => {
+    loadFromServer();
+  }, [loadFromServer]);
 
   const saveToServer = useCallback(() => {
     const cId = characterIdRef.current;
@@ -118,6 +121,7 @@ export function useGameServerSync({
 
   return {
     isServerLoading,
+    loadFromServer,
     saveToServer,
   };
 }
