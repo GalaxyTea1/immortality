@@ -1,0 +1,214 @@
+import express from 'express';
+import {
+  calculateExpProgress,
+  REALMS,
+  TRIBULATION_REQUIREMENTS,
+} from '../domain/gameCatalog.js';
+import { withTransaction } from '../db/index.js';
+import { authMiddleware } from '../middleware/auth.middleware.js';
+import { requireCharacterOwner } from '../middleware/ownership.middleware.js';
+import { breakthroughSchema, cultivateSchema, validate } from '../middleware/validation.js';
+
+const router = express.Router();
+
+router.use('/:characterId', authMiddleware, requireCharacterOwner('characterId'));
+
+const getFoundationExpMultiplier = (foundationValue) => {
+  if (foundationValue >= 80) return 1.05;
+  if (foundationValue >= 50) return 1;
+  if (foundationValue >= 20) return 0.95;
+  return 0.85;
+};
+
+router.post('/:characterId/cultivate', validate(cultivateSchema), async (req, res) => {
+  try {
+    const { characterId } = req.params;
+    const { mode } = req.body;
+
+    const result = await withTransaction(async (client) => {
+      const characterResult = await client.query(
+        `SELECT realm_index, level, exp, max_exp, foundation_value, cultivation_speed
+         FROM characters
+         WHERE id = $1
+         FOR UPDATE`,
+        [characterId]
+      );
+
+      if (characterResult.rows.length === 0) {
+        const error = new Error('Character not found');
+        error.status = 404;
+        throw error;
+      }
+
+      const character = characterResult.rows[0];
+      const foundationMultiplier = getFoundationExpMultiplier(character.foundation_value);
+      const speedMultiplier = Number(character.cultivation_speed) || 1;
+      const baseExp = mode === 'meditation'
+        ? Math.floor(Math.random() * 3) + 1
+        : Math.floor(Math.random() * 5) + 3;
+      const expGain = Math.max(1, Math.floor(baseExp * foundationMultiplier * speedMultiplier));
+      const nextProgress = calculateExpProgress({
+        realmIndex: character.realm_index,
+        level: character.level,
+        exp: character.exp,
+        maxExp: character.max_exp,
+      }, expGain);
+
+      await client.query(
+        `UPDATE characters
+         SET exp = $2, level = $3, max_exp = $4
+         WHERE id = $1`,
+        [characterId, nextProgress.exp, nextProgress.level, nextProgress.maxExp]
+      );
+
+      return {
+        expGain,
+        progress: nextProgress,
+        message: `Cultivated successfully! +${expGain} EXP`,
+      };
+    });
+
+    res.json(result);
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ error: error.message });
+    }
+    console.error('Error cultivating:', error);
+    res.status(500).json({ error: 'Error cultivating' });
+  }
+});
+
+router.post('/:characterId/breakthrough', validate(breakthroughSchema), async (req, res) => {
+  try {
+    const { characterId } = req.params;
+    const { usePill } = req.body;
+
+    const result = await withTransaction(async (client) => {
+      const characterResult = await client.query(
+        `SELECT realm_index, level, exp, max_exp, spirit_stones, inner_demon_value, inner_demon_max
+         FROM characters
+         WHERE id = $1
+         FOR UPDATE`,
+        [characterId]
+      );
+
+      if (characterResult.rows.length === 0) {
+        const error = new Error('Character not found');
+        error.status = 404;
+        throw error;
+      }
+
+      const character = characterResult.rows[0];
+      const realm = REALMS[character.realm_index];
+      const tribInfo = TRIBULATION_REQUIREMENTS[character.realm_index];
+
+      if (!realm || !tribInfo) {
+        const error = new Error('No breakthrough information for this realm');
+        error.status = 400;
+        throw error;
+      }
+
+      if (character.level < realm.levels || Number(character.exp) < Number(character.max_exp) * 0.9) {
+        const error = new Error('Breakthrough requirements are not met');
+        error.status = 400;
+        throw error;
+      }
+
+      if (character.realm_index >= REALMS.length - 1) {
+        const error = new Error('Highest realm already reached');
+        error.status = 400;
+        throw error;
+      }
+
+      if (Number(character.spirit_stones) < tribInfo.spiritStonesCost) {
+        const error = new Error('Not enough Spirit Stones');
+        error.status = 400;
+        error.details = {
+          required: tribInfo.spiritStonesCost,
+          current: Number(character.spirit_stones),
+        };
+        throw error;
+      }
+
+      let successRate = tribInfo.baseSuccessRate;
+      let pillUsed = false;
+
+      if (usePill && tribInfo.requiredPill) {
+        const pillResult = await client.query(
+          `SELECT id, quantity FROM inventory
+           WHERE character_id = $1 AND item_id = $2 AND enhance_level = 0
+           FOR UPDATE`,
+          [characterId, tribInfo.requiredPill]
+        );
+
+        if (pillResult.rows.length > 0 && pillResult.rows[0].quantity > 0) {
+          await client.query(
+            'UPDATE inventory SET quantity = quantity - 1 WHERE id = $1',
+            [pillResult.rows[0].id]
+          );
+          await client.query(
+            'DELETE FROM inventory WHERE character_id = $1 AND quantity <= 0',
+            [characterId]
+          );
+          successRate += tribInfo.pillBonus;
+          pillUsed = true;
+        }
+      }
+
+      await client.query(
+        'UPDATE characters SET spirit_stones = spirit_stones - $2 WHERE id = $1',
+        [characterId, tribInfo.spiritStonesCost]
+      );
+
+      const isSuccess = Math.random() < successRate;
+      if (isSuccess) {
+        const nextRealmIndex = character.realm_index + 1;
+        await client.query(
+          `UPDATE characters
+           SET realm_index = $2, level = 1, exp = 0, max_exp = $3
+           WHERE id = $1`,
+          [characterId, nextRealmIndex, REALMS[nextRealmIndex].expPerLevel]
+        );
+
+        return {
+          success: true,
+          pillUsed,
+          successRate,
+          newRealm: REALMS[nextRealmIndex].name,
+          message: `Breakthrough successful! New realm: ${REALMS[nextRealmIndex].name}`,
+        };
+      }
+
+      const penalty = tribInfo.failurePenalty;
+      const nextExp = Math.floor(Number(character.exp) * (1 - penalty.exp));
+      const nextDemon = Math.min(
+        character.inner_demon_max || 100,
+        Number(character.inner_demon_value) + penalty.innerDemon
+      );
+
+      await client.query(
+        `UPDATE characters
+         SET exp = $2, inner_demon_value = $3
+         WHERE id = $1`,
+        [characterId, nextExp, nextDemon]
+      );
+
+      return {
+        success: false,
+        pillUsed,
+        successRate,
+        message: `Breakthrough failed! Lost ${Math.floor(penalty.exp * 100)}% EXP and gained ${penalty.innerDemon} Inner Demon.`,
+      };
+    });
+
+    res.json(result);
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ error: error.message, ...error.details });
+    }
+    console.error('Error during breakthrough:', error);
+    res.status(500).json({ error: 'Error during breakthrough' });
+  }
+});
+
+export default router;

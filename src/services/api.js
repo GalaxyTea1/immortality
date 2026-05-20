@@ -394,6 +394,34 @@ export const skills = {
     },
 };
 
+// ==================== CULTIVATION API ====================
+
+export const cultivation = {
+    /**
+     * perform a server-authoritative cultivation tick
+     * @param {number} characterId
+     * @param {'manual'|'meditation'} mode
+     */
+    cultivate: async (characterId, mode = 'manual') => {
+        return authFetch(`/cultivation/${characterId}/cultivate`, {
+            method: 'POST',
+            body: JSON.stringify({ mode }),
+        });
+    },
+
+    /**
+     * attempt breakthrough
+     * @param {number} characterId
+     * @param {boolean} usePill
+     */
+    breakthrough: async (characterId, usePill = false) => {
+        return authFetch(`/cultivation/${characterId}/breakthrough`, {
+            method: 'POST',
+            body: JSON.stringify({ usePill }),
+        });
+    },
+};
+
 // ==================== HEALTH CHECK ====================
 
 export const health = {

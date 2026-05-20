@@ -108,6 +108,16 @@ export const equipSchema = Joi.object({
     enhanceLevel: Joi.number().integer().min(0).default(0),
 });
 
+// ==================== CULTIVATION SCHEMAS ====================
+
+export const cultivateSchema = Joi.object({
+    mode: Joi.string().valid('manual', 'meditation').default('manual'),
+});
+
+export const breakthroughSchema = Joi.object({
+    usePill: Joi.boolean().default(false),
+});
+
 // ==================== VALIDATION MIDDLEWARE ====================
 
 /**

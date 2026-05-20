@@ -1,5 +1,5 @@
 import { ITEM_DEFINITIONS } from '../../../src/data/items.js';
-import { REALMS } from '../../../src/data/realms.js';
+import { REALMS, TRIBULATION_REQUIREMENTS } from '../../../src/data/realms.js';
 
 export const VALID_EQUIPMENT_SLOTS = new Set([
   'spirit',
@@ -21,6 +21,7 @@ const STAT_COLUMNS = {
 };
 
 export const getItemDefinition = (itemId) => ITEM_DEFINITIONS[itemId] || null;
+export { REALMS, TRIBULATION_REQUIREMENTS };
 
 export const assertKnownItem = (itemId) => {
   const itemDef = getItemDefinition(itemId);

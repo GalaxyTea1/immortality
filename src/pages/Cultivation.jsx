@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useGame } from "../context/GameContext";
+import { cultivation as cultivationApi } from "../services/api.js";
 import "./Cultivation.css";
 
 function Cultivation() {
@@ -8,7 +9,10 @@ function Cultivation() {
   const {
     gameState,
     addExp,
+    cancelPendingSave,
+    characterId,
     formatNumber,
+    loadFromServer,
     REALMS,
     ALCHEMY_RECIPES,
     TRIBULATION_REQUIREMENTS,
@@ -49,6 +53,8 @@ function Cultivation() {
   const [showBreakthroughModal, setShowBreakthroughModal] = useState(false);
   const [breakthroughResult, setBreakthroughResult] = useState(null);
   const [usePillForBreakthrough, setUsePillForBreakthrough] = useState(true);
+  const [isCultivatingAction, setIsCultivatingAction] = useState(false);
+  const [isBreakingThrough, setIsBreakingThrough] = useState(false);
 
   // Hàm thêm log
   const addLog = useCallback((message, type = "") => {
@@ -68,8 +74,25 @@ function Cultivation() {
   const tribInfo = TRIBULATION_REQUIREMENTS[player.realmIndex];
 
   // Xử lý độ kiếp
-  const handleBreakthrough = useCallback(() => {
-    const result = attemptBreakthrough(usePillForBreakthrough);
+  const handleBreakthrough = useCallback(async () => {
+    setIsBreakingThrough(true);
+    let result;
+
+    if (characterId) {
+      try {
+        cancelPendingSave();
+        result = await cultivationApi.breakthrough(characterId, usePillForBreakthrough);
+        await loadFromServer();
+      } catch (error) {
+        result = { success: false, message: error.message || "Không thể độ kiếp." };
+      } finally {
+        setIsBreakingThrough(false);
+      }
+    } else {
+      result = attemptBreakthrough(usePillForBreakthrough);
+      setIsBreakingThrough(false);
+    }
+
     setBreakthroughResult(result);
     if (result.success) {
       addLog(
@@ -83,10 +106,11 @@ function Cultivation() {
       addEvent("danger", result.message);
       saveToServer();
     }
-  }, [attemptBreakthrough, usePillForBreakthrough, addLog, addEvent, saveToServer]);
+  }, [attemptBreakthrough, cancelPendingSave, characterId, usePillForBreakthrough, loadFromServer, addLog, addEvent, saveToServer]);
 
   // Xử lý click tu luyện (thủ công)
-  const handleCultivateClick = useCallback(() => {
+  const handleCultivateClick = useCallback(async () => {
+    if (isCultivatingAction) return;
     // Tính bonus từ căn cơ
     const foundationStatus = getFoundationStatus();
     let expMultiplier = 1;
@@ -95,8 +119,24 @@ function Cultivation() {
     else if (foundationStatus.label === "Rất Yếu") expMultiplier = 0.85;
 
     const baseExp = Math.floor(Math.random() * 5) + 3; // 3-7 EXP mỗi click
-    const expGain = Math.floor(baseExp * expMultiplier);
-    addExp(expGain);
+    let expGain = Math.floor(baseExp * expMultiplier);
+    if (characterId) {
+      setIsCultivatingAction(true);
+      try {
+        cancelPendingSave();
+        const result = await cultivationApi.cultivate(characterId, "manual");
+        expGain = result.expGain;
+        await loadFromServer();
+      } catch (error) {
+        addLog(`<span class="text-danger">${error.message || "Tu luyện thất bại."}</span>`, "danger");
+        setIsCultivatingAction(false);
+        return;
+      } finally {
+        setIsCultivatingAction(false);
+      }
+    } else {
+      addExp(expGain);
+    }
     setClickCount((prev) => prev + 1);
 
     // Thêm điểm danh vọng mỗi 10 click
@@ -113,7 +153,7 @@ function Cultivation() {
       );
       saveToServer();
     }
-  }, [addExp, clickCount, addLog, getFoundationStatus, addReputation, saveToServer]);
+  }, [addExp, cancelPendingSave, characterId, clickCount, isCultivatingAction, addLog, getFoundationStatus, addReputation, loadFromServer, saveToServer]);
 
   // Xử lý thiền định (tự động tu luyện)
   const handleMeditation = useCallback(() => {
@@ -253,8 +293,8 @@ function Cultivation() {
 
           <div
             className={`meditation-circle ${isMeditating ? "meditating" : ""}`}
-            onClick={handleCultivateClick}
-            style={{ cursor: "pointer" }}
+            onClick={isCultivatingAction ? undefined : handleCultivateClick}
+            style={{ cursor: isCultivatingAction ? "wait" : "pointer" }}
           >
             <div className="circle-ring ring-outer"></div>
             <div className="circle-ring ring-inner"></div>
@@ -675,11 +715,12 @@ function Cultivation() {
                     className="action-btn action-btn-breakthrough full-width"
                     onClick={handleBreakthrough}
                     disabled={
+                      isBreakingThrough ||
                       gameState.resources.spiritStones <
                       tribInfo.spiritStonesCost
                     }
                   >
-                    <span className="material-symbols-outlined">bolt</span>
+                    <span className="material-symbols-outlined">{isBreakingThrough ? "sync" : "bolt"}</span>
                     <span>Bắt Đầu Độ Kiếp</span>
                   </button>
                 </>
