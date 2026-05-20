@@ -194,6 +194,20 @@ export const inventory = {
             body: JSON.stringify({ itemId, quantity }),
         });
     },
+
+    /**
+     * use consumable/book item
+     * @param {number} characterId
+     * @param {string} itemId
+     * @param {number} quantity
+     * @param {number} enhanceLevel
+     */
+    use: async (characterId, itemId, quantity = 1, enhanceLevel = 0) => {
+        return authFetch(`/inventory/${characterId}/use`, {
+            method: 'POST',
+            body: JSON.stringify({ itemId, quantity, enhanceLevel }),
+        });
+    },
 };
 
 // ==================== EQUIPMENT API ====================

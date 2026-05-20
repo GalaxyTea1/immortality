@@ -76,7 +76,7 @@ export const inventorySyncSchema = Joi.object({
     inventory: Joi.array().items(
         Joi.object({
             itemId: Joi.string().required(),
-            quantity: Joi.number().integer().min(0).required(),
+            quantity: Joi.number().integer().min(1).required(),
             enhanceLevel: Joi.number().integer().min(0).default(0),
         })
     ).required(),
@@ -91,6 +91,12 @@ export const addItemSchema = Joi.object({
 export const removeItemSchema = Joi.object({
     itemId: Joi.string().required(),
     quantity: Joi.number().integer().min(1).default(1),
+    enhanceLevel: Joi.number().integer().min(0).default(0),
+});
+
+export const useItemSchema = Joi.object({
+    itemId: Joi.string().required(),
+    quantity: Joi.number().integer().min(1).max(99).default(1),
     enhanceLevel: Joi.number().integer().min(0).default(0),
 });
 

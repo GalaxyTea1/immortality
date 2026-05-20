@@ -161,7 +161,7 @@ export function GameProvider({ children, characterId }) {
     });
   }, []);
 
-  const { isServerLoading, loadFromServer, saveToServer } = useGameServerSync({
+  const { cancelPendingSave, isServerLoading, loadFromServer, saveToServer } = useGameServerSync({
     characterId,
     setGameState,
     gameStateRef,
@@ -306,6 +306,7 @@ export function GameProvider({ children, characterId }) {
     // Alchemy
     craftPill,
     // Save/Load
+    cancelPendingSave,
     saveToServer,
     loadFromServer,
     isServerLoading,

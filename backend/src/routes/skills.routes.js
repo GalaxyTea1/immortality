@@ -1,4 +1,5 @@
 import express from 'express';
+import { assertKnownItem, buildStatIncrementFragments } from '../domain/gameCatalog.js';
 import { query, withTransaction } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireCharacterOwner } from '../middleware/ownership.middleware.js';
@@ -36,8 +37,13 @@ router.post('/:characterId/learn', async (req, res) => {
         const { characterId } = req.params;
         const { skillId, bookItemId } = req.body;
 
-        if (!skillId) {
-            return res.status(400).json({ error: 'Missing skillId' });
+        if (!skillId || !bookItemId) {
+            return res.status(400).json({ error: 'Missing skillId or bookItemId' });
+        }
+
+        const bookDef = assertKnownItem(bookItemId);
+        if (bookDef.type !== 'book' || skillId !== bookItemId) {
+            return res.status(400).json({ error: 'Invalid skill book' });
         }
 
         const result = await withTransaction(async (client) => {
@@ -52,28 +58,34 @@ router.post('/:characterId/learn', async (req, res) => {
                 throw error;
             }
 
-            if (bookItemId) {
-                const bookResult = await client.query(
-                    `SELECT id, quantity FROM inventory
-                     WHERE character_id = $1 AND item_id = $2 AND enhance_level = 0
-                     FOR UPDATE`,
-                    [characterId, bookItemId]
-                );
+            const bookResult = await client.query(
+                `SELECT id, quantity FROM inventory
+                 WHERE character_id = $1 AND item_id = $2 AND enhance_level = 0
+                 FOR UPDATE`,
+                [characterId, bookItemId]
+            );
 
-                if (bookResult.rows.length === 0 || bookResult.rows[0].quantity < 1) {
-                    const error = new Error('Book not found in inventory!');
-                    error.status = 400;
-                    throw error;
-                }
+            if (bookResult.rows.length === 0 || bookResult.rows[0].quantity < 1) {
+                const error = new Error('Book not found in inventory!');
+                error.status = 400;
+                throw error;
+            }
 
+            await client.query(
+                'UPDATE inventory SET quantity = quantity - 1 WHERE id = $1',
+                [bookResult.rows[0].id]
+            );
+
+            await client.query(
+                'DELETE FROM inventory WHERE character_id = $1 AND quantity <= 0',
+                [characterId]
+            );
+
+            const { fragments, values } = buildStatIncrementFragments(bookDef.effect);
+            if (fragments.length > 0) {
                 await client.query(
-                    'UPDATE inventory SET quantity = quantity - 1 WHERE id = $1',
-                    [bookResult.rows[0].id]
-                );
-
-                await client.query(
-                    'DELETE FROM inventory WHERE character_id = $1 AND quantity <= 0',
-                    [characterId]
+                    `UPDATE characters SET ${fragments.join(', ')} WHERE id = $1`,
+                    [characterId, ...values]
                 );
             }
 

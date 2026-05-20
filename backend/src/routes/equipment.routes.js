@@ -1,4 +1,5 @@
 import express from 'express';
+import { assertEquipmentForSlot, VALID_EQUIPMENT_SLOTS } from '../domain/gameCatalog.js';
 import { query, withTransaction } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireCharacterOwner } from '../middleware/ownership.middleware.js';
@@ -43,6 +44,8 @@ router.post('/:characterId/equip', async (req, res) => {
         if (!slot || !itemId) {
             return res.status(400).json({ error: 'Missing slot or itemId' });
         }
+
+        assertEquipmentForSlot({ itemId, slot });
 
         const result = await withTransaction(async (client) => {
             const invItem = await client.query(
@@ -126,6 +129,10 @@ router.post('/:characterId/unequip', async (req, res) => {
             return res.status(400).json({ error: 'Missing slot information' });
         }
 
+        if (!VALID_EQUIPMENT_SLOTS.has(slot)) {
+            return res.status(400).json({ error: 'Invalid equipment slot' });
+        }
+
         const result = await withTransaction(async (client) => {
             const existingEquip = await client.query(
                 'SELECT * FROM equipment WHERE character_id = $1 AND slot = $2 FOR UPDATE',
@@ -181,6 +188,10 @@ router.post('/:characterId/upgrade', async (req, res) => {
             return res.status(400).json({ error: 'Missing slot' });
         }
 
+        if (!VALID_EQUIPMENT_SLOTS.has(slot)) {
+            return res.status(400).json({ error: 'Invalid equipment slot' });
+        }
+
         const result = await withTransaction(async (client) => {
             const equipResult = await client.query(
                 'SELECT * FROM equipment WHERE character_id = $1 AND slot = $2 FOR UPDATE',
@@ -194,6 +205,7 @@ router.post('/:characterId/upgrade', async (req, res) => {
             }
 
             const equipment = equipResult.rows[0];
+            assertEquipmentForSlot({ itemId: equipment.item_id, slot });
             const requiredStones = Math.max(1, equipment.enhance_level + 1);
 
             const stoneResult = await client.query(
@@ -281,6 +293,7 @@ router.put('/:characterId/sync', async (req, res) => {
                 const entries = Object.entries(equipmentData).filter(([, data]) => data && data.itemId);
 
                 for (const [slot, data] of entries) {
+                    assertEquipmentForSlot({ itemId: data.itemId, slot });
                     await client.query(
                         `INSERT INTO equipment (character_id, slot, item_id, enhance_level)
                          VALUES ($1, $2, $3, $4)`,
@@ -292,6 +305,9 @@ router.put('/:characterId/sync', async (req, res) => {
 
         res.json({ message: 'Equipment synced' });
     } catch (error) {
+        if (error.status) {
+            return res.status(error.status).json({ error: error.message });
+        }
         console.error('Error syncing equipment:', error);
         res.status(500).json({ error: 'Error syncing equipment' });
     }

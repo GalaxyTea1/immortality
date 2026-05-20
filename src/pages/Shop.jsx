@@ -27,6 +27,7 @@ function Shop() {
   const {
     gameState,
     buyItem,
+    cancelPendingSave,
     characterId,
     formatNumber,
     loadFromServer,
@@ -90,6 +91,7 @@ function Shop() {
 
     try {
       if (characterId) {
+        cancelPendingSave();
         const result = await shopApi.buy(characterId, item.itemId, qty);
         await loadFromServer();
         setNotification({

@@ -19,12 +19,20 @@ export function useGameServerSync({
     characterIdRef.current = characterId;
   }, [characterId, characterIdRef]);
 
+  const cancelPendingSave = useCallback(() => {
+    if (serverSaveTimerRef.current) {
+      clearTimeout(serverSaveTimerRef.current);
+      serverSaveTimerRef.current = null;
+    }
+  }, []);
+
   const loadFromServer = useCallback(async () => {
     if (!characterId) {
       setIsServerLoading(false);
       return null;
     }
 
+    cancelPendingSave();
     setIsServerLoading(true);
     try {
       const [charData, inventoryData, equipmentData, skillsData] = await Promise.all([
@@ -47,7 +55,7 @@ export function useGameServerSync({
     }
 
     return null;
-  }, [characterId, mapServerToGameState, setGameState]);
+  }, [cancelPendingSave, characterId, mapServerToGameState, setGameState]);
 
   useEffect(() => {
     loadFromServer();
@@ -57,9 +65,7 @@ export function useGameServerSync({
     const cId = characterIdRef.current;
     if (!cId) return;
 
-    if (serverSaveTimerRef.current) {
-      clearTimeout(serverSaveTimerRef.current);
-    }
+    cancelPendingSave();
 
     serverSaveTimerRef.current = setTimeout(async () => {
       try {
@@ -85,6 +91,7 @@ export function useGameServerSync({
     mapEquipmentToServer,
     mapGameStateToServer,
     mapInventoryToServer,
+    cancelPendingSave,
   ]);
 
   useEffect(() => {
@@ -120,6 +127,7 @@ export function useGameServerSync({
   ]);
 
   return {
+    cancelPendingSave,
     isServerLoading,
     loadFromServer,
     saveToServer,
