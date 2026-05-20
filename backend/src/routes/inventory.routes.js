@@ -6,6 +6,7 @@ import {
 } from '../domain/gameCatalog.js';
 import { query, withTransaction } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
+import { requireClientStateSyncEnabled } from '../middleware/devSync.middleware.js';
 import { requireCharacterOwner } from '../middleware/ownership.middleware.js';
 import { addItemSchema, inventorySyncSchema, removeItemSchema, useItemSchema, validate } from '../middleware/validation.js';
 
@@ -30,8 +31,8 @@ router.get('/:characterId', async (req, res) => {
   }
 });
 
-// POST /api/inventory/:characterId/add - Add item to inventory
-router.post('/:characterId/add', validate(addItemSchema), async (req, res) => {
+// POST /api/inventory/:characterId/add - Dev-only direct item grant
+router.post('/:characterId/add', requireClientStateSyncEnabled, validate(addItemSchema), async (req, res) => {
   try {
     const { characterId } = req.params;
     const { itemId, quantity = 1, enhanceLevel = 0 } = req.body;
@@ -110,8 +111,8 @@ router.post('/:characterId/remove', validate(removeItemSchema), async (req, res)
   }
 });
 
-// PUT /api/inventory/:characterId/sync - Sync entire inventory (bulk update)
-router.put('/:characterId/sync', validate(inventorySyncSchema), async (req, res) => {
+// PUT /api/inventory/:characterId/sync - Dev-only bulk inventory sync
+router.put('/:characterId/sync', requireClientStateSyncEnabled, validate(inventorySyncSchema), async (req, res) => {
   try {
     const { characterId } = req.params;
     const { inventory = [] } = req.body;

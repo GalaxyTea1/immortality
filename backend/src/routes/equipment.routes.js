@@ -2,6 +2,7 @@ import express from 'express';
 import { assertEquipmentForSlot, VALID_EQUIPMENT_SLOTS } from '../domain/gameCatalog.js';
 import { query, withTransaction } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
+import { requireClientStateSyncEnabled } from '../middleware/devSync.middleware.js';
 import { requireCharacterOwner } from '../middleware/ownership.middleware.js';
 
 const router = express.Router();
@@ -280,8 +281,8 @@ router.post('/:characterId/upgrade', async (req, res) => {
     }
 });
 
-// PUT /api/equipment/:characterId/sync - Sync entire equipment (bulk update)
-router.put('/:characterId/sync', async (req, res) => {
+// PUT /api/equipment/:characterId/sync - Dev-only bulk equipment sync
+router.put('/:characterId/sync', requireClientStateSyncEnabled, async (req, res) => {
     try {
         const { characterId } = req.params;
         const { equipment: equipmentData } = req.body;

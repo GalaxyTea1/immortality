@@ -70,6 +70,10 @@ export const updateCharacterSchema = Joi.object({
     last_meditation_time: Joi.string().allow(null),
 }).min(1); // At least 1 field required
 
+export const saveCharacterMetadataSchema = Joi.object({
+    name: Joi.string().max(100),
+}).min(1);
+
 // ==================== INVENTORY SCHEMAS ====================
 
 export const inventorySyncSchema = Joi.object({

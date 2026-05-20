@@ -233,3 +233,13 @@ Nên luôn cấu hình `JWT_SECRET` trong `.env`, và tốt nhất sửa fallbac
 - Khi thêm API mới, cập nhật `src/services/api.js`, route backend, validation, và Swagger nếu dùng.
 - Khi sửa save/load, test cả reload trang và unload beacon.
 - Tránh sửa đồng thời nhiều hệ thống trong `GameContext.jsx` nếu không cần, vì file dễ sinh regression.
+
+## Security note: client state sync
+
+- Autosave from `useGameServerSync` is metadata-only: it saves character name and no longer syncs progression, inventory, or equipment.
+- `beacon-save` is metadata-only and ignores inventory/equipment/progression payloads.
+- Direct client bulk mutation routes are dev-only by default:
+  - `POST /api/inventory/:characterId/add`
+  - `PUT /api/inventory/:characterId/sync`
+  - `PUT /api/equipment/:characterId/sync`
+- Set `ALLOW_CLIENT_STATE_SYNC=true` in `backend/.env` only when intentionally testing legacy/import-style client sync locally.

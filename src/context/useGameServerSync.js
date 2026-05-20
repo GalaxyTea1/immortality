@@ -7,9 +7,6 @@ export function useGameServerSync({
   gameStateRef,
   characterIdRef,
   mapServerToGameState,
-  mapGameStateToServer,
-  mapInventoryToServer,
-  mapEquipmentToServer,
 }) {
   const [isServerLoading, setIsServerLoading] = useState(true);
   const serverSaveTimerRef = useRef(null);
@@ -70,15 +67,7 @@ export function useGameServerSync({
     serverSaveTimerRef.current = setTimeout(async () => {
       try {
         const state = gameStateRef.current;
-        const charPayload = mapGameStateToServer(state);
-        const invPayload = mapInventoryToServer(state.inventory, state.equipment);
-        const equipPayload = mapEquipmentToServer(state.equipment);
-
-        await Promise.all([
-          api.characters.save(cId, charPayload),
-          api.inventory.sync(cId, invPayload),
-          api.equipment.sync(cId, equipPayload),
-        ]);
+        await api.characters.save(cId, { name: state.player.name });
 
         prevStateRef.current = state;
       } catch (err) {
@@ -88,9 +77,6 @@ export function useGameServerSync({
   }, [
     characterIdRef,
     gameStateRef,
-    mapEquipmentToServer,
-    mapGameStateToServer,
-    mapInventoryToServer,
     cancelPendingSave,
   ]);
 
@@ -104,14 +90,11 @@ export function useGameServerSync({
       const state = gameStateRef.current;
       if (!cId) return;
 
-      const charPayload = mapGameStateToServer(state);
-      const invPayload = mapInventoryToServer(state.inventory, state.equipment);
-      const equipPayload = mapEquipmentToServer(state.equipment);
       const token = api.getToken();
       if (token) {
         navigator.sendBeacon(
           `${api.API_BASE_URL}/characters/${cId}/beacon-save`,
-          new Blob([JSON.stringify({ ...charPayload, token, inventory: invPayload, equipment: equipPayload })], { type: 'application/json' })
+          new Blob([JSON.stringify({ token, name: state.player.name })], { type: 'application/json' })
         );
       }
     };
@@ -121,9 +104,6 @@ export function useGameServerSync({
   }, [
     characterIdRef,
     gameStateRef,
-    mapEquipmentToServer,
-    mapGameStateToServer,
-    mapInventoryToServer,
   ]);
 
   return {

@@ -167,9 +167,6 @@ export function GameProvider({ children, characterId }) {
     gameStateRef,
     characterIdRef,
     mapServerToGameState,
-    mapGameStateToServer,
-    mapInventoryToServer,
-    mapEquipmentToServer,
   });
 
   const {
