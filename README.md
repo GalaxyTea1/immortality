@@ -45,6 +45,7 @@ Backend:
 
 - `npm run dev`: run Express with nodemon
 - `npm start`: run Express with node
+- `npm test`: run real-DB integration tests; set `RUN_DB_INTEGRATION=true` and `TEST_DATABASE_URL` to enable them
 
 ## API
 
@@ -63,3 +64,5 @@ Backend config:
 - `DB_*`
 - `JWT_SECRET`
 - `JWT_EXPIRES_IN`
+- `ALLOW_CLIENT_STATE_SYNC`
+- `TEST_DATABASE_URL`

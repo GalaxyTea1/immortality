@@ -1,7 +1,7 @@
-import { ITEM_DEFINITIONS } from '../../../src/data/items.js';
-import { REALMS, TRIBULATION_REQUIREMENTS } from '../../../src/data/realms.js';
-import { ALCHEMY_RECIPES } from '../../../src/data/recipes.js';
-import { WORLD_ZONES, calculateZoneRewards, canEnterZone } from '../../../src/data/zones.js';
+import { ITEM_DEFINITIONS } from '../../../shared/data/items.js';
+import { REALMS, TRIBULATION_REQUIREMENTS } from '../../../shared/data/realms.js';
+import { ALCHEMY_RECIPES } from '../../../shared/data/recipes.js';
+import { WORLD_ZONES, calculateZoneRewards, canEnterZone } from '../../../shared/data/zones.js';
 
 export const VALID_EQUIPMENT_SLOTS = new Set([
   'spirit',

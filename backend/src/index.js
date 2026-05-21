@@ -6,7 +6,8 @@ import { swaggerSpec } from './swagger.js';
 import { testConnection } from './db/index.js';
 import { initSocket } from './socket.js';
 import { generalLimiter } from './middleware/rateLimit.js';
-import { CORS_ORIGINS, PORT } from './config.js';
+import { CORS_ORIGINS, NODE_ENV, PORT } from './config.js';
+import { fail, ok } from './http/response.js';
 
 // Import routes
 import characterRoutes from './routes/character.routes.js';
@@ -20,6 +21,7 @@ import shopRoutes from './routes/shop.routes.js';
 import cultivationRoutes from './routes/cultivation.routes.js';
 import worldRoutes from './routes/world.routes.js';
 import alchemyRoutes from './routes/alchemy.routes.js';
+import questRoutes from './routes/quest.routes.js';
 
 const app = express();
 
@@ -47,7 +49,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({
+  ok(res, {
     status: 'ok',
     timestamp: new Date().toISOString(),
     message: 'Immortality Backend is running!'
@@ -66,20 +68,22 @@ app.use('/api/shop', shopRoutes);
 app.use('/api/cultivation', cultivationRoutes);
 app.use('/api/world', worldRoutes);
 app.use('/api/alchemy', alchemyRoutes);
+app.use('/api/quests', questRoutes);
 
 // 404 Handler
 app.use((req, res) => {
-  res.status(404).json({ error: 'Endpoint not found' });
+  fail(res, 404, 'Endpoint not found');
 });
 
 // Error Handler
-app.use((err, req, res) => {
+app.use((err, req, res, next) => {
+  void next;
   console.error('Server Error:', err);
-  res.status(500).json({ error: 'Internal server error' });
+  fail(res, 500, 'Internal server error');
 });
 
 // Start server
-const startServer = async () => {
+export const startServer = async () => {
   try {
     // Test database connection
     await testConnection();
@@ -100,4 +104,8 @@ const startServer = async () => {
   }
 };
 
-startServer();
+export { app };
+
+if (NODE_ENV !== 'test') {
+  startServer();
+}

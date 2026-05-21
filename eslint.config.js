@@ -24,6 +24,7 @@ export default defineConfig([
     },
     rules: {
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      'no-irregular-whitespace': 'off',
       'react-refresh/only-export-components': 'off',
     },
   },
@@ -31,6 +32,18 @@ export default defineConfig([
     files: ['backend/**/*.js'],
     languageOptions: {
       globals: globals.node,
+    },
+  },
+  {
+    files: ['backend/tests/**/*.js'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        ...globals.jest,
+      },
+    },
+    rules: {
+      'no-unused-vars': 'off',
     },
   },
 ])

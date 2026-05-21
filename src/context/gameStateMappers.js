@@ -3,7 +3,7 @@ import { ITEM_DEFINITIONS } from '../data/items.js';
 const makeEquipmentUid = () => `equip_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
 export const createGameStateMappers = (initialState) => {
-  const mapServerToGameState = (charData, inventoryData, equipmentData, skillsData) => {
+  const mapServerToGameState = (charData, inventoryData, equipmentData, skillsData, questData) => {
     const state = { ...initialState };
 
     if (charData) {
@@ -97,8 +97,14 @@ export const createGameStateMappers = (initialState) => {
     }
 
     if (Array.isArray(skillsData) && skillsData.length > 0) {
-      state.learnedSkills = skillsData.map(s => s.skill_id);
+      state.learnedSkills = skillsData.map(s => s.skill_id || s.skillId);
     }
+
+    state.quests = {
+      ...initialState.quests,
+      active: questData || null,
+      completed: questData ? initialState.quests.completed : ['daily'],
+    };
 
     const newStats = { ...state.baseStats };
     for (const equipped of Object.values(state.equipment)) {

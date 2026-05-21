@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
-import { world as worldApi } from '../services/api.js';
+import { cultivation as cultivationApi, quests as questApi, world as worldApi } from '../services/api.js';
 import './World.css';
 
 const getDangerStyle = (danger) => {
@@ -87,10 +87,25 @@ function World() {
     }, 1000);
   }, [cancelPendingSave, characterId, isExploring, exploreLocation, loadFromServer, saveToServer]);
 
-  const handleRefreshExploration = useCallback(() => {
+  const handleRefreshExploration = useCallback(async () => {
     if (resources.spiritStones < REFRESH_COST) {
       setNotification({ success: false, message: `Không đủ Linh Thạch! Cần ${formatNumber(REFRESH_COST)}` });
       setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+
+    if (characterId) {
+      try {
+        cancelPendingSave();
+        const result = await worldApi.refreshExploration(characterId);
+        await loadFromServer();
+        setNotification({ success: true, message: result.message });
+      } catch (error) {
+        setNotification({ success: false, message: error.message || 'Không thể làm mới lượt khám phá.' });
+      } finally {
+        setShowRefreshModal(false);
+        setTimeout(() => setNotification(null), 3000);
+      }
       return;
     }
 
@@ -111,23 +126,45 @@ function World() {
     setShowRefreshModal(false);
     saveToServer();
     setTimeout(() => setNotification(null), 3000);
-  }, [resources.spiritStones, setGameState, addEvent, formatNumber, saveToServer]);
+  }, [resources.spiritStones, characterId, cancelPendingSave, loadFromServer, setGameState, addEvent, formatNumber, saveToServer]);
 
   // Xử lý nhận thưởng quest
-  const handleClaimQuest = useCallback(() => {
-    const result = claimQuestReward();
+  const handleClaimQuest = useCallback(async () => {
+    let result;
+    if (characterId) {
+      try {
+        cancelPendingSave();
+        result = await questApi.claimReward(characterId);
+        await loadFromServer();
+      } catch (error) {
+        result = { success: false, message: error.message || 'Không thể nhận thưởng quest.' };
+      }
+    } else {
+      result = claimQuestReward();
+      saveToServer();
+    }
     setNotification(result);
-    saveToServer();
     setTimeout(() => setNotification(null), 3000);
-  }, [claimQuestReward, saveToServer]);
+  }, [cancelPendingSave, characterId, claimQuestReward, loadFromServer, saveToServer]);
 
   // Xử lý thiền định
-  const handleMeditate = useCallback(() => {
-    const result = meditate();
+  const handleMeditate = useCallback(async () => {
+    let result;
+    if (characterId) {
+      try {
+        cancelPendingSave();
+        result = await cultivationApi.meditate(characterId);
+        await loadFromServer();
+      } catch (error) {
+        result = { success: false, message: error.message || 'Không thể thiền định.' };
+      }
+    } else {
+      result = meditate();
+      saveToServer();
+    }
     setNotification(result);
-    saveToServer();
     setTimeout(() => setNotification(null), 3000);
-  }, [meditate, saveToServer]);
+  }, [cancelPendingSave, characterId, loadFromServer, meditate, saveToServer]);
 
   // Kiểm tra có thể vào zone không
   const canEnterZone = (zone) => {

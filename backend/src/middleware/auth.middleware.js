@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { query } from '../db/index.js';
 import { JWT_SECRET } from '../config.js';
+import { fail } from '../http/response.js';
 
 // Middleware for JWT verification
 export const authMiddleware = async (req, res, next) => {
@@ -8,7 +9,7 @@ export const authMiddleware = async (req, res, next) => {
         const authHeader = req.headers.authorization;
 
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return res.status(401).json({ error: 'Not logged in' });
+            return fail(res, 401, 'Not logged in');
         }
 
         const token = authHeader.split(' ')[1];
@@ -21,7 +22,7 @@ export const authMiddleware = async (req, res, next) => {
         );
 
         if (result.rows.length === 0 || !result.rows[0].is_active) {
-            return res.status(401).json({ error: 'Invalid token' });
+            return fail(res, 401, 'Invalid token');
         }
 
         // Attach user info to request
@@ -29,13 +30,13 @@ export const authMiddleware = async (req, res, next) => {
         next();
     } catch (error) {
         if (error.name === 'TokenExpiredError') {
-            return res.status(401).json({ error: 'Token expired' });
+            return fail(res, 401, 'Token expired');
         }
         if (error.name === 'JsonWebTokenError') {
-            return res.status(401).json({ error: 'Invalid token' });
+            return fail(res, 401, 'Invalid token');
         }
         console.error('Auth middleware error:', error);
-        res.status(500).json({ error: 'Authentication error' });
+        fail(res, 500, 'Authentication error');
     }
 };
 

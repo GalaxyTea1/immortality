@@ -218,12 +218,25 @@ export function GameProvider({ children, characterId }) {
   });
 
   // ===== SAVE/LOAD =====
+  const ensureOfflineSaveMode = useCallback(() => {
+    if (!characterId) return null;
+    return {
+      success: false,
+      message: 'Import/export/reset save local chỉ dùng cho chế độ offline/dev.',
+    };
+  }, [characterId]);
+
   const resetGame = useCallback(() => {
+    const blocked = ensureOfflineSaveMode();
+    if (blocked) return blocked;
     localStorage.removeItem(STORAGE_KEY);
     setGameState(initialState);
-  }, [setGameState]);
+    return { success: true, message: 'Đã reset save local.' };
+  }, [ensureOfflineSaveMode, setGameState]);
 
   const exportSave = useCallback(() => {
+    const blocked = ensureOfflineSaveMode();
+    if (blocked) return blocked;
     const saveData = JSON.stringify(gameState);
     const blob = new Blob([saveData], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -232,9 +245,12 @@ export function GameProvider({ children, characterId }) {
     a.download = `tutien_save_${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [gameState]);
+    return { success: true, message: 'Export save local thành công.' };
+  }, [ensureOfflineSaveMode, gameState]);
 
   const importSave = useCallback((jsonString) => {
+    const blocked = ensureOfflineSaveMode();
+    if (blocked) return blocked;
     try {
       const parsed = JSON.parse(jsonString);
       setGameState({
@@ -256,7 +272,7 @@ export function GameProvider({ children, characterId }) {
     } catch {
       return { success: false, message: 'File không hợp lệ!' };
     }
-  }, [setGameState]);
+  }, [ensureOfflineSaveMode, setGameState]);
 
   const value = {
     gameState,

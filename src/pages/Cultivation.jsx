@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useGame } from "../context/GameContext";
 import { alchemy as alchemyApi, cultivation as cultivationApi } from "../services/api.js";
@@ -8,6 +8,7 @@ function Cultivation() {
   const navigate = useNavigate();
   const {
     gameState,
+    setGameState,
     addExp,
     cancelPendingSave,
     characterId,
@@ -48,7 +49,6 @@ function Cultivation() {
   // Modal luyện đan
   const [showAlchemyModal, setShowAlchemyModal] = useState(false);
   const [alchemyNotification, setAlchemyNotification] = useState(null);
-  const [meditationStartedAt, setMeditationStartedAt] = useState(null);
 
   // Modal độ kiếp
   const [showBreakthroughModal, setShowBreakthroughModal] = useState(false);
@@ -56,6 +56,7 @@ function Cultivation() {
   const [usePillForBreakthrough, setUsePillForBreakthrough] = useState(true);
   const [isCultivatingAction, setIsCultivatingAction] = useState(false);
   const [isBreakingThrough, setIsBreakingThrough] = useState(false);
+  const cultivatingInFlightRef = useRef(false);
 
   // Hàm thêm log
   const addLog = useCallback((message, type = "") => {
@@ -111,7 +112,8 @@ function Cultivation() {
 
   // Xử lý click tu luyện (thủ công)
   const handleCultivateClick = useCallback(async () => {
-    if (isCultivatingAction) return;
+    if (cultivatingInFlightRef.current) return;
+    cultivatingInFlightRef.current = true;
     // Tính bonus từ căn cơ
     const foundationStatus = getFoundationStatus();
     let expMultiplier = 1;
@@ -127,21 +129,34 @@ function Cultivation() {
         cancelPendingSave();
         const result = await cultivationApi.cultivate(characterId, "manual");
         expGain = result.expGain;
-        await loadFromServer();
+        if (result.progress) {
+          setGameState((prev) => ({
+            ...prev,
+            player: {
+              ...prev.player,
+              exp: result.progress.exp,
+              level: result.progress.level,
+              maxExp: result.progress.maxExp,
+            },
+          }));
+        }
       } catch (error) {
         addLog(`<span class="text-danger">${error.message || "Tu luyện thất bại."}</span>`, "danger");
         setIsCultivatingAction(false);
+        cultivatingInFlightRef.current = false;
         return;
       } finally {
         setIsCultivatingAction(false);
+        cultivatingInFlightRef.current = false;
       }
     } else {
       addExp(expGain);
+      cultivatingInFlightRef.current = false;
     }
     setClickCount((prev) => prev + 1);
 
     // Thêm điểm danh vọng mỗi 10 click
-    if ((clickCount + 1) % 10 === 0) {
+    if (!characterId && (clickCount + 1) % 10 === 0) {
       addReputation(1, "cultivation");
     }
 
@@ -152,36 +167,43 @@ function Cultivation() {
         } Linh Khí</span> từ thiên địa.`,
         "primary"
       );
-      saveToServer();
+      if (!characterId) saveToServer();
     }
-  }, [addExp, cancelPendingSave, characterId, clickCount, isCultivatingAction, addLog, getFoundationStatus, addReputation, loadFromServer, saveToServer]);
+  }, [addExp, cancelPendingSave, characterId, clickCount, addLog, getFoundationStatus, addReputation, saveToServer, setGameState]);
 
   // Xử lý thiền định (tự động tu luyện)
-  const handleMeditation = useCallback(() => {
-    setIsMeditating((prev) => !prev);
+  const handleMeditation = useCallback(async () => {
     if (!isMeditating) {
-      setMeditationStartedAt(Date.now());
+      if (characterId) {
+        try {
+          cancelPendingSave();
+          await cultivationApi.startMeditation(characterId);
+        } catch (error) {
+          addLog(`<span class="text-danger">${error.message || "Không thể bắt đầu thiền định."}</span>`, "danger");
+          return;
+        }
+      }
+      setIsMeditating(true);
       addLog("Bắt đầu thiền định...", "primary");
       addEvent("info", "Bắt đầu thiền định");
-    } else {
-      addLog("Kết thúc thiền định.", "");
-      if (characterId && meditationStartedAt) {
-        const durationSeconds = Math.max(1, Math.floor((Date.now() - meditationStartedAt) / 1000));
-        cancelPendingSave();
-        cultivationApi.completeMeditation(characterId, durationSeconds)
-          .then((result) => {
-            addLog(`<span class="text-success">${result.message}</span>`, "success");
-            return loadFromServer();
-          })
-          .catch((error) => {
-            addLog(`<span class="text-danger">${error.message || "Thiền định thất bại."}</span>`, "danger");
-          });
-      } else {
-        saveToServer();
-      }
-      setMeditationStartedAt(null);
+      return;
     }
-  }, [cancelPendingSave, characterId, isMeditating, meditationStartedAt, addLog, addEvent, loadFromServer, saveToServer]);
+
+    setIsMeditating(false);
+    addLog("Kết thúc thiền định.", "");
+    if (characterId) {
+      try {
+        cancelPendingSave();
+        const result = await cultivationApi.finishMeditation(characterId);
+        addLog(`<span class="text-success">${result.message}</span>`, "success");
+        await loadFromServer();
+      } catch (error) {
+        addLog(`<span class="text-danger">${error.message || "Thiền định thất bại."}</span>`, "danger");
+      }
+    } else {
+      saveToServer();
+    }
+  }, [cancelPendingSave, characterId, isMeditating, addLog, addEvent, loadFromServer, saveToServer]);
 
   // Auto tu luyện khi thiền định
   useEffect(() => {

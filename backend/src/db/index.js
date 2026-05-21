@@ -2,6 +2,7 @@ import pg from 'pg';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
+import { IS_PRODUCTION } from '../config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -10,9 +11,15 @@ const __dirname = dirname(__filename);
 dotenv.config({ path: resolve(__dirname, '../../.env') });
 
 const { Pool } = pg;
+const connectionString = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
 
 // Database connection pool
-export const pool = new Pool({
+export const pool = new Pool(connectionString ? {
+  connectionString,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
+} : {
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT) || 5432,
   user: process.env.DB_USER || 'postgres',
@@ -33,6 +40,9 @@ export const testConnection = async () => {
     return true;
   } catch (error) {
     console.error('Database connection error:', error.message);
+    if (IS_PRODUCTION) {
+      throw error;
+    }
     console.log('Server will continue running but DB features will not work.');
     console.log('Please check .env file and ensure PostgreSQL is running.\n');
     return false;

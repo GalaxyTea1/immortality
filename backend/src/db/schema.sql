@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS characters (
     exploration_count INTEGER DEFAULT 0,
     exploration_last_reset DATE DEFAULT CURRENT_DATE,
     last_meditation_time TIMESTAMP,
+    meditation_started_at TIMESTAMP,
     
     -- Timestamps
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -113,6 +114,19 @@ CREATE TABLE IF NOT EXISTS event_logs (
 );
 
 -- ===========================
+-- Character Quests Table
+-- ===========================
+CREATE TABLE IF NOT EXISTS character_quests (
+    id SERIAL PRIMARY KEY,
+    character_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+    quest_id VARCHAR(100) NOT NULL,
+    progress INTEGER DEFAULT 0,
+    status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'completed', 'expired')),
+    assigned_at TIMESTAMP DEFAULT NOW(),
+    completed_at TIMESTAMP
+);
+
+-- ===========================
 -- Leaderboard View (For Rankings)
 -- ===========================
 CREATE OR REPLACE VIEW leaderboard_cultivation AS
@@ -140,6 +154,8 @@ CREATE INDEX IF NOT EXISTS idx_inventory_character_id ON inventory(character_id)
 CREATE INDEX IF NOT EXISTS idx_equipment_character_id ON equipment(character_id);
 CREATE INDEX IF NOT EXISTS idx_event_logs_character_id ON event_logs(character_id);
 CREATE INDEX IF NOT EXISTS idx_characters_realm_level ON characters(realm_index DESC, level DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_character_quests_daily ON character_quests (character_id, quest_id, (assigned_at::date));
+CREATE INDEX IF NOT EXISTS idx_character_quests_active ON character_quests(character_id, status) WHERE status = 'active';
 
 -- ===========================
 -- Trigger for updated_at

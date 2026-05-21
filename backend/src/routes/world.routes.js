@@ -11,6 +11,8 @@ import { withTransaction } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireCharacterOwner } from '../middleware/ownership.middleware.js';
 import { exploreSchema, validate } from '../middleware/validation.js';
+import { fail, failFromError, ok } from '../http/response.js';
+import { trackQuestProgress } from '../services/questTracker.js';
 
 const router = express.Router();
 
@@ -23,7 +25,7 @@ router.post('/:characterId/explore', validate(exploreSchema), async (req, res) =
     const zone = WORLD_ZONES[zoneId];
 
     if (!zone) {
-      return res.status(404).json({ error: 'Zone not found' });
+      return fail(res, 404, 'Zone not found');
     }
 
     const result = await withTransaction(async (client) => {
@@ -48,6 +50,12 @@ router.post('/:characterId/explore', validate(exploreSchema), async (req, res) =
         ? new Date(character.exploration_last_reset).toISOString().slice(0, 10)
         : today;
       const currentCount = resetDate === today ? Number(character.exploration_count) : 0;
+
+      if (Number(character.hp) <= 0) {
+        const error = new Error('Not enough HP to explore');
+        error.status = 400;
+        throw error;
+      }
 
       if (currentCount >= 10) {
         const error = new Error('No exploration attempts left today');
@@ -137,13 +145,72 @@ router.post('/:characterId/explore', validate(exploreSchema), async (req, res) =
       };
     });
 
-    res.json(result);
+    const questUpdate = await trackQuestProgress(req.params.characterId, 'explore');
+    ok(res, { ...result, questUpdate });
   } catch (error) {
     if (error.status) {
-      return res.status(error.status).json({ error: error.message });
+      return failFromError(res, error, 'Error exploring zone');
     }
     console.error('Error exploring zone:', error);
-    res.status(500).json({ error: 'Error exploring zone' });
+    fail(res, 500, 'Error exploring zone');
+  }
+});
+
+router.post('/:characterId/refresh-exploration', async (req, res) => {
+  try {
+    const { characterId } = req.params;
+    const refreshCost = 5000;
+
+    const result = await withTransaction(async (client) => {
+      const characterResult = await client.query(
+        `SELECT spirit_stones
+         FROM characters
+         WHERE id = $1
+         FOR UPDATE`,
+        [characterId]
+      );
+
+      if (characterResult.rows.length === 0) {
+        const error = new Error('Character not found');
+        error.status = 404;
+        throw error;
+      }
+
+      if (Number(characterResult.rows[0].spirit_stones) < refreshCost) {
+        const error = new Error('Not enough Spirit Stones');
+        error.status = 400;
+        error.details = { required: refreshCost, current: Number(characterResult.rows[0].spirit_stones) };
+        throw error;
+      }
+
+      await client.query(
+        `UPDATE characters
+         SET spirit_stones = spirit_stones - $2,
+             exploration_count = 0,
+             exploration_last_reset = CURRENT_DATE
+         WHERE id = $1`,
+        [characterId, refreshCost]
+      );
+
+      await client.query(
+        `INSERT INTO event_logs (character_id, event_type, message)
+         VALUES ($1, 'info', $2)`,
+        [characterId, `Refreshed exploration attempts for ${refreshCost} Spirit Stones`]
+      );
+
+      return {
+        success: true,
+        cost: refreshCost,
+        explorationCount: 0,
+        message: `Exploration attempts refreshed! -${refreshCost} Spirit Stones`,
+      };
+    });
+
+    ok(res, result);
+  } catch (error) {
+    if (error.status) return failFromError(res, error, 'Error refreshing exploration attempts');
+    console.error('Error refreshing exploration attempts:', error);
+    fail(res, 500, 'Error refreshing exploration attempts');
   }
 });
 

@@ -6,13 +6,16 @@ import {
 } from '../domain/gameCatalog.js';
 import { withTransaction } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
+import { requireClientStateSyncEnabled } from '../middleware/devSync.middleware.js';
 import { requireCharacterOwner } from '../middleware/ownership.middleware.js';
+import { fail, failFromError, ok } from '../http/response.js';
 import {
   breakthroughSchema,
   cultivateSchema,
   meditationSessionSchema,
   validate,
 } from '../middleware/validation.js';
+import { trackQuestProgress } from '../services/questTracker.js';
 
 const router = express.Router();
 
@@ -23,6 +26,67 @@ const getFoundationExpMultiplier = (foundationValue) => {
   if (foundationValue >= 50) return 1;
   if (foundationValue >= 20) return 0.95;
   return 0.85;
+};
+
+const applyMeditationTicks = async (client, characterId, ticks) => {
+  const characterResult = await client.query(
+    `SELECT realm_index, level, exp, max_exp, foundation_value, foundation_max,
+            inner_demon_value, inner_demon_max, cultivation_speed
+     FROM characters
+     WHERE id = $1
+     FOR UPDATE`,
+    [characterId]
+  );
+
+  if (characterResult.rows.length === 0) {
+    const error = new Error('Character not found');
+    error.status = 404;
+    throw error;
+  }
+
+  const character = characterResult.rows[0];
+  const speedMultiplier = Number(character.cultivation_speed) || 1;
+  let expGain = 0;
+  let foundationRecovered = 0;
+  let demonSuppressed = 0;
+
+  for (let i = 0; i < ticks; i += 1) {
+    expGain += Math.max(1, Math.floor((Math.floor(Math.random() * 3) + 1) * speedMultiplier));
+    if (Math.random() < 0.2) foundationRecovered += 1;
+    if (Math.random() < 0.1) demonSuppressed += 1;
+  }
+
+  const nextProgress = calculateExpProgress({
+    realmIndex: character.realm_index,
+    level: character.level,
+    exp: character.exp,
+    maxExp: character.max_exp,
+  }, expGain);
+
+  const nextFoundation = Math.min(
+    Number(character.foundation_max) || 100,
+    Number(character.foundation_value) + foundationRecovered
+  );
+  const nextDemon = Math.max(0, Number(character.inner_demon_value) - demonSuppressed);
+
+  await client.query(
+    `UPDATE characters
+     SET exp = $2, level = $3, max_exp = $4,
+         foundation_value = $5, inner_demon_value = $6,
+         last_meditation_time = NOW(),
+         meditation_started_at = NULL
+     WHERE id = $1`,
+    [characterId, nextProgress.exp, nextProgress.level, nextProgress.maxExp, nextFoundation, nextDemon]
+  );
+
+  return {
+    ticks,
+    expGain,
+    foundationRecovered,
+    demonSuppressed,
+    progress: nextProgress,
+    message: `Meditation completed! +${expGain} EXP`,
+  };
 };
 
 router.post('/:characterId/cultivate', validate(cultivateSchema), async (req, res) => {
@@ -73,26 +137,129 @@ router.post('/:characterId/cultivate', validate(cultivateSchema), async (req, re
       };
     });
 
-    res.json(result);
+    ok(res, result);
   } catch (error) {
     if (error.status) {
-      return res.status(error.status).json({ error: error.message });
+      return failFromError(res, error, 'Error cultivating');
     }
     console.error('Error cultivating:', error);
-    res.status(500).json({ error: 'Error cultivating' });
+    fail(res, 500, 'Error cultivating');
   }
 });
 
-router.post('/:characterId/meditation-session', validate(meditationSessionSchema), async (req, res) => {
+router.post('/:characterId/meditation-session', requireClientStateSyncEnabled, validate(meditationSessionSchema), async (req, res) => {
   try {
     const { characterId } = req.params;
     const { durationSeconds } = req.body;
     const ticks = Math.min(300, Math.max(1, Math.floor(durationSeconds)));
 
+    const result = await withTransaction((client) => applyMeditationTicks(client, characterId, ticks));
+    const questUpdate = await trackQuestProgress(characterId, 'meditate');
+    ok(res, { ...result, questUpdate, legacyClientDuration: true });
+  } catch (error) {
+    if (error.status) {
+      return failFromError(res, error, 'Error completing meditation session');
+    }
+    console.error('Error completing meditation session:', error);
+    fail(res, 500, 'Error completing meditation session');
+  }
+});
+
+router.post('/:characterId/meditation/start', async (req, res) => {
+  try {
+    const { characterId } = req.params;
+    const result = await withTransaction(async (client) => {
+      const active = await client.query(
+        `SELECT meditation_started_at
+         FROM characters
+         WHERE id = $1
+         FOR UPDATE`,
+        [characterId]
+      );
+
+      if (active.rows.length === 0) {
+        const error = new Error('Character not found');
+        error.status = 404;
+        throw error;
+      }
+
+      if (active.rows[0].meditation_started_at) {
+        const error = new Error('Meditation session already started');
+        error.status = 400;
+        throw error;
+      }
+
+      const updated = await client.query(
+        `UPDATE characters
+         SET meditation_started_at = NOW()
+         WHERE id = $1
+         RETURNING meditation_started_at`,
+        [characterId]
+      );
+
+      return {
+        startedAt: updated.rows[0].meditation_started_at,
+        message: 'Meditation session started',
+      };
+    });
+
+    ok(res, result);
+  } catch (error) {
+    if (error.status) return failFromError(res, error, 'Error starting meditation session');
+    console.error('Error starting meditation session:', error);
+    fail(res, 500, 'Error starting meditation session');
+  }
+});
+
+router.post('/:characterId/meditation/finish', async (req, res) => {
+  try {
+    const { characterId } = req.params;
+
+    const result = await withTransaction(async (client) => {
+      const session = await client.query(
+        `SELECT meditation_started_at,
+                GREATEST(1, FLOOR(EXTRACT(EPOCH FROM (NOW() - meditation_started_at))))::int AS duration_seconds
+         FROM characters
+         WHERE id = $1
+         FOR UPDATE`,
+        [characterId]
+      );
+
+      if (session.rows.length === 0) {
+        const error = new Error('Character not found');
+        error.status = 404;
+        throw error;
+      }
+
+      if (!session.rows[0].meditation_started_at) {
+        const error = new Error('No active meditation session');
+        error.status = 400;
+        throw error;
+      }
+
+      const durationSeconds = Number(session.rows[0].duration_seconds) || 1;
+      const ticks = Math.min(300, Math.max(1, durationSeconds));
+      const meditationResult = await applyMeditationTicks(client, characterId, ticks);
+      return { ...meditationResult, durationSeconds };
+    });
+
+    const questUpdate = await trackQuestProgress(characterId, 'meditate');
+    ok(res, { ...result, questUpdate });
+  } catch (error) {
+    if (error.status) return failFromError(res, error, 'Error finishing meditation session');
+    console.error('Error finishing meditation session:', error);
+    fail(res, 500, 'Error finishing meditation session');
+  }
+});
+
+router.post('/:characterId/meditate', async (req, res) => {
+  try {
+    const { characterId } = req.params;
+    const cooldownMs = 5 * 60 * 1000;
+
     const result = await withTransaction(async (client) => {
       const characterResult = await client.query(
-        `SELECT realm_index, level, exp, max_exp, foundation_value, foundation_max,
-                inner_demon_value, inner_demon_max, cultivation_speed
+        `SELECT hp, max_hp, last_meditation_time
          FROM characters
          WHERE id = $1
          FOR UPDATE`,
@@ -106,55 +273,37 @@ router.post('/:characterId/meditation-session', validate(meditationSessionSchema
       }
 
       const character = characterResult.rows[0];
-      const speedMultiplier = Number(character.cultivation_speed) || 1;
-      let expGain = 0;
-      let foundationRecovered = 0;
-      let demonSuppressed = 0;
-
-      for (let i = 0; i < ticks; i += 1) {
-        expGain += Math.max(1, Math.floor((Math.floor(Math.random() * 3) + 1) * speedMultiplier));
-        if (Math.random() < 0.2) foundationRecovered += 1;
-        if (Math.random() < 0.1) demonSuppressed += 1;
+      if (character.last_meditation_time) {
+        const elapsedMs = Date.now() - new Date(character.last_meditation_time).getTime();
+        if (elapsedMs < cooldownMs) {
+          const error = new Error('Meditation is on cooldown');
+          error.status = 400;
+          error.details = { cooldownRemaining: Math.ceil((cooldownMs - elapsedMs) / 1000) };
+          throw error;
+        }
       }
 
-      const nextProgress = calculateExpProgress({
-        realmIndex: character.realm_index,
-        level: character.level,
-        exp: character.exp,
-        maxExp: character.max_exp,
-      }, expGain);
-
-      const nextFoundation = Math.min(
-        Number(character.foundation_max) || 100,
-        Number(character.foundation_value) + foundationRecovered
-      );
-      const nextDemon = Math.max(0, Number(character.inner_demon_value) - demonSuppressed);
-
+      const healAmount = Math.min(20, Number(character.max_hp) - Number(character.hp));
       await client.query(
         `UPDATE characters
-         SET exp = $2, level = $3, max_exp = $4,
-             foundation_value = $5, inner_demon_value = $6,
+         SET hp = LEAST(max_hp, hp + 20),
              last_meditation_time = NOW()
          WHERE id = $1`,
-        [characterId, nextProgress.exp, nextProgress.level, nextProgress.maxExp, nextFoundation, nextDemon]
+        [characterId]
       );
 
       return {
-        ticks,
-        expGain,
-        foundationRecovered,
-        demonSuppressed,
-        message: `Meditation completed! +${expGain} EXP`,
+        success: true,
+        healAmount,
+        message: `Meditation completed! +${healAmount} HP`,
       };
     });
 
-    res.json(result);
+    ok(res, result);
   } catch (error) {
-    if (error.status) {
-      return res.status(error.status).json({ error: error.message });
-    }
-    console.error('Error completing meditation session:', error);
-    res.status(500).json({ error: 'Error completing meditation session' });
+    if (error.status) return failFromError(res, error, 'Error meditating');
+    console.error('Error meditating:', error);
+    fail(res, 500, 'Error meditating');
   }
 });
 
@@ -281,13 +430,13 @@ router.post('/:characterId/breakthrough', validate(breakthroughSchema), async (r
       };
     });
 
-    res.json(result);
+    ok(res, result);
   } catch (error) {
     if (error.status) {
-      return res.status(error.status).json({ error: error.message, ...error.details });
+      return failFromError(res, error, 'Error during breakthrough');
     }
     console.error('Error during breakthrough:', error);
-    res.status(500).json({ error: 'Error during breakthrough' });
+    fail(res, 500, 'Error during breakthrough');
   }
 });
 

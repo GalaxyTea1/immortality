@@ -6,6 +6,7 @@ import { saveLimiter } from '../middleware/rateLimit.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { assertCharacterOwner, requireCharacterOwner } from '../middleware/ownership.middleware.js';
 import { JWT_SECRET } from '../config.js';
+import { created, fail, ok } from '../http/response.js';
 
 const router = express.Router();
 
@@ -19,13 +20,13 @@ router.get('/:id', authMiddleware, requireCharacterOwner('id'), async (req, res)
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Character not found' });
+      return fail(res, 404, 'Character not found');
     }
 
-    res.json(result.rows[0]);
+    ok(res, result.rows[0]);
   } catch (error) {
     console.error('Error fetching character:', error);
-    res.status(500).json({ error: 'Error fetching character info' });
+    fail(res, 500, 'Error fetching character info');
   }
 });
 
@@ -41,10 +42,10 @@ router.post('/', authMiddleware, async (req, res) => {
       [req.user.id, name || 'Daoist']
     );
 
-    res.status(201).json(result.rows[0]);
+    created(res, result.rows[0]);
   } catch (error) {
     console.error('Error creating character:', error);
-    res.status(500).json({ error: 'Error creating character' });
+    fail(res, 500, 'Error creating character');
   }
 });
 
@@ -64,13 +65,13 @@ router.put('/:id', authMiddleware, requireCharacterOwner('id'), saveLimiter, val
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Character not found' });
+      return fail(res, 404, 'Character not found');
     }
 
-    res.json(result.rows[0]);
+    ok(res, result.rows[0]);
   } catch (error) {
     console.error('Error updating character:', error);
-    res.status(500).json({ error: 'Error updating character' });
+    fail(res, 500, 'Error updating character');
   }
 });
 
@@ -82,25 +83,25 @@ router.post('/:id/beacon-save', async (req, res) => {
     const { token, name } = req.body;
 
     if (!token) {
-      return res.status(401).json({ error: 'Token required' });
+      return fail(res, 401, 'Token required');
     }
 
     let decoded;
     try {
       decoded = jwt.verify(token, JWT_SECRET);
     } catch {
-      return res.status(403).json({ error: 'Invalid token' });
+      return fail(res, 403, 'Invalid token');
     }
 
     const isOwner = await assertCharacterOwner(decoded.userId, characterId);
     if (!isOwner) {
-      return res.status(403).json({ error: 'Forbidden character access' });
+      return fail(res, 403, 'Forbidden character access');
     }
 
     if (name !== undefined) {
       const { error } = saveCharacterMetadataSchema.validate({ name });
       if (error) {
-        return res.status(400).json({ error: error.details[0].message });
+        return fail(res, 400, error.details[0].message);
       }
 
       await query(
@@ -109,10 +110,10 @@ router.post('/:id/beacon-save', async (req, res) => {
       );
     }
 
-    res.json({ saved: true, metadataOnly: true });
+    ok(res, { saved: true, metadataOnly: true });
   } catch (error) {
     console.error('Beacon save error:', error);
-    res.status(500).json({ error: 'Beacon save failed' });
+    fail(res, 500, 'Beacon save failed');
   }
 });
 

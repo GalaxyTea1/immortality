@@ -4,6 +4,7 @@ import { query, withTransaction } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireClientStateSyncEnabled } from '../middleware/devSync.middleware.js';
 import { requireCharacterOwner } from '../middleware/ownership.middleware.js';
+import { fail, failFromError, ok } from '../http/response.js';
 
 const router = express.Router();
 
@@ -29,10 +30,10 @@ router.get('/:characterId', async (req, res) => {
             };
         });
 
-        res.json(equipment);
+        ok(res, equipment);
     } catch (error) {
         console.error('Error fetching equipment:', error);
-        res.status(500).json({ error: 'Error fetching equipment' });
+        fail(res, 500, 'Error fetching equipment');
     }
 });
 
@@ -43,7 +44,7 @@ router.post('/:characterId/equip', async (req, res) => {
         const { slot, itemId, enhanceLevel = 0 } = req.body;
 
         if (!slot || !itemId) {
-            return res.status(400).json({ error: 'Missing slot or itemId' });
+            return fail(res, 400, 'Missing slot or itemId');
         }
 
         assertEquipmentForSlot({ itemId, slot });
@@ -110,13 +111,13 @@ router.post('/:characterId/equip', async (req, res) => {
             };
         });
 
-        res.json(result);
+        ok(res, result);
     } catch (error) {
         if (error.status) {
-            return res.status(error.status).json({ error: error.message });
+            return failFromError(res, error, 'Error equipping item');
         }
         console.error('Error equipping item:', error);
-        res.status(500).json({ error: 'Error equipping item' });
+        fail(res, 500, 'Error equipping item');
     }
 });
 
@@ -127,11 +128,11 @@ router.post('/:characterId/unequip', async (req, res) => {
         const { slot } = req.body;
 
         if (!slot) {
-            return res.status(400).json({ error: 'Missing slot information' });
+            return fail(res, 400, 'Missing slot information');
         }
 
         if (!VALID_EQUIPMENT_SLOTS.has(slot)) {
-            return res.status(400).json({ error: 'Invalid equipment slot' });
+            return fail(res, 400, 'Invalid equipment slot');
         }
 
         const result = await withTransaction(async (client) => {
@@ -169,13 +170,13 @@ router.post('/:characterId/unequip', async (req, res) => {
             };
         });
 
-        res.json(result);
+        ok(res, result);
     } catch (error) {
         if (error.status) {
-            return res.status(error.status).json({ error: error.message });
+            return failFromError(res, error, 'Error unequipping item');
         }
         console.error('Error unequipping item:', error);
-        res.status(500).json({ error: 'Error unequipping item' });
+        fail(res, 500, 'Error unequipping item');
     }
 });
 
@@ -186,11 +187,11 @@ router.post('/:characterId/upgrade', async (req, res) => {
         const { slot } = req.body;
 
         if (!slot) {
-            return res.status(400).json({ error: 'Missing slot' });
+            return fail(res, 400, 'Missing slot');
         }
 
         if (!VALID_EQUIPMENT_SLOTS.has(slot)) {
-            return res.status(400).json({ error: 'Invalid equipment slot' });
+            return fail(res, 400, 'Invalid equipment slot');
         }
 
         const result = await withTransaction(async (client) => {
@@ -271,13 +272,13 @@ router.post('/:characterId/upgrade', async (req, res) => {
             };
         });
 
-        res.json(result);
+        ok(res, result);
     } catch (error) {
         if (error.status) {
-            return res.status(error.status).json({ error: error.message, ...error.details });
+            return failFromError(res, error, 'Error upgrading equipment');
         }
         console.error('Error upgrading equipment:', error);
-        res.status(500).json({ error: 'Error upgrading equipment' });
+        fail(res, 500, 'Error upgrading equipment');
     }
 });
 
@@ -304,13 +305,13 @@ router.put('/:characterId/sync', requireClientStateSyncEnabled, async (req, res)
             }
         });
 
-        res.json({ message: 'Equipment synced' });
+        ok(res, { message: 'Equipment synced' });
     } catch (error) {
         if (error.status) {
-            return res.status(error.status).json({ error: error.message });
+            return failFromError(res, error, 'Error syncing equipment');
         }
         console.error('Error syncing equipment:', error);
-        res.status(500).json({ error: 'Error syncing equipment' });
+        fail(res, 500, 'Error syncing equipment');
     }
 });
 

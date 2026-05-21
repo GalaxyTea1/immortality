@@ -6,6 +6,7 @@ import { authMiddleware } from '../middleware/auth.middleware.js';
 import { validate, registerSchema, loginSchema } from '../middleware/validation.js';
 import { authLimiter } from '../middleware/rateLimit.js';
 import { JWT_EXPIRES_IN, JWT_SECRET } from '../config.js';
+import { created, fail, ok } from '../http/response.js';
 const router = express.Router();
 
 // POST /api/auth/register - Register account
@@ -15,15 +16,15 @@ router.post('/register', authLimiter, validate(registerSchema), async (req, res)
 
         // Validate input
         if (!username || !email || !password) {
-            return res.status(400).json({ error: 'Please provide all required information' });
+            return fail(res, 400, 'Please provide all required information');
         }
 
         if (username.length < 3 || username.length > 50) {
-            return res.status(400).json({ error: 'Username must be between 3-50 characters' });
+            return fail(res, 400, 'Username must be between 3-50 characters');
         }
 
         if (password.length < 6) {
-            return res.status(400).json({ error: 'Password must be at least 6 characters' });
+            return fail(res, 400, 'Password must be at least 6 characters');
         }
 
         // Check if username/email already exists
@@ -33,7 +34,7 @@ router.post('/register', authLimiter, validate(registerSchema), async (req, res)
         );
 
         if (existingUser.rows.length > 0) {
-            return res.status(400).json({ error: 'Username or email already in use' });
+            return fail(res, 400, 'Username or email already in use');
         }
 
         // Hash password
@@ -67,7 +68,7 @@ router.post('/register', authLimiter, validate(registerSchema), async (req, res)
 
         console.log(`[AUTH] New user joined: ${username}`);
 
-        res.status(201).json({
+        created(res, {
             message: 'Welcome to the Immortality World!',
             user: {
                 id: newUser.id,
@@ -79,7 +80,7 @@ router.post('/register', authLimiter, validate(registerSchema), async (req, res)
         });
     } catch (error) {
         console.error('Register error:', error);
-        res.status(500).json({ error: 'Error creating account' });
+        fail(res, 500, 'Error creating account');
     }
 });
 
@@ -89,7 +90,7 @@ router.post('/login', authLimiter, validate(loginSchema), async (req, res) => {
         const { username, password } = req.body;
 
         if (!username || !password) {
-            return res.status(400).json({ error: 'Please enter username and password' });
+            return fail(res, 400, 'Please enter username and password');
         }
 
         // Find user by username or email
@@ -102,20 +103,20 @@ router.post('/login', authLimiter, validate(loginSchema), async (req, res) => {
         );
 
         if (result.rows.length === 0) {
-            return res.status(401).json({ error: 'Invalid username or password' });
+            return fail(res, 401, 'Invalid username or password');
         }
 
         const user = result.rows[0];
 
         if (!user.is_active) {
-            return res.status(401).json({ error: 'Account is locked' });
+            return fail(res, 401, 'Account is locked');
         }
 
         // Check password
         const isValidPassword = await bcrypt.compare(password, user.password_hash);
 
         if (!isValidPassword) {
-            return res.status(401).json({ error: 'Invalid username or password' });
+            return fail(res, 401, 'Invalid username or password');
         }
 
         // Update last_login
@@ -130,7 +131,7 @@ router.post('/login', authLimiter, validate(loginSchema), async (req, res) => {
 
         console.log(`[AUTH] User login: ${user.username}`);
 
-        res.json({
+        ok(res, {
             message: `Welcome back, Daoist ${user.username}!`,
             user: {
                 id: user.id,
@@ -142,7 +143,7 @@ router.post('/login', authLimiter, validate(loginSchema), async (req, res) => {
         });
     } catch (error) {
         console.error('Login error:', error);
-        res.status(500).json({ error: 'Login error' });
+        fail(res, 500, 'Login error');
     }
 });
 
@@ -160,13 +161,13 @@ router.get('/me', authMiddleware, async (req, res) => {
         );
 
         if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Information not found' });
+            return fail(res, 404, 'Information not found');
         }
 
-        res.json(result.rows[0]);
+        ok(res, result.rows[0]);
     } catch (error) {
         console.error('Get me error:', error);
-        res.status(500).json({ error: 'Error fetching info' });
+        fail(res, 500, 'Error fetching info');
     }
 });
 
@@ -176,11 +177,11 @@ router.post('/change-password', authMiddleware, async (req, res) => {
         const { currentPassword, newPassword } = req.body;
 
         if (!currentPassword || !newPassword) {
-            return res.status(400).json({ error: 'Please provide all required information' });
+            return fail(res, 400, 'Please provide all required information');
         }
 
         if (newPassword.length < 6) {
-            return res.status(400).json({ error: 'New password must be at least 6 characters' });
+            return fail(res, 400, 'New password must be at least 6 characters');
         }
 
         // Get current password hash
@@ -192,7 +193,7 @@ router.post('/change-password', authMiddleware, async (req, res) => {
         const isValidPassword = await bcrypt.compare(currentPassword, result.rows[0].password_hash);
 
         if (!isValidPassword) {
-            return res.status(401).json({ error: 'Current password is incorrect' });
+            return fail(res, 401, 'Current password is incorrect');
         }
 
         // Hash new password
@@ -204,10 +205,10 @@ router.post('/change-password', authMiddleware, async (req, res) => {
             [newPasswordHash, req.user.id]
         );
 
-        res.json({ message: 'Password changed successfully!' });
+        ok(res, { message: 'Password changed successfully!' });
     } catch (error) {
         console.error('Change password error:', error);
-        res.status(500).json({ error: 'Error changing password' });
+        fail(res, 500, 'Error changing password');
     }
 });
 

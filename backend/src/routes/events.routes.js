@@ -2,6 +2,7 @@ import express from 'express';
 import { query } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireCharacterOwner } from '../middleware/ownership.middleware.js';
+import { created, fail, ok } from '../http/response.js';
 
 const router = express.Router();
 
@@ -29,10 +30,10 @@ router.get('/:characterId', async (req, res) => {
             time: row.created_at
         }));
 
-        res.json({ events });
+        ok(res, { events });
     } catch (error) {
         console.error('Error fetching events:', error);
-        res.status(500).json({ error: 'Error fetching event logs' });
+        fail(res, 500, 'Error fetching event logs');
     }
 });
 
@@ -40,18 +41,16 @@ router.get('/:characterId', async (req, res) => {
 router.post('/:characterId', async (req, res) => {
     try {
         const { characterId } = req.params;
-        const { type, message } = req.body;
+        const { type: bodyType, eventType, message } = req.body;
+        const type = bodyType || eventType;
 
         if (!type || !message) {
-            return res.status(400).json({ error: 'Missing type or message' });
+            return fail(res, 400, 'Missing type or message');
         }
 
         const validTypes = ['info', 'warning', 'success', 'danger', 'quest', 'heal'];
         if (!validTypes.includes(type)) {
-            return res.status(400).json({
-                error: 'Invalid type',
-                validTypes
-            });
+            return fail(res, 400, 'Invalid type', { validTypes });
         }
 
         const result = await query(
@@ -61,7 +60,7 @@ router.post('/:characterId', async (req, res) => {
             [characterId, type, message]
         );
 
-        res.status(201).json({
+        created(res, {
             id: result.rows[0].id,
             type: result.rows[0].event_type,
             message: result.rows[0].message,
@@ -69,7 +68,7 @@ router.post('/:characterId', async (req, res) => {
         });
     } catch (error) {
         console.error('Error adding event:', error);
-        res.status(500).json({ error: 'Error adding event' });
+        fail(res, 500, 'Error adding event');
     }
 });
 
@@ -91,10 +90,10 @@ router.delete('/:characterId/clear', async (req, res) => {
             [characterId]
         );
 
-        res.json({ message: 'Event logs cleared' });
+        ok(res, { message: 'Event logs cleared' });
     } catch (error) {
         console.error('Error clearing events:', error);
-        res.status(500).json({ error: 'Error clearing logs' });
+        fail(res, 500, 'Error clearing logs');
     }
 });
 

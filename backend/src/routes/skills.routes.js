@@ -3,6 +3,7 @@ import { assertKnownItem, buildStatIncrementFragments } from '../domain/gameCata
 import { query, withTransaction } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireCharacterOwner } from '../middleware/ownership.middleware.js';
+import { fail, failFromError, ok } from '../http/response.js';
 
 const router = express.Router();
 
@@ -21,13 +22,13 @@ router.get('/:characterId', async (req, res) => {
             [characterId]
         );
 
-        res.json(result.rows.map(row => ({
+        ok(res, result.rows.map(row => ({
             skillId: row.skill_id,
             learnedAt: row.learned_at
         })));
     } catch (error) {
         console.error('Error fetching skills:', error);
-        res.status(500).json({ error: 'Error fetching skills list' });
+        fail(res, 500, 'Error fetching skills list');
     }
 });
 
@@ -38,12 +39,12 @@ router.post('/:characterId/learn', async (req, res) => {
         const { skillId, bookItemId } = req.body;
 
         if (!skillId || !bookItemId) {
-            return res.status(400).json({ error: 'Missing skillId or bookItemId' });
+            return fail(res, 400, 'Missing skillId or bookItemId');
         }
 
         const bookDef = assertKnownItem(bookItemId);
         if (bookDef.type !== 'book' || skillId !== bookItemId) {
-            return res.status(400).json({ error: 'Invalid skill book' });
+            return fail(res, 400, 'Invalid skill book');
         }
 
         const result = await withTransaction(async (client) => {
@@ -97,7 +98,7 @@ router.post('/:characterId/learn', async (req, res) => {
             );
         });
 
-        res.json({
+        ok(res, {
             message: 'Skill learned successfully!',
             skill: {
                 skillId: result.rows[0].skill_id,
@@ -106,10 +107,10 @@ router.post('/:characterId/learn', async (req, res) => {
         });
     } catch (error) {
         if (error.status) {
-            return res.status(error.status).json({ error: error.message });
+            return failFromError(res, error, 'Error learning skill');
         }
         console.error('Error learning skill:', error);
-        res.status(500).json({ error: 'Error learning skill' });
+        fail(res, 500, 'Error learning skill');
     }
 });
 

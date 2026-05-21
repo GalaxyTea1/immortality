@@ -3,19 +3,20 @@ import { SHOP_CATALOG, findShopCatalogItem } from '../../../shared/shopCatalog.j
 import { withTransaction } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { assertCharacterOwner } from '../middleware/ownership.middleware.js';
+import { fail, failFromError, ok } from '../http/response.js';
 
 const router = express.Router();
 
 const requireOwnedBodyCharacter = async (req, res) => {
     const { characterId } = req.body;
     if (!characterId) {
-        res.status(400).json({ error: 'Missing characterId' });
+        fail(res, 400, 'Missing characterId');
         return false;
     }
 
     const isOwner = await assertCharacterOwner(req.user.id, characterId);
     if (!isOwner) {
-        res.status(403).json({ error: 'Forbidden character access' });
+        fail(res, 403, 'Forbidden character access');
         return false;
     }
 
@@ -37,7 +38,7 @@ router.get('/items', (req, res) => {
         items = items.filter(item => item.category === category);
     }
 
-    res.json({ items });
+    ok(res, { items });
 });
 
 // POST /api/shop/buy - Buy item
@@ -48,16 +49,16 @@ router.post('/buy', authMiddleware, async (req, res) => {
         if (!(await requireOwnedBodyCharacter(req, res))) return;
 
         if (!itemId) {
-            return res.status(400).json({ error: 'Missing itemId' });
+            return fail(res, 400, 'Missing itemId');
         }
 
         if (quantity < 1 || quantity > 99) {
-            return res.status(400).json({ error: 'Invalid quantity (1-99)' });
+            return fail(res, 400, 'Invalid quantity (1-99)');
         }
 
         const shopItem = findShopCatalogItem(itemId);
         if (!shopItem) {
-            return res.status(404).json({ error: 'Item not found in shop' });
+            return fail(res, 404, 'Item not found in shop');
         }
 
         const result = await withTransaction(async (client) => {
@@ -108,13 +109,13 @@ router.post('/buy', authMiddleware, async (req, res) => {
             };
         });
 
-        res.json(result);
+        ok(res, result);
     } catch (error) {
         if (error.status) {
-            return res.status(error.status).json({ error: error.message, ...error.details });
+            return failFromError(res, error, 'Error buying item');
         }
         console.error('Error buying item:', error);
-        res.status(500).json({ error: 'Error buying item' });
+        fail(res, 500, 'Error buying item');
     }
 });
 
@@ -126,11 +127,11 @@ router.post('/sell', authMiddleware, async (req, res) => {
         if (!(await requireOwnedBodyCharacter(req, res))) return;
 
         if (!itemId) {
-            return res.status(400).json({ error: 'Missing itemId' });
+            return fail(res, 400, 'Missing itemId');
         }
 
         if (quantity < 1 || quantity > 99) {
-            return res.status(400).json({ error: 'Invalid quantity (1-99)' });
+            return fail(res, 400, 'Invalid quantity (1-99)');
         }
 
         const result = await withTransaction(async (client) => {
@@ -172,13 +173,13 @@ router.post('/sell', authMiddleware, async (req, res) => {
             };
         });
 
-        res.json(result);
+        ok(res, result);
     } catch (error) {
         if (error.status) {
-            return res.status(error.status).json({ error: error.message });
+            return failFromError(res, error, 'Error selling item');
         }
         console.error('Error selling item:', error);
-        res.status(500).json({ error: 'Error selling item' });
+        fail(res, 500, 'Error selling item');
     }
 });
 

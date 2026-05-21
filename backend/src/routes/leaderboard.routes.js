@@ -1,5 +1,6 @@
 import express from 'express';
 import { query } from '../db/index.js';
+import { fail, ok } from '../http/response.js';
 
 const router = express.Router();
 
@@ -27,7 +28,7 @@ router.get('/', async (req, res) => {
       [parseInt(limit), parseInt(offset)]
     );
 
-    res.json({
+    ok(res, {
       leaderboard: result.rows,
       total: result.rowCount,
       limit: parseInt(limit),
@@ -35,7 +36,7 @@ router.get('/', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching leaderboard:', error);
-    res.status(500).json({ error: 'Error fetching leaderboard' });
+    fail(res, 500, 'Error fetching leaderboard');
   }
 });
 
@@ -64,10 +65,10 @@ router.get('/power', async (req, res) => {
       [parseInt(limit)]
     );
 
-    res.json({ leaderboard: result.rows, total: result.rowCount, limit: parseInt(limit) });
+    ok(res, { leaderboard: result.rows, total: result.rowCount, limit: parseInt(limit) });
   } catch (error) {
     console.error('Error fetching power leaderboard:', error);
-    res.status(500).json({ error: 'Error fetching power leaderboard' });
+    fail(res, 500, 'Error fetching power leaderboard');
   }
 });
 
@@ -92,10 +93,10 @@ router.get('/reputation', async (req, res) => {
       [parseInt(limit)]
     );
 
-    res.json({ leaderboard: result.rows, total: result.rowCount, limit: parseInt(limit) });
+    ok(res, { leaderboard: result.rows, total: result.rowCount, limit: parseInt(limit) });
   } catch (error) {
     console.error('Error fetching reputation leaderboard:', error);
-    res.status(500).json({ error: 'Error fetching reputation leaderboard' });
+    fail(res, 500, 'Error fetching reputation leaderboard');
   }
 });
 

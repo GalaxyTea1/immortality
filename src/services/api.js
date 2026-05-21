@@ -1,4 +1,4 @@
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api';
+﻿export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api';
 
 // ==================== TOKEN MANAGEMENT ====================
 
@@ -51,7 +51,11 @@ const authFetch = async (endpoint, options = {}) => {
         if ((response.status === 401 || response.status === 403) && token) {
             clearToken();
         }
-        throw new Error(data.error || 'Có lỗi xảy ra');
+        throw new Error(data.error?.message || data.error || 'Co loi xay ra');
+    }
+
+    if (data && data.success === true && Object.prototype.hasOwnProperty.call(data, 'data')) {
+        return data.data;
     }
 
     return data;
@@ -432,6 +436,24 @@ export const cultivation = {
             body: JSON.stringify({ durationSeconds }),
         });
     },
+
+    startMeditation: async (characterId) => {
+        return authFetch(`/cultivation/${characterId}/meditation/start`, {
+            method: 'POST',
+        });
+    },
+
+    finishMeditation: async (characterId) => {
+        return authFetch(`/cultivation/${characterId}/meditation/finish`, {
+            method: 'POST',
+        });
+    },
+
+    meditate: async (characterId) => {
+        return authFetch(`/cultivation/${characterId}/meditate`, {
+            method: 'POST',
+        });
+    },
 };
 
 // ==================== WORLD API ====================
@@ -446,6 +468,26 @@ export const world = {
         return authFetch(`/world/${characterId}/explore`, {
             method: 'POST',
             body: JSON.stringify({ zoneId }),
+        });
+    },
+
+    refreshExploration: async (characterId) => {
+        return authFetch(`/world/${characterId}/refresh-exploration`, {
+            method: 'POST',
+        });
+    },
+};
+
+// ==================== QUEST API ====================
+
+export const quests = {
+    getActive: async (characterId) => {
+        return authFetch(`/quests/${characterId}/active`);
+    },
+
+    claimReward: async (characterId) => {
+        return authFetch(`/quests/${characterId}/claim`, {
+            method: 'POST',
         });
     },
 };

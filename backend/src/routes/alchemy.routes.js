@@ -9,6 +9,8 @@ import { withTransaction } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireCharacterOwner } from '../middleware/ownership.middleware.js';
 import { craftPillSchema, validate } from '../middleware/validation.js';
+import { fail, failFromError, ok } from '../http/response.js';
+import { trackQuestProgress } from '../services/questTracker.js';
 
 const router = express.Router();
 
@@ -21,7 +23,7 @@ router.post('/:characterId/craft', validate(craftPillSchema), async (req, res) =
     const recipe = ALCHEMY_RECIPES[recipeId];
 
     if (!recipe) {
-      return res.status(404).json({ error: 'Recipe not found' });
+      return fail(res, 404, 'Recipe not found');
     }
 
     const result = await withTransaction(async (client) => {
@@ -147,13 +149,16 @@ router.post('/:characterId/craft', validate(craftPillSchema), async (req, res) =
       };
     });
 
-    res.json(result);
+    const questUpdate = result.success
+      ? await trackQuestProgress(req.params.characterId, 'craft')
+      : null;
+    ok(res, { ...result, questUpdate });
   } catch (error) {
     if (error.status) {
-      return res.status(error.status).json({ error: error.message });
+      return failFromError(res, error, 'Error crafting pill');
     }
     console.error('Error crafting pill:', error);
-    res.status(500).json({ error: 'Error crafting pill' });
+    fail(res, 500, 'Error crafting pill');
   }
 });
 

@@ -242,4 +242,27 @@ Nên luôn cấu hình `JWT_SECRET` trong `.env`, và tốt nhất sửa fallbac
   - `POST /api/inventory/:characterId/add`
   - `PUT /api/inventory/:characterId/sync`
   - `PUT /api/equipment/:characterId/sync`
+  - `POST /api/cultivation/:characterId/meditation-session`
 - Set `ALLOW_CLIENT_STATE_SYNC=true` in `backend/.env` only when intentionally testing legacy/import-style client sync locally.
+
+## Update 2026-05-20
+
+- Backend success responses now use a common envelope `{ success: true, data }`; errors use `{ success: false, error: { message, details? } }`. The frontend API wrapper unwraps `data` for existing callers.
+- `JWT_SECRET` now fails fast in production when missing. Database startup also fails fast in production if the connection check fails.
+- Canonical game data for items, realms, recipes, and zones has moved to `shared/data/*`; `src/data/*` now re-exports those shared modules.
+- Added server-side quest endpoints:
+  - `GET /api/quests/:characterId/active`
+  - `POST /api/quests/:characterId/claim`
+- Added server-side gameplay endpoints:
+  - `POST /api/cultivation/:characterId/meditation/start`
+  - `POST /api/cultivation/:characterId/meditation/finish`
+  - `POST /api/cultivation/:characterId/meditate`
+  - `POST /api/world/:characterId/refresh-exploration`
+- Frontend now uses backend routes for quest reward claim, exploration refresh, world meditation HP recovery, and cultivation meditation start/finish when `characterId` exists.
+- Local save import/export/reset is now offline/dev-only; server-backed characters return an error instead of mutating local authoritative state.
+- Manual cultivation no longer reloads the full server state after every click; it applies the mutation response locally to avoid exhausting API quota during fast clicking.
+- Added normalized migrations for the new quest table and meditation session column:
+  - `backend/src/db/migrations/001_character_quests.sql`
+  - `backend/src/db/migrations/002_meditation_sessions.sql`
+- Added real-DB backend integration test scaffold at `backend/tests/integration/authOwnershipGameplay.integration.test.js`. It is skipped unless both `RUN_DB_INTEGRATION=true` and `TEST_DATABASE_URL` are set.
+- Swagger was refreshed for metadata-only character save, gameplay routes, quest routes, and the response envelope.

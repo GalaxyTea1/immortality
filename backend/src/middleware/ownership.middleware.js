@@ -1,4 +1,5 @@
 import { query } from '../db/index.js';
+import { fail } from '../http/response.js';
 
 export const assertCharacterOwner = async (userId, characterId) => {
     const result = await query(
@@ -15,18 +16,18 @@ export const requireCharacterOwner = (paramName = 'characterId') => {
             const characterId = req.params[paramName] || req.body[paramName];
 
             if (!characterId) {
-                return res.status(400).json({ error: 'Missing characterId' });
+                return fail(res, 400, 'Missing characterId');
             }
 
             const isOwner = await assertCharacterOwner(req.user.id, characterId);
             if (!isOwner) {
-                return res.status(403).json({ error: 'Forbidden character access' });
+                return fail(res, 403, 'Forbidden character access');
             }
 
             next();
         } catch (error) {
             console.error('Ownership check error:', error);
-            res.status(500).json({ error: 'Ownership check failed' });
+            fail(res, 500, 'Ownership check failed');
         }
     };
 };

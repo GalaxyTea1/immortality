@@ -1,4 +1,5 @@
 import Joi from 'joi';
+import { fail } from '../http/response.js';
 
 // ==================== AUTH SCHEMAS ====================
 
@@ -152,10 +153,7 @@ export function validate(schema) {
 
         if (error) {
             const errors = error.details.map(d => d.message);
-            return res.status(400).json({
-                error: 'Validation failed',
-                details: errors,
-            });
+            return fail(res, 400, 'Validation failed', errors);
         }
 
         req.body = value; // Use sanitized values

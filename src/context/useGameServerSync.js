@@ -32,15 +32,16 @@ export function useGameServerSync({
     cancelPendingSave();
     setIsServerLoading(true);
     try {
-      const [charData, inventoryData, equipmentData, skillsData] = await Promise.all([
+      const [charData, inventoryData, equipmentData, skillsData, questData] = await Promise.all([
         api.characters.get(characterId).catch(err => { console.warn('Load character failed:', err); return null; }),
         api.inventory.get(characterId).catch(err => { console.warn('Load inventory failed:', err); return []; }),
         api.equipment.get(characterId).catch(err => { console.warn('Load equipment failed:', err); return {}; }),
         api.skills.get(characterId).catch(err => { console.warn('Load skills failed:', err); return []; }),
+        api.quests.getActive(characterId).catch(err => { console.warn('Load quest failed:', err); return null; }),
       ]);
 
       if (charData) {
-        const serverState = mapServerToGameState(charData, inventoryData, equipmentData, skillsData);
+        const serverState = mapServerToGameState(charData, inventoryData, equipmentData, skillsData, questData?.quest);
         setGameState(serverState);
         prevStateRef.current = serverState;
         return serverState;

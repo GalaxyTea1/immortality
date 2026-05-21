@@ -9,6 +9,7 @@ import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireClientStateSyncEnabled } from '../middleware/devSync.middleware.js';
 import { requireCharacterOwner } from '../middleware/ownership.middleware.js';
 import { addItemSchema, inventorySyncSchema, removeItemSchema, useItemSchema, validate } from '../middleware/validation.js';
+import { fail, failFromError, ok } from '../http/response.js';
 
 const router = express.Router();
 
@@ -24,10 +25,10 @@ router.get('/:characterId', async (req, res) => {
       [characterId]
     );
 
-    res.json(result.rows);
+    ok(res, result.rows);
   } catch (error) {
     console.error('Error fetching inventory:', error);
-    res.status(500).json({ error: 'Error fetching inventory' });
+    fail(res, 500, 'Error fetching inventory');
   }
 });
 
@@ -47,13 +48,13 @@ router.post('/:characterId/add', requireClientStateSyncEnabled, validate(addItem
       [characterId, itemId, quantity, enhanceLevel]
     );
 
-    res.json(result.rows[0]);
+    ok(res, result.rows[0]);
   } catch (error) {
     if (error.status) {
-      return res.status(error.status).json({ error: error.message });
+      return failFromError(res, error, 'Error adding item');
     }
     console.error('Error adding item:', error);
-    res.status(500).json({ error: 'Error adding item' });
+    fail(res, 500, 'Error adding item');
   }
 });
 
@@ -101,13 +102,13 @@ router.post('/:characterId/remove', validate(removeItemSchema), async (req, res)
       return updated.rows[0];
     });
 
-    res.json(result);
+    ok(res, result);
   } catch (error) {
     if (error.status) {
-      return res.status(error.status).json({ error: error.message });
+      return failFromError(res, error, 'Error removing item');
     }
     console.error('Error removing item:', error);
-    res.status(500).json({ error: 'Error removing item' });
+    fail(res, 500, 'Error removing item');
   }
 });
 
@@ -138,13 +139,13 @@ router.put('/:characterId/sync', requireClientStateSyncEnabled, validate(invento
       }
     });
 
-    res.json({ message: 'Inventory synced', count: inventory.length });
+    ok(res, { message: 'Inventory synced', count: inventory.length });
   } catch (error) {
     if (error.status) {
-      return res.status(error.status).json({ error: error.message });
+      return failFromError(res, error, 'Error syncing inventory');
     }
     console.error('Error syncing inventory:', error);
-    res.status(500).json({ error: 'Error syncing inventory' });
+    fail(res, 500, 'Error syncing inventory');
   }
 });
 
@@ -156,11 +157,11 @@ router.post('/:characterId/use', validate(useItemSchema), async (req, res) => {
     const itemDef = assertValidInventoryEntry({ itemId, enhanceLevel });
 
     if (!['pill', 'book'].includes(itemDef.type)) {
-      return res.status(400).json({ error: 'Item cannot be used directly' });
+      return fail(res, 400, 'Item cannot be used directly');
     }
 
     if (itemDef.type === 'book' && quantity !== 1) {
-      return res.status(400).json({ error: 'Books can only be used one at a time' });
+      return fail(res, 400, 'Books can only be used one at a time');
     }
 
     const result = await withTransaction(async (client) => {
@@ -286,13 +287,13 @@ router.post('/:characterId/use', validate(useItemSchema), async (req, res) => {
       };
     });
 
-    res.json(result);
+    ok(res, result);
   } catch (error) {
     if (error.status) {
-      return res.status(error.status).json({ error: error.message });
+      return failFromError(res, error, 'Error using item');
     }
     console.error('Error using item:', error);
-    res.status(500).json({ error: 'Error using item' });
+    fail(res, 500, 'Error using item');
   }
 });
 
