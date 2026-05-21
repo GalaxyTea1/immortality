@@ -64,5 +64,6 @@ Backend config:
 - `DB_*`
 - `JWT_SECRET`
 - `JWT_EXPIRES_IN`
-- `ALLOW_CLIENT_STATE_SYNC`
 - `TEST_DATABASE_URL`
+
+Gameplay mutation routes are limited at `600` requests/minute per authenticated user + character.

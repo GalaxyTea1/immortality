@@ -2,7 +2,6 @@ import express from 'express';
 import { assertEquipmentForSlot, VALID_EQUIPMENT_SLOTS } from '../domain/gameCatalog.js';
 import { query, withTransaction } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
-import { requireClientStateSyncEnabled } from '../middleware/devSync.middleware.js';
 import { requireCharacterOwner } from '../middleware/ownership.middleware.js';
 import { gameplayLimiter } from '../middleware/rateLimit.js';
 import { fail, failFromError, ok } from '../http/response.js';
@@ -280,39 +279,6 @@ router.post('/:characterId/upgrade', gameplayLimiter, async (req, res) => {
         }
         console.error('Error upgrading equipment:', error);
         fail(res, 500, 'Error upgrading equipment');
-    }
-});
-
-// PUT /api/equipment/:characterId/sync - Dev-only bulk equipment sync
-router.put('/:characterId/sync', gameplayLimiter, requireClientStateSyncEnabled, async (req, res) => {
-    try {
-        const { characterId } = req.params;
-        const { equipment: equipmentData } = req.body;
-
-        await withTransaction(async (client) => {
-            await client.query('DELETE FROM equipment WHERE character_id = $1', [characterId]);
-
-            if (equipmentData && typeof equipmentData === 'object') {
-                const entries = Object.entries(equipmentData).filter(([, data]) => data && data.itemId);
-
-                for (const [slot, data] of entries) {
-                    assertEquipmentForSlot({ itemId: data.itemId, slot });
-                    await client.query(
-                        `INSERT INTO equipment (character_id, slot, item_id, enhance_level)
-                         VALUES ($1, $2, $3, $4)`,
-                        [characterId, slot, data.itemId, data.enhanceLevel || 0]
-                    );
-                }
-            }
-        });
-
-        ok(res, { message: 'Equipment synced' });
-    } catch (error) {
-        if (error.status) {
-            return failFromError(res, error, 'Error syncing equipment');
-        }
-        console.error('Error syncing equipment:', error);
-        fail(res, 500, 'Error syncing equipment');
     }
 });
 

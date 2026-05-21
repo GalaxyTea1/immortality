@@ -29,6 +29,20 @@ export const DAILY_QUESTS = [
 
 export const getQuestDefinition = (questId) => DAILY_QUESTS.find(q => q.id === questId) || null;
 
+const hashString = (value) => {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = Math.imul(31, hash) + value.charCodeAt(index);
+  }
+  return Math.abs(hash);
+};
+
+const getDailyQuestDefinition = (characterId, now = new Date()) => {
+  const dayKey = now.toISOString().slice(0, 10);
+  const questIndex = hashString(`${characterId}:${dayKey}`) % DAILY_QUESTS.length;
+  return DAILY_QUESTS[questIndex];
+};
+
 export const normalizeQuestRow = (row) => {
   if (!row) return null;
   const questDef = getQuestDefinition(row.quest_id);
@@ -43,12 +57,23 @@ export const normalizeQuestRow = (row) => {
     target: questDef.target,
     rewards: questDef.rewards,
     status: row.status,
+    assignedAt: row.assigned_at,
+    completedAt: row.completed_at,
   };
 };
 
 export async function getOrCreateDailyQuest(characterId, client = { query }) {
+  await client.query(
+    `UPDATE character_quests
+     SET status = 'expired'
+     WHERE character_id = $1
+       AND status = 'active'
+       AND assigned_at::date < CURRENT_DATE`,
+    [characterId]
+  );
+
   const active = await client.query(
-    `SELECT id, quest_id, progress, status
+    `SELECT id, quest_id, progress, status, assigned_at, completed_at
      FROM character_quests
      WHERE character_id = $1
        AND status = 'active'
@@ -66,7 +91,7 @@ export async function getOrCreateDailyQuest(characterId, client = { query }) {
     `SELECT id
      FROM character_quests
      WHERE character_id = $1
-       AND status IN ('completed', 'expired')
+       AND status = 'completed'
        AND assigned_at::date = CURRENT_DATE
      LIMIT 1`,
     [characterId]
@@ -74,19 +99,36 @@ export async function getOrCreateDailyQuest(characterId, client = { query }) {
 
   if (completedToday.rows.length > 0) return null;
 
-  const questDef = DAILY_QUESTS[0];
+  const questDef = getDailyQuestDefinition(characterId);
   const inserted = await client.query(
     `INSERT INTO character_quests (character_id, quest_id, progress, status)
      VALUES ($1, $2, 0, 'active')
-     RETURNING id, quest_id, progress, status`,
+     ON CONFLICT (character_id, quest_id, (assigned_at::date)) DO NOTHING
+     RETURNING id, quest_id, progress, status, assigned_at, completed_at`,
     [characterId, questDef.id]
   );
 
-  return normalizeQuestRow(inserted.rows[0]);
+  if (inserted.rows.length > 0) {
+    return normalizeQuestRow(inserted.rows[0]);
+  }
+
+  const existing = await client.query(
+    `SELECT id, quest_id, progress, status, assigned_at, completed_at
+     FROM character_quests
+     WHERE character_id = $1
+       AND quest_id = $2
+       AND assigned_at::date = CURRENT_DATE
+     LIMIT 1`,
+    [characterId, questDef.id]
+  );
+
+  return normalizeQuestRow(existing.rows[0]);
 }
 
 export async function trackQuestProgress(characterId, eventType) {
   try {
+    await getOrCreateDailyQuest(characterId);
+
     const result = await query(
       `SELECT id, quest_id, progress
        FROM character_quests
@@ -104,11 +146,11 @@ export async function trackQuestProgress(characterId, eventType) {
     if (!questDef || questDef.trackEvent !== eventType) return null;
     if (dbQuest.progress >= questDef.target) return null;
 
-    const newProgress = Number(dbQuest.progress) + 1;
-    await query(
-      'UPDATE character_quests SET progress = $2 WHERE id = $1',
-      [dbQuest.id, newProgress]
+    const updated = await query(
+      'UPDATE character_quests SET progress = LEAST(progress + 1, $2) WHERE id = $1 RETURNING progress',
+      [dbQuest.id, questDef.target]
     );
+    const newProgress = Number(updated.rows[0]?.progress) || Number(dbQuest.progress);
 
     return {
       questId: dbQuest.quest_id,

@@ -6,10 +6,9 @@ import {
 } from '../domain/gameCatalog.js';
 import { query, withTransaction } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
-import { requireClientStateSyncEnabled } from '../middleware/devSync.middleware.js';
 import { requireCharacterOwner } from '../middleware/ownership.middleware.js';
 import { gameplayLimiter } from '../middleware/rateLimit.js';
-import { addItemSchema, inventorySyncSchema, removeItemSchema, useItemSchema, validate } from '../middleware/validation.js';
+import { removeItemSchema, useItemSchema, validate } from '../middleware/validation.js';
 import { fail, failFromError, ok } from '../http/response.js';
 
 const router = express.Router();
@@ -30,32 +29,6 @@ router.get('/:characterId', async (req, res) => {
   } catch (error) {
     console.error('Error fetching inventory:', error);
     fail(res, 500, 'Error fetching inventory');
-  }
-});
-
-// POST /api/inventory/:characterId/add - Dev-only direct item grant
-router.post('/:characterId/add', gameplayLimiter, requireClientStateSyncEnabled, validate(addItemSchema), async (req, res) => {
-  try {
-    const { characterId } = req.params;
-    const { itemId, quantity = 1, enhanceLevel = 0 } = req.body;
-    assertValidInventoryEntry({ itemId, enhanceLevel });
-
-    const result = await query(
-      `INSERT INTO inventory (character_id, item_id, quantity, enhance_level)
-       VALUES ($1, $2, $3, $4)
-       ON CONFLICT (character_id, item_id, enhance_level)
-       DO UPDATE SET quantity = inventory.quantity + $3
-       RETURNING *`,
-      [characterId, itemId, quantity, enhanceLevel]
-    );
-
-    ok(res, result.rows[0]);
-  } catch (error) {
-    if (error.status) {
-      return failFromError(res, error, 'Error adding item');
-    }
-    console.error('Error adding item:', error);
-    fail(res, 500, 'Error adding item');
   }
 });
 
@@ -110,43 +83,6 @@ router.post('/:characterId/remove', gameplayLimiter, validate(removeItemSchema),
     }
     console.error('Error removing item:', error);
     fail(res, 500, 'Error removing item');
-  }
-});
-
-// PUT /api/inventory/:characterId/sync - Dev-only bulk inventory sync
-router.put('/:characterId/sync', gameplayLimiter, requireClientStateSyncEnabled, validate(inventorySyncSchema), async (req, res) => {
-  try {
-    const { characterId } = req.params;
-    const { inventory = [] } = req.body;
-    inventory.forEach(assertValidInventoryEntry);
-
-    await withTransaction(async (client) => {
-      await client.query('DELETE FROM inventory WHERE character_id = $1', [characterId]);
-
-      if (inventory.length > 0) {
-        const values = inventory.map((item, i) =>
-          `($1, $${i * 3 + 2}, $${i * 3 + 3}, $${i * 3 + 4})`
-        ).join(', ');
-
-        const params = [characterId];
-        inventory.forEach(item => {
-          params.push(item.itemId, item.quantity, item.enhanceLevel || 0);
-        });
-
-        await client.query(
-          `INSERT INTO inventory (character_id, item_id, quantity, enhance_level) VALUES ${values}`,
-          params
-        );
-      }
-    });
-
-    ok(res, { message: 'Inventory synced', count: inventory.length });
-  } catch (error) {
-    if (error.status) {
-      return failFromError(res, error, 'Error syncing inventory');
-    }
-    console.error('Error syncing inventory:', error);
-    fail(res, 500, 'Error syncing inventory');
   }
 });
 

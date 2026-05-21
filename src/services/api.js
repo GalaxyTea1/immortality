@@ -175,31 +175,6 @@ export const inventory = {
     },
 
     /**
-     * sync inventory
-     * @param {number} characterId 
-     * @param {Array} items - items list
-     */
-    sync: async (characterId, items) => {
-        return authFetch(`/inventory/${characterId}/sync`, {
-            method: 'PUT',
-            body: JSON.stringify({ inventory: items }),
-        });
-    },
-
-    /**
-     * add item to inventory
-     * @param {number} characterId 
-     * @param {string} itemId 
-     * @param {number} quantity 
-     */
-    add: async (characterId, itemId, quantity = 1) => {
-        return authFetch(`/inventory/${characterId}/add`, {
-            method: 'POST',
-            body: JSON.stringify({ itemId, quantity }),
-        });
-    },
-
-    /**
      * use consumable/book item
      * @param {number} characterId
      * @param {string} itemId
@@ -264,17 +239,6 @@ export const equipment = {
         });
     },
 
-    /**
-     * sync entire equipment state
-     * @param {number} characterId
-     * @param {object} equipmentData - { slot: { itemId, enhanceLevel } }
-     */
-    sync: async (characterId, equipmentData) => {
-        return authFetch(`/equipment/${characterId}/sync`, {
-            method: 'PUT',
-            body: JSON.stringify({ equipment: equipmentData }),
-        });
-    },
 };
 
 // ==================== LEADERBOARD API ====================
@@ -390,10 +354,10 @@ export const skills = {
      * @param {number} characterId 
      * @param {string} skillId 
      */
-    learn: async (characterId, skillId) => {
+    learn: async (characterId, skillId, bookItemId = skillId) => {
         return authFetch(`/skills/${characterId}/learn`, {
             method: 'POST',
-            body: JSON.stringify({ skillId }),
+            body: JSON.stringify({ skillId, bookItemId }),
         });
     },
 };
@@ -414,6 +378,19 @@ export const cultivation = {
     },
 
     /**
+     * perform multiple server-authoritative cultivation ticks in one request
+     * @param {number} characterId
+     * @param {number} ticks
+     * @param {'manual'|'meditation'} mode
+     */
+    cultivateBatch: async (characterId, ticks, mode = 'manual') => {
+        return authFetch(`/cultivation/${characterId}/cultivate/batch`, {
+            method: 'POST',
+            body: JSON.stringify({ mode, ticks }),
+        });
+    },
+
+    /**
      * attempt breakthrough
      * @param {number} characterId
      * @param {boolean} usePill
@@ -422,18 +399,6 @@ export const cultivation = {
         return authFetch(`/cultivation/${characterId}/breakthrough`, {
             method: 'POST',
             body: JSON.stringify({ usePill }),
-        });
-    },
-
-    /**
-     * complete a batched meditation session
-     * @param {number} characterId
-     * @param {number} durationSeconds
-     */
-    completeMeditation: async (characterId, durationSeconds) => {
-        return authFetch(`/cultivation/${characterId}/meditation-session`, {
-            method: 'POST',
-            body: JSON.stringify({ durationSeconds }),
         });
     },
 

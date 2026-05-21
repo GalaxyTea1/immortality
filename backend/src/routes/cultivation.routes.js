@@ -6,14 +6,13 @@ import {
 } from '../domain/gameCatalog.js';
 import { withTransaction } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
-import { requireClientStateSyncEnabled } from '../middleware/devSync.middleware.js';
 import { requireCharacterOwner } from '../middleware/ownership.middleware.js';
 import { gameplayLimiter } from '../middleware/rateLimit.js';
 import { fail, failFromError, ok } from '../http/response.js';
 import {
+  cultivateBatchSchema,
   breakthroughSchema,
   cultivateSchema,
-  meditationSessionSchema,
   validate,
 } from '../middleware/validation.js';
 import { trackQuestProgress } from '../services/questTracker.js';
@@ -27,6 +26,57 @@ const getFoundationExpMultiplier = (foundationValue) => {
   if (foundationValue >= 50) return 1;
   if (foundationValue >= 20) return 0.95;
   return 0.85;
+};
+
+const applyCultivationTicks = async (client, characterId, { mode = 'manual', ticks = 1 }) => {
+  const characterResult = await client.query(
+    `SELECT realm_index, level, exp, max_exp, foundation_value, cultivation_speed
+     FROM characters
+     WHERE id = $1
+     FOR UPDATE`,
+    [characterId]
+  );
+
+  if (characterResult.rows.length === 0) {
+    const error = new Error('Character not found');
+    error.status = 404;
+    throw error;
+  }
+
+  const character = characterResult.rows[0];
+  const foundationMultiplier = getFoundationExpMultiplier(character.foundation_value);
+  const speedMultiplier = Number(character.cultivation_speed) || 1;
+  let expGain = 0;
+
+  for (let tick = 0; tick < ticks; tick += 1) {
+    const baseExp = mode === 'meditation'
+      ? Math.floor(Math.random() * 3) + 1
+      : Math.floor(Math.random() * 5) + 3;
+    expGain += Math.max(1, Math.floor(baseExp * foundationMultiplier * speedMultiplier));
+  }
+
+  const nextProgress = calculateExpProgress({
+    realmIndex: character.realm_index,
+    level: character.level,
+    exp: character.exp,
+    maxExp: character.max_exp,
+  }, expGain);
+
+  await client.query(
+    `UPDATE characters
+     SET exp = $2, level = $3, max_exp = $4
+     WHERE id = $1`,
+    [characterId, nextProgress.exp, nextProgress.level, nextProgress.maxExp]
+  );
+
+  return {
+    ticks,
+    expGain,
+    progress: nextProgress,
+    message: ticks === 1
+      ? `Cultivated successfully! +${expGain} EXP`
+      : `Cultivated ${ticks} times! +${expGain} EXP`,
+  };
 };
 
 const applyMeditationTicks = async (client, characterId, ticks) => {
@@ -95,48 +145,7 @@ router.post('/:characterId/cultivate', gameplayLimiter, validate(cultivateSchema
     const { characterId } = req.params;
     const { mode } = req.body;
 
-    const result = await withTransaction(async (client) => {
-      const characterResult = await client.query(
-        `SELECT realm_index, level, exp, max_exp, foundation_value, cultivation_speed
-         FROM characters
-         WHERE id = $1
-         FOR UPDATE`,
-        [characterId]
-      );
-
-      if (characterResult.rows.length === 0) {
-        const error = new Error('Character not found');
-        error.status = 404;
-        throw error;
-      }
-
-      const character = characterResult.rows[0];
-      const foundationMultiplier = getFoundationExpMultiplier(character.foundation_value);
-      const speedMultiplier = Number(character.cultivation_speed) || 1;
-      const baseExp = mode === 'meditation'
-        ? Math.floor(Math.random() * 3) + 1
-        : Math.floor(Math.random() * 5) + 3;
-      const expGain = Math.max(1, Math.floor(baseExp * foundationMultiplier * speedMultiplier));
-      const nextProgress = calculateExpProgress({
-        realmIndex: character.realm_index,
-        level: character.level,
-        exp: character.exp,
-        maxExp: character.max_exp,
-      }, expGain);
-
-      await client.query(
-        `UPDATE characters
-         SET exp = $2, level = $3, max_exp = $4
-         WHERE id = $1`,
-        [characterId, nextProgress.exp, nextProgress.level, nextProgress.maxExp]
-      );
-
-      return {
-        expGain,
-        progress: nextProgress,
-        message: `Cultivated successfully! +${expGain} EXP`,
-      };
-    });
+    const result = await withTransaction((client) => applyCultivationTicks(client, characterId, { mode, ticks: 1 }));
 
     ok(res, result);
   } catch (error) {
@@ -148,21 +157,19 @@ router.post('/:characterId/cultivate', gameplayLimiter, validate(cultivateSchema
   }
 });
 
-router.post('/:characterId/meditation-session', gameplayLimiter, requireClientStateSyncEnabled, validate(meditationSessionSchema), async (req, res) => {
+router.post('/:characterId/cultivate/batch', gameplayLimiter, validate(cultivateBatchSchema), async (req, res) => {
   try {
     const { characterId } = req.params;
-    const { durationSeconds } = req.body;
-    const ticks = Math.min(300, Math.max(1, Math.floor(durationSeconds)));
+    const { mode, ticks } = req.body;
 
-    const result = await withTransaction((client) => applyMeditationTicks(client, characterId, ticks));
-    const questUpdate = await trackQuestProgress(characterId, 'meditate');
-    ok(res, { ...result, questUpdate, legacyClientDuration: true });
+    const result = await withTransaction((client) => applyCultivationTicks(client, characterId, { mode, ticks }));
+    ok(res, result);
   } catch (error) {
     if (error.status) {
-      return failFromError(res, error, 'Error completing meditation session');
+      return failFromError(res, error, 'Error cultivating');
     }
-    console.error('Error completing meditation session:', error);
-    fail(res, 500, 'Error completing meditation session');
+    console.error('Error cultivating:', error);
+    fail(res, 500, 'Error cultivating');
   }
 });
 

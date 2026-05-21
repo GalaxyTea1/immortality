@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
+import { leaderboard as leaderboardApi } from '../services/api.js';
 import { getSocket } from '../services/socket.js';
+import { REALMS } from '../data/realms.js';
 import './Leaderboard.css';
 
 const topCultivators = [
@@ -43,8 +45,58 @@ const news = [
   { icon: 'group_add', iconClass: 'blue', text: 'Tông môn <span class="text-blue font-bold">Vân Lam Tông</span> đang tuyển đệ tử mới.', time: '1 giờ trước' },
 ];
 
+const avatarPool = [...topCultivators, ...tableData].map((row) => row.avatar);
+
+const getRealmLabel = (realmIndex, level) => {
+  const realm = REALMS[Number(realmIndex)] || REALMS[0];
+  return `${realm.name} Tầng ${Number(level) || 1}`;
+};
+
+const getRealmClass = (realmIndex) => {
+  if (realmIndex >= 3) return 'blue';
+  if (realmIndex >= 1) return 'purple';
+  return 'green';
+};
+
+const mapLeaderboardRow = (row, index) => {
+  const realmIndex = Number(row.realm_index) || 0;
+  const level = Number(row.level) || 1;
+  const exp = Number(row.exp) || 0;
+  return {
+    rank: Number(row.rank) || index + 1,
+    name: row.name || row.username || 'Daoist',
+    sect: row.username ? `@${row.username}` : 'Độc hành',
+    realm: getRealmLabel(realmIndex, level),
+    realmClass: getRealmClass(realmIndex),
+    power: Number(row.power) || ((realmIndex + 1) * level * 100000 + exp),
+    avatar: avatarPool[index % avatarPool.length],
+  };
+};
+
 function Leaderboard() {
+  const [leaderboardRows, setLeaderboardRows] = useState([]);
+  const [hasLeaderboardResponse, setHasLeaderboardResponse] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [, setAnnouncements] = useState([]);
+
+  const fetchLeaderboard = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const rows = await leaderboardApi.getCultivation(20);
+      setHasLeaderboardResponse(true);
+      setLeaderboardRows(Array.isArray(rows) ? rows.map(mapLeaderboardRow) : []);
+    } catch (error) {
+      console.warn('Load leaderboard failed:', error);
+      setHasLeaderboardResponse(false);
+      setLeaderboardRows([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchLeaderboard();
+  }, [fetchLeaderboard]);
 
   // Listen for real-time updates via WebSocket
   useEffect(() => {
@@ -55,8 +107,7 @@ function Leaderboard() {
     socket.emit('leaderboard:subscribe');
 
     const handleLeaderboardUpdate = () => {
-      // TODO: When API is connected, fetch fresh leaderboard data here
-      // For now, leaderboard uses hardcoded data
+      fetchLeaderboard();
     };
 
     const handleWorldAnnouncement = (data) => {
@@ -74,7 +125,14 @@ function Leaderboard() {
       socket.off('leaderboard:updated', handleLeaderboardUpdate);
       socket.off('world:announcement', handleWorldAnnouncement);
     };
-  }, []);
+  }, [fetchLeaderboard]);
+
+  const fallbackRows = [...topCultivators, ...tableData];
+  const displayedRows = hasLeaderboardResponse ? leaderboardRows : fallbackRows;
+  const showPodium = displayedRows.length >= 3;
+  const podiumRows = showPodium ? displayedRows.slice(0, 3) : [];
+  const tableRows = showPodium ? displayedRows.slice(3) : displayedRows;
+
   return (
     <div className="leaderboard-page">
       <div className="leaderboard-container">
@@ -101,7 +159,7 @@ function Leaderboard() {
         </div>
 
         {/* Top 3 Podium */}
-        <div className="podium">
+        {showPodium ? <div className="podium">
           {/* Rank 2 */}
           <div className="podium-card rank-2">
             <div className="podium-glow silver"></div>
@@ -110,15 +168,15 @@ function Leaderboard() {
               <div className="podium-avatar silver">
                 <div
                   className="avatar-img"
-                  style={{ backgroundImage: `url("${topCultivators[1].avatar}")` }}
+                  style={{ backgroundImage: `url("${podiumRows[1].avatar}")` }}
                 ></div>
               </div>
-              <h3 className="cultivator-name">{topCultivators[1].name}</h3>
-              <p className="cultivator-sect">{topCultivators[1].sect}</p>
-              <span className="realm-badge silver">{topCultivators[1].realm}</span>
+              <h3 className="cultivator-name">{podiumRows[1].name}</h3>
+              <p className="cultivator-sect">{podiumRows[1].sect}</p>
+              <span className="realm-badge silver">{podiumRows[1].realm}</span>
               <div className="power-display">
                 <span className="material-symbols-outlined">bolt</span>
-                <span>{topCultivators[1].power.toLocaleString()}</span>
+                <span>{podiumRows[1].power.toLocaleString()}</span>
               </div>
             </div>
           </div>
@@ -132,18 +190,18 @@ function Leaderboard() {
               <div className="podium-avatar gold">
                 <div
                   className="avatar-img"
-                  style={{ backgroundImage: `url("${topCultivators[0].avatar}")` }}
+                  style={{ backgroundImage: `url("${podiumRows[0].avatar}")` }}
                 ></div>
                 <div className="verified-badge">
                   <span className="material-symbols-outlined">verified</span>
                 </div>
               </div>
-              <h3 className="cultivator-name gradient-text">{topCultivators[0].name}</h3>
-              <p className="cultivator-sect text-primary">{topCultivators[0].sect}</p>
-              <span className="realm-badge gold">{topCultivators[0].realm}</span>
+              <h3 className="cultivator-name gradient-text">{podiumRows[0].name}</h3>
+              <p className="cultivator-sect text-primary">{podiumRows[0].sect}</p>
+              <span className="realm-badge gold">{podiumRows[0].realm}</span>
               <div className="power-display gold">
                 <span className="material-symbols-outlined filled">bolt</span>
-                <span>{topCultivators[0].power.toLocaleString()}</span>
+                <span>{podiumRows[0].power.toLocaleString()}</span>
               </div>
             </div>
           </div>
@@ -156,19 +214,21 @@ function Leaderboard() {
               <div className="podium-avatar bronze">
                 <div
                   className="avatar-img"
-                  style={{ backgroundImage: `url("${topCultivators[2].avatar}")` }}
+                  style={{ backgroundImage: `url("${podiumRows[2].avatar}")` }}
                 ></div>
               </div>
-              <h3 className="cultivator-name">{topCultivators[2].name}</h3>
-              <p className="cultivator-sect">{topCultivators[2].sect}</p>
-              <span className="realm-badge bronze">{topCultivators[2].realm}</span>
+              <h3 className="cultivator-name">{podiumRows[2].name}</h3>
+              <p className="cultivator-sect">{podiumRows[2].sect}</p>
+              <span className="realm-badge bronze">{podiumRows[2].realm}</span>
               <div className="power-display">
                 <span className="material-symbols-outlined">bolt</span>
-                <span>{topCultivators[2].power.toLocaleString()}</span>
+                <span>{podiumRows[2].power.toLocaleString()}</span>
               </div>
             </div>
           </div>
-        </div>
+        </div> : (
+          <div className="leaderboard-empty">Chưa có đủ dữ liệu xếp hạng.</div>
+        )}
 
         {/* Main Content */}
         <div className="leaderboard-content">
@@ -184,6 +244,7 @@ function Leaderboard() {
             </div>
 
             <div className="table-wrapper">
+              {isLoading && <div className="leaderboard-loading">Đang tải bảng xếp hạng...</div>}
               <table className="leaderboard-table">
                 <thead>
                   <tr>
@@ -195,7 +256,7 @@ function Leaderboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {tableData.map((row) => (
+                  {tableRows.map((row) => (
                     <tr key={row.rank}>
                       <td>
                         <span className="rank-number">#{row.rank}</span>
@@ -216,6 +277,11 @@ function Leaderboard() {
                       <td className="text-right power-cell">{row.power.toLocaleString()}</td>
                     </tr>
                   ))}
+                  {tableRows.length === 0 && (
+                    <tr>
+                      <td colSpan="5" className="leaderboard-empty-cell">Chưa có dữ liệu xếp hạng.</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

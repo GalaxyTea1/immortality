@@ -23,7 +23,6 @@ if (IS_PRODUCTION && !process.env.JWT_SECRET) {
 
 export const JWT_SECRET = process.env.JWT_SECRET || DEFAULT_DEV_JWT_SECRET;
 export const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
-export const ALLOW_CLIENT_STATE_SYNC = process.env.ALLOW_CLIENT_STATE_SYNC === 'true';
 export const CORS_ORIGINS = splitCsv(
     process.env.CORS_ORIGINS,
     ['http://localhost:5173', 'http://localhost:3002']

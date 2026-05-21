@@ -116,9 +116,8 @@ Characters:
 Inventory:
 
 - `GET /api/inventory/:characterId`
-- `POST /api/inventory/:characterId/add`
 - `POST /api/inventory/:characterId/remove`
-- `PUT /api/inventory/:characterId/sync`
+- `POST /api/inventory/:characterId/use`
 
 Equipment:
 
@@ -126,7 +125,6 @@ Equipment:
 - `POST /api/equipment/:characterId/equip`
 - `POST /api/equipment/:characterId/unequip`
 - `POST /api/equipment/:characterId/upgrade`
-- `PUT /api/equipment/:characterId/sync`
 
 Other:
 
@@ -188,7 +186,7 @@ Nên luôn cấu hình `JWT_SECRET` trong `.env`, và tốt nhất sửa fallbac
 - JWT fallback đã dùng chung `JWT_SECRET` từ config cho HTTP, Socket.IO và beacon-save.
 - Leaderboard backend đã trả `leaderboard` để khớp client wrapper.
 - Các route character/inventory/equipment/events/skills/shop đã có auth ownership check theo character.
-- Một số mutation nhiều query đã được bọc transaction: inventory remove/sync, equipment equip/unequip/upgrade/sync, shop buy/sell, skill learn, beacon-save.
+- Một số mutation nhiều query đã được bọc transaction: inventory remove/use, equipment equip/unequip/upgrade, shop buy/sell, skill learn, beacon-save.
 - Shop frontend/backend đã dùng chung `shared/shopCatalog.js` cho danh sách item bán, category, tier và giá.
 - Shop purchase trên frontend đã gọi backend `POST /api/shop/buy` khi có `characterId`, sau đó reload state từ server thay vì tự tính local.
 - Inventory equipment actions đã gọi backend `equip`, `unequip`, `upgrade` khi có `characterId`, sau đó reload state từ server.
@@ -234,16 +232,11 @@ Nên luôn cấu hình `JWT_SECRET` trong `.env`, và tốt nhất sửa fallbac
 - Khi sửa save/load, test cả reload trang và unload beacon.
 - Tránh sửa đồng thời nhiều hệ thống trong `GameContext.jsx` nếu không cần, vì file dễ sinh regression.
 
-## Security note: client state sync
+## Security note: server authority
 
 - Autosave from `useGameServerSync` is metadata-only: it saves character name and no longer syncs progression, inventory, or equipment.
 - `beacon-save` is metadata-only and ignores inventory/equipment/progression payloads.
-- Direct client bulk mutation routes are dev-only by default:
-  - `POST /api/inventory/:characterId/add`
-  - `PUT /api/inventory/:characterId/sync`
-  - `PUT /api/equipment/:characterId/sync`
-  - `POST /api/cultivation/:characterId/meditation-session`
-- Set `ALLOW_CLIENT_STATE_SYNC=true` in `backend/.env` only when intentionally testing legacy/import-style client sync locally.
+- Direct client bulk mutation routes have been removed from the production API surface. Use server-authoritative gameplay endpoints instead.
 
 ## Update 2026-05-20
 
@@ -262,6 +255,8 @@ Nên luôn cấu hình `JWT_SECRET` trong `.env`, và tốt nhất sửa fallbac
 - Local save import/export/reset is now offline/dev-only; server-backed characters return an error instead of mutating local authoritative state.
 - Manual cultivation no longer reloads the full server state after every click; it applies the mutation response locally to avoid exhausting API quota during fast clicking.
 - Gameplay mutation routes now have a separate `gameplayLimiter` scoped by authenticated user + character (`600/minute`) instead of relying only on the shared IP limiter.
+- Daily quests rotate deterministically by character and date, old active quests expire, and manual cultivation can be batched through `POST /api/cultivation/:characterId/cultivate/batch`.
+- Legacy client state sync routes (`inventory add/sync`, `equipment sync`, `meditation-session`) were removed from backend routes, API client, and Swagger.
 - Added normalized migrations for the new quest table and meditation session column:
   - `backend/src/db/migrations/001_character_quests.sql`
   - `backend/src/db/migrations/002_meditation_sessions.sql`

@@ -54,9 +54,11 @@ function Cultivation() {
   const [showBreakthroughModal, setShowBreakthroughModal] = useState(false);
   const [breakthroughResult, setBreakthroughResult] = useState(null);
   const [usePillForBreakthrough, setUsePillForBreakthrough] = useState(true);
-  const [isCultivatingAction, setIsCultivatingAction] = useState(false);
   const [isBreakingThrough, setIsBreakingThrough] = useState(false);
-  const cultivatingInFlightRef = useRef(false);
+  const pendingCultivationTicksRef = useRef(0);
+  const cultivationFlushTimerRef = useRef(null);
+  const cultivationFlushInFlightRef = useRef(false);
+  const flushCultivationBatchRef = useRef(null);
 
   // Hàm thêm log
   const addLog = useCallback((message, type = "") => {
@@ -110,10 +112,70 @@ function Cultivation() {
     }
   }, [attemptBreakthrough, cancelPendingSave, characterId, usePillForBreakthrough, loadFromServer, addLog, addEvent, saveToServer]);
 
+  const scheduleCultivationFlush = useCallback((delayMs = 250) => {
+    if (cultivationFlushTimerRef.current) {
+      clearTimeout(cultivationFlushTimerRef.current);
+    }
+
+    cultivationFlushTimerRef.current = setTimeout(() => {
+      cultivationFlushTimerRef.current = null;
+      flushCultivationBatchRef.current?.();
+    }, delayMs);
+  }, []);
+
+  const flushCultivationBatch = useCallback(async () => {
+    if (!characterId || cultivationFlushInFlightRef.current || pendingCultivationTicksRef.current <= 0) {
+      return;
+    }
+
+    const ticks = Math.min(10, pendingCultivationTicksRef.current);
+    pendingCultivationTicksRef.current -= ticks;
+    cultivationFlushInFlightRef.current = true;
+
+    try {
+      cancelPendingSave();
+      const result = await cultivationApi.cultivateBatch(characterId, ticks, "manual");
+      if (result.progress) {
+        setGameState((prev) => ({
+          ...prev,
+          player: {
+            ...prev.player,
+            exp: result.progress.exp,
+            level: result.progress.level,
+            maxExp: result.progress.maxExp,
+          },
+        }));
+      }
+
+      const appliedTicks = result.ticks || ticks;
+      setClickCount((prev) => prev + appliedTicks);
+      addLog(
+        `Bạn đã tu luyện <span class="text-primary">${appliedTicks} lần</span>, hấp thụ <span class="text-primary">${result.expGain} Linh Khí</span>.`,
+        "primary"
+      );
+    } catch (error) {
+      pendingCultivationTicksRef.current = 0;
+      addLog(`<span class="text-danger">${error.message || "Tu luyện thất bại."}</span>`, "danger");
+    } finally {
+      cultivationFlushInFlightRef.current = false;
+      if (pendingCultivationTicksRef.current > 0) {
+        scheduleCultivationFlush(50);
+      }
+    }
+  }, [addLog, cancelPendingSave, characterId, scheduleCultivationFlush, setGameState]);
+
+  useEffect(() => {
+    flushCultivationBatchRef.current = flushCultivationBatch;
+  }, [flushCultivationBatch]);
+
+  useEffect(() => () => {
+    if (cultivationFlushTimerRef.current) {
+      clearTimeout(cultivationFlushTimerRef.current);
+    }
+  }, []);
+
   // Xử lý click tu luyện (thủ công)
   const handleCultivateClick = useCallback(async () => {
-    if (cultivatingInFlightRef.current) return;
-    cultivatingInFlightRef.current = true;
     // Tính bonus từ căn cơ
     const foundationStatus = getFoundationStatus();
     let expMultiplier = 1;
@@ -124,34 +186,13 @@ function Cultivation() {
     const baseExp = Math.floor(Math.random() * 5) + 3; // 3-7 EXP mỗi click
     let expGain = Math.floor(baseExp * expMultiplier);
     if (characterId) {
-      setIsCultivatingAction(true);
-      try {
-        cancelPendingSave();
-        const result = await cultivationApi.cultivate(characterId, "manual");
-        expGain = result.expGain;
-        if (result.progress) {
-          setGameState((prev) => ({
-            ...prev,
-            player: {
-              ...prev.player,
-              exp: result.progress.exp,
-              level: result.progress.level,
-              maxExp: result.progress.maxExp,
-            },
-          }));
-        }
-      } catch (error) {
-        addLog(`<span class="text-danger">${error.message || "Tu luyện thất bại."}</span>`, "danger");
-        setIsCultivatingAction(false);
-        cultivatingInFlightRef.current = false;
-        return;
-      } finally {
-        setIsCultivatingAction(false);
-        cultivatingInFlightRef.current = false;
+      pendingCultivationTicksRef.current = Math.min(100, pendingCultivationTicksRef.current + 1);
+      if (!cultivationFlushInFlightRef.current) {
+        scheduleCultivationFlush(pendingCultivationTicksRef.current >= 10 ? 0 : 250);
       }
+      return;
     } else {
       addExp(expGain);
-      cultivatingInFlightRef.current = false;
     }
     setClickCount((prev) => prev + 1);
 
@@ -169,7 +210,7 @@ function Cultivation() {
       );
       if (!characterId) saveToServer();
     }
-  }, [addExp, cancelPendingSave, characterId, clickCount, addLog, getFoundationStatus, addReputation, saveToServer, setGameState]);
+  }, [addExp, characterId, clickCount, addLog, getFoundationStatus, addReputation, saveToServer, scheduleCultivationFlush]);
 
   // Xử lý thiền định (tự động tu luyện)
   const handleMeditation = useCallback(async () => {
@@ -351,8 +392,8 @@ function Cultivation() {
 
           <div
             className={`meditation-circle ${isMeditating ? "meditating" : ""}`}
-            onClick={isCultivatingAction ? undefined : handleCultivateClick}
-            style={{ cursor: isCultivatingAction ? "wait" : "pointer" }}
+            onClick={handleCultivateClick}
+            style={{ cursor: "pointer" }}
           >
             <div className="circle-ring ring-outer"></div>
             <div className="circle-ring ring-inner"></div>

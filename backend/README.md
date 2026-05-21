@@ -19,7 +19,6 @@ DB_PASSWORD=your_password
 DB_NAME=immortality_db
 JWT_SECRET=change_me_in_local_env
 JWT_EXPIRES_IN=7d
-ALLOW_CLIENT_STATE_SYNC=false
 ```
 
 ## Database
@@ -64,6 +63,7 @@ Server default: `http://localhost:3002`
 - `POST /api/equipment/:characterId/unequip`
 - `POST /api/equipment/:characterId/upgrade`
 - `POST /api/cultivation/:characterId/cultivate`
+- `POST /api/cultivation/:characterId/cultivate/batch`
 - `POST /api/cultivation/:characterId/breakthrough`
 - `POST /api/cultivation/:characterId/meditation/start`
 - `POST /api/cultivation/:characterId/meditation/finish`
@@ -77,7 +77,7 @@ Server default: `http://localhost:3002`
 - `POST /api/shop/buy`
 - `POST /api/shop/sell`
 
-Direct client state sync routes are disabled by default and require `ALLOW_CLIENT_STATE_SYNC=true`.
+Gameplay mutation routes are rate-limited at 600 requests/minute per authenticated user + character.
 
 Swagger UI: `/api-docs`
 

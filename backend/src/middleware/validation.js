@@ -77,22 +77,6 @@ export const saveCharacterMetadataSchema = Joi.object({
 
 // ==================== INVENTORY SCHEMAS ====================
 
-export const inventorySyncSchema = Joi.object({
-    inventory: Joi.array().items(
-        Joi.object({
-            itemId: Joi.string().required(),
-            quantity: Joi.number().integer().min(1).required(),
-            enhanceLevel: Joi.number().integer().min(0).default(0),
-        })
-    ).required(),
-});
-
-export const addItemSchema = Joi.object({
-    itemId: Joi.string().required(),
-    quantity: Joi.number().integer().min(1).default(1),
-    enhanceLevel: Joi.number().integer().min(0).default(0),
-});
-
 export const removeItemSchema = Joi.object({
     itemId: Joi.string().required(),
     quantity: Joi.number().integer().min(1).default(1),
@@ -119,8 +103,9 @@ export const cultivateSchema = Joi.object({
     mode: Joi.string().valid('manual', 'meditation').default('manual'),
 });
 
-export const meditationSessionSchema = Joi.object({
-    durationSeconds: Joi.number().integer().min(1).max(3600).required(),
+export const cultivateBatchSchema = Joi.object({
+    mode: Joi.string().valid('manual', 'meditation').default('manual'),
+    ticks: Joi.number().integer().min(1).max(10).required(),
 });
 
 export const breakthroughSchema = Joi.object({

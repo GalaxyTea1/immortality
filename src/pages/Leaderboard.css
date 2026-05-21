@@ -436,6 +436,19 @@
   overflow-x: auto;
 }
 
+.leaderboard-loading,
+.leaderboard-empty,
+.leaderboard-empty-cell {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.leaderboard-loading,
+.leaderboard-empty {
+  padding: 1rem;
+}
+
 .leaderboard-table {
   width: 100%;
   border-collapse: separate;

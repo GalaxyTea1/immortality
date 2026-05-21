@@ -39,7 +39,7 @@ const options = {
     info: {
       title: 'Immortality API',
       version: '1.1.0',
-      description: 'Backend API for Immortality. Successful responses use `{ success: true, data }`; errors use `{ success: false, error: { message, details? } }`.',
+      description: 'Backend API for Immortality. Successful responses use `{ success: true, data }`; errors use `{ success: false, error: { message, details? } }`. Gameplay mutation routes are limited separately at 600 requests/minute per authenticated user + character.',
     },
     servers: [
       {
@@ -221,26 +221,6 @@ const options = {
           responses: { 200: ok(), 400: error('Invalid item or quantity') },
         },
       },
-      '/api/inventory/{characterId}/add': {
-        post: {
-          tags: ['Inventory'],
-          summary: 'Dev-only direct item grant',
-          description: 'Requires `ALLOW_CLIENT_STATE_SYNC=true`.',
-          security: [{ bearerAuth: [] }],
-          parameters: [characterId],
-          responses: { 200: ok(), 403: error('Client sync disabled') },
-        },
-      },
-      '/api/inventory/{characterId}/sync': {
-        put: {
-          tags: ['Inventory'],
-          summary: 'Dev-only bulk inventory sync',
-          description: 'Requires `ALLOW_CLIENT_STATE_SYNC=true`.',
-          security: [{ bearerAuth: [] }],
-          parameters: [characterId],
-          responses: { 200: ok(), 403: error('Client sync disabled') },
-        },
-      },
       '/api/equipment/{characterId}': {
         get: {
           tags: ['Equipment'],
@@ -338,6 +318,24 @@ const options = {
           parameters: [characterId],
           requestBody: json({ type: 'object', properties: { mode: { type: 'string', enum: ['manual', 'meditation'], default: 'manual' } } }),
           responses: { 200: ok() },
+        },
+      },
+      '/api/cultivation/{characterId}/cultivate/batch': {
+        post: {
+          tags: ['Gameplay'],
+          summary: 'Batch server-authoritative manual cultivation ticks',
+          description: 'Used by the client to coalesce rapid manual clicks into one request. Maximum 10 ticks per request.',
+          security: [{ bearerAuth: [] }],
+          parameters: [characterId],
+          requestBody: json({
+            type: 'object',
+            required: ['ticks'],
+            properties: {
+              mode: { type: 'string', enum: ['manual', 'meditation'], default: 'manual' },
+              ticks: { type: 'integer', minimum: 1, maximum: 10 },
+            },
+          }),
+          responses: { 200: ok(), 400: error('Invalid tick count') },
         },
       },
       '/api/cultivation/{characterId}/breakthrough': {
