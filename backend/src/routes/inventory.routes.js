@@ -8,6 +8,7 @@ import { query, withTransaction } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireClientStateSyncEnabled } from '../middleware/devSync.middleware.js';
 import { requireCharacterOwner } from '../middleware/ownership.middleware.js';
+import { gameplayLimiter } from '../middleware/rateLimit.js';
 import { addItemSchema, inventorySyncSchema, removeItemSchema, useItemSchema, validate } from '../middleware/validation.js';
 import { fail, failFromError, ok } from '../http/response.js';
 
@@ -33,7 +34,7 @@ router.get('/:characterId', async (req, res) => {
 });
 
 // POST /api/inventory/:characterId/add - Dev-only direct item grant
-router.post('/:characterId/add', requireClientStateSyncEnabled, validate(addItemSchema), async (req, res) => {
+router.post('/:characterId/add', gameplayLimiter, requireClientStateSyncEnabled, validate(addItemSchema), async (req, res) => {
   try {
     const { characterId } = req.params;
     const { itemId, quantity = 1, enhanceLevel = 0 } = req.body;
@@ -59,7 +60,7 @@ router.post('/:characterId/add', requireClientStateSyncEnabled, validate(addItem
 });
 
 // POST /api/inventory/:characterId/remove - Remove/reduce item
-router.post('/:characterId/remove', validate(removeItemSchema), async (req, res) => {
+router.post('/:characterId/remove', gameplayLimiter, validate(removeItemSchema), async (req, res) => {
   try {
     const { characterId } = req.params;
     const { itemId, quantity = 1, enhanceLevel = 0 } = req.body;
@@ -113,7 +114,7 @@ router.post('/:characterId/remove', validate(removeItemSchema), async (req, res)
 });
 
 // PUT /api/inventory/:characterId/sync - Dev-only bulk inventory sync
-router.put('/:characterId/sync', requireClientStateSyncEnabled, validate(inventorySyncSchema), async (req, res) => {
+router.put('/:characterId/sync', gameplayLimiter, requireClientStateSyncEnabled, validate(inventorySyncSchema), async (req, res) => {
   try {
     const { characterId } = req.params;
     const { inventory = [] } = req.body;
@@ -150,7 +151,7 @@ router.put('/:characterId/sync', requireClientStateSyncEnabled, validate(invento
 });
 
 // POST /api/inventory/:characterId/use - Use pill/book item with server authority
-router.post('/:characterId/use', validate(useItemSchema), async (req, res) => {
+router.post('/:characterId/use', gameplayLimiter, validate(useItemSchema), async (req, res) => {
   try {
     const { characterId } = req.params;
     const { itemId, quantity = 1, enhanceLevel = 0 } = req.body;

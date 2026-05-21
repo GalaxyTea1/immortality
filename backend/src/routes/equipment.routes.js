@@ -4,6 +4,7 @@ import { query, withTransaction } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireClientStateSyncEnabled } from '../middleware/devSync.middleware.js';
 import { requireCharacterOwner } from '../middleware/ownership.middleware.js';
+import { gameplayLimiter } from '../middleware/rateLimit.js';
 import { fail, failFromError, ok } from '../http/response.js';
 
 const router = express.Router();
@@ -38,7 +39,7 @@ router.get('/:characterId', async (req, res) => {
 });
 
 // POST /api/equipment/:characterId/equip - Equip item
-router.post('/:characterId/equip', async (req, res) => {
+router.post('/:characterId/equip', gameplayLimiter, async (req, res) => {
     try {
         const { characterId } = req.params;
         const { slot, itemId, enhanceLevel = 0 } = req.body;
@@ -122,7 +123,7 @@ router.post('/:characterId/equip', async (req, res) => {
 });
 
 // POST /api/equipment/:characterId/unequip - Unequip item
-router.post('/:characterId/unequip', async (req, res) => {
+router.post('/:characterId/unequip', gameplayLimiter, async (req, res) => {
     try {
         const { characterId } = req.params;
         const { slot } = req.body;
@@ -181,7 +182,7 @@ router.post('/:characterId/unequip', async (req, res) => {
 });
 
 // POST /api/equipment/:characterId/upgrade - Upgrade equipment
-router.post('/:characterId/upgrade', async (req, res) => {
+router.post('/:characterId/upgrade', gameplayLimiter, async (req, res) => {
     try {
         const { characterId } = req.params;
         const { slot } = req.body;
@@ -283,7 +284,7 @@ router.post('/:characterId/upgrade', async (req, res) => {
 });
 
 // PUT /api/equipment/:characterId/sync - Dev-only bulk equipment sync
-router.put('/:characterId/sync', requireClientStateSyncEnabled, async (req, res) => {
+router.put('/:characterId/sync', gameplayLimiter, requireClientStateSyncEnabled, async (req, res) => {
     try {
         const { characterId } = req.params;
         const { equipment: equipmentData } = req.body;

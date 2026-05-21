@@ -1,4 +1,4 @@
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 
 /**
  * General API rate limiter
@@ -43,6 +43,29 @@ export const saveLimiter = rateLimit({
   message: {
     success: false,
     error: { message: "Saving too frequently, please wait." },
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+/**
+ * Gameplay action limiter
+ * Scoped by authenticated user + character instead of IP so multiple players behind
+ * one network do not share a manual-cultivation quota.
+ */
+export const gameplayLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 600,
+  keyGenerator: (req) => {
+    const characterId = req.params?.characterId || req.body?.characterId;
+    if (req.user?.id && characterId) {
+      return `gameplay:user:${req.user.id}:character:${characterId}`;
+    }
+    return `gameplay:ip:${ipKeyGenerator(req.ip)}`;
+  },
+  message: {
+    success: false,
+    error: { message: "Too many gameplay actions, please slow down." },
   },
   standardHeaders: true,
   legacyHeaders: false,

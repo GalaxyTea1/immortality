@@ -8,6 +8,7 @@ import { withTransaction } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireClientStateSyncEnabled } from '../middleware/devSync.middleware.js';
 import { requireCharacterOwner } from '../middleware/ownership.middleware.js';
+import { gameplayLimiter } from '../middleware/rateLimit.js';
 import { fail, failFromError, ok } from '../http/response.js';
 import {
   breakthroughSchema,
@@ -89,7 +90,7 @@ const applyMeditationTicks = async (client, characterId, ticks) => {
   };
 };
 
-router.post('/:characterId/cultivate', validate(cultivateSchema), async (req, res) => {
+router.post('/:characterId/cultivate', gameplayLimiter, validate(cultivateSchema), async (req, res) => {
   try {
     const { characterId } = req.params;
     const { mode } = req.body;
@@ -147,7 +148,7 @@ router.post('/:characterId/cultivate', validate(cultivateSchema), async (req, re
   }
 });
 
-router.post('/:characterId/meditation-session', requireClientStateSyncEnabled, validate(meditationSessionSchema), async (req, res) => {
+router.post('/:characterId/meditation-session', gameplayLimiter, requireClientStateSyncEnabled, validate(meditationSessionSchema), async (req, res) => {
   try {
     const { characterId } = req.params;
     const { durationSeconds } = req.body;
@@ -165,7 +166,7 @@ router.post('/:characterId/meditation-session', requireClientStateSyncEnabled, v
   }
 });
 
-router.post('/:characterId/meditation/start', async (req, res) => {
+router.post('/:characterId/meditation/start', gameplayLimiter, async (req, res) => {
   try {
     const { characterId } = req.params;
     const result = await withTransaction(async (client) => {
@@ -211,7 +212,7 @@ router.post('/:characterId/meditation/start', async (req, res) => {
   }
 });
 
-router.post('/:characterId/meditation/finish', async (req, res) => {
+router.post('/:characterId/meditation/finish', gameplayLimiter, async (req, res) => {
   try {
     const { characterId } = req.params;
 
@@ -252,7 +253,7 @@ router.post('/:characterId/meditation/finish', async (req, res) => {
   }
 });
 
-router.post('/:characterId/meditate', async (req, res) => {
+router.post('/:characterId/meditate', gameplayLimiter, async (req, res) => {
   try {
     const { characterId } = req.params;
     const cooldownMs = 5 * 60 * 1000;
@@ -307,7 +308,7 @@ router.post('/:characterId/meditate', async (req, res) => {
   }
 });
 
-router.post('/:characterId/breakthrough', validate(breakthroughSchema), async (req, res) => {
+router.post('/:characterId/breakthrough', gameplayLimiter, validate(breakthroughSchema), async (req, res) => {
   try {
     const { characterId } = req.params;
     const { usePill } = req.body;

@@ -261,6 +261,7 @@ Nên luôn cấu hình `JWT_SECRET` trong `.env`, và tốt nhất sửa fallbac
 - Frontend now uses backend routes for quest reward claim, exploration refresh, world meditation HP recovery, and cultivation meditation start/finish when `characterId` exists.
 - Local save import/export/reset is now offline/dev-only; server-backed characters return an error instead of mutating local authoritative state.
 - Manual cultivation no longer reloads the full server state after every click; it applies the mutation response locally to avoid exhausting API quota during fast clicking.
+- Gameplay mutation routes now have a separate `gameplayLimiter` scoped by authenticated user + character (`600/minute`) instead of relying only on the shared IP limiter.
 - Added normalized migrations for the new quest table and meditation session column:
   - `backend/src/db/migrations/001_character_quests.sql`
   - `backend/src/db/migrations/002_meditation_sessions.sql`

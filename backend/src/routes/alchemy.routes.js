@@ -8,6 +8,7 @@ import {
 import { withTransaction } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireCharacterOwner } from '../middleware/ownership.middleware.js';
+import { gameplayLimiter } from '../middleware/rateLimit.js';
 import { craftPillSchema, validate } from '../middleware/validation.js';
 import { fail, failFromError, ok } from '../http/response.js';
 import { trackQuestProgress } from '../services/questTracker.js';
@@ -16,7 +17,7 @@ const router = express.Router();
 
 router.use('/:characterId', authMiddleware, requireCharacterOwner('characterId'));
 
-router.post('/:characterId/craft', validate(craftPillSchema), async (req, res) => {
+router.post('/:characterId/craft', gameplayLimiter, validate(craftPillSchema), async (req, res) => {
   try {
     const { characterId } = req.params;
     const { recipeId } = req.body;

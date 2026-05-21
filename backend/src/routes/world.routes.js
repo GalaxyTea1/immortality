@@ -10,6 +10,7 @@ import {
 import { withTransaction } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireCharacterOwner } from '../middleware/ownership.middleware.js';
+import { gameplayLimiter } from '../middleware/rateLimit.js';
 import { exploreSchema, validate } from '../middleware/validation.js';
 import { fail, failFromError, ok } from '../http/response.js';
 import { trackQuestProgress } from '../services/questTracker.js';
@@ -18,7 +19,7 @@ const router = express.Router();
 
 router.use('/:characterId', authMiddleware, requireCharacterOwner('characterId'));
 
-router.post('/:characterId/explore', validate(exploreSchema), async (req, res) => {
+router.post('/:characterId/explore', gameplayLimiter, validate(exploreSchema), async (req, res) => {
   try {
     const { characterId } = req.params;
     const { zoneId } = req.body;
@@ -156,7 +157,7 @@ router.post('/:characterId/explore', validate(exploreSchema), async (req, res) =
   }
 });
 
-router.post('/:characterId/refresh-exploration', async (req, res) => {
+router.post('/:characterId/refresh-exploration', gameplayLimiter, async (req, res) => {
   try {
     const { characterId } = req.params;
     const refreshCost = 5000;

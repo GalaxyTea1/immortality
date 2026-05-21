@@ -3,6 +3,7 @@ import { assertKnownItem, buildStatIncrementFragments } from '../domain/gameCata
 import { query, withTransaction } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireCharacterOwner } from '../middleware/ownership.middleware.js';
+import { gameplayLimiter } from '../middleware/rateLimit.js';
 import { fail, failFromError, ok } from '../http/response.js';
 
 const router = express.Router();
@@ -33,7 +34,7 @@ router.get('/:characterId', async (req, res) => {
 });
 
 // POST /api/skills/:characterId/learn - Learn new skill from book
-router.post('/:characterId/learn', async (req, res) => {
+router.post('/:characterId/learn', gameplayLimiter, async (req, res) => {
     try {
         const { characterId } = req.params;
         const { skillId, bookItemId } = req.body;

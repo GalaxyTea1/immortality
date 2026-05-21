@@ -3,6 +3,7 @@ import { SHOP_CATALOG, findShopCatalogItem } from '../../../shared/shopCatalog.j
 import { withTransaction } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { assertCharacterOwner } from '../middleware/ownership.middleware.js';
+import { gameplayLimiter } from '../middleware/rateLimit.js';
 import { fail, failFromError, ok } from '../http/response.js';
 
 const router = express.Router();
@@ -42,7 +43,7 @@ router.get('/items', (req, res) => {
 });
 
 // POST /api/shop/buy - Buy item
-router.post('/buy', authMiddleware, async (req, res) => {
+router.post('/buy', authMiddleware, gameplayLimiter, async (req, res) => {
     try {
         const { characterId, itemId, quantity = 1 } = req.body;
 
@@ -120,7 +121,7 @@ router.post('/buy', authMiddleware, async (req, res) => {
 });
 
 // POST /api/shop/sell - Sell item
-router.post('/sell', authMiddleware, async (req, res) => {
+router.post('/sell', authMiddleware, gameplayLimiter, async (req, res) => {
     try {
         const { characterId, itemId, quantity = 1 } = req.body;
 

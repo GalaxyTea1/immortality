@@ -4,6 +4,7 @@ import { withTransaction } from '../db/index.js';
 import { ok, fail, failFromError } from '../http/response.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireCharacterOwner } from '../middleware/ownership.middleware.js';
+import { gameplayLimiter } from '../middleware/rateLimit.js';
 import { getOrCreateDailyQuest, getQuestDefinition, normalizeQuestRow } from '../services/questTracker.js';
 
 const router = express.Router();
@@ -20,7 +21,7 @@ router.get('/:characterId/active', async (req, res) => {
   }
 });
 
-router.post('/:characterId/claim', async (req, res) => {
+router.post('/:characterId/claim', gameplayLimiter, async (req, res) => {
   try {
     const { characterId } = req.params;
 
