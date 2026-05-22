@@ -54,17 +54,18 @@ function World() {
 
   // State
   const [notification, setNotification] = useState(null);
-  const [isExploring, setIsExploring] = useState(false);
+  const [exploringZoneId, setExploringZoneId] = useState(null);
   const [showRefreshModal, setShowRefreshModal] = useState(false);
+  const isExploring = exploringZoneId !== null;
 
   // Daily exploration reset is handled server-side in mapServerToGameState
   // No localStorage needed
 
   // Xử lý khám phá với zone mới
   const handleExplore = useCallback((zoneId) => {
-    if (isExploring) return;
+    if (exploringZoneId) return;
 
-    setIsExploring(true);
+    setExploringZoneId(zoneId);
 
     setTimeout(async () => {
       let result;
@@ -72,6 +73,23 @@ function World() {
         if (characterId) {
           cancelPendingSave();
           result = await worldApi.explore(characterId, zoneId);
+          if (result.success) {
+            setGameState(prev => ({
+              ...prev,
+              baseStats: {
+                ...prev.baseStats,
+                hp: Math.max(1, prev.baseStats.hp - (result.hpLoss || 0)),
+              },
+              stats: {
+                ...prev.stats,
+                hp: Math.max(1, prev.stats.hp - (result.hpLoss || 0)),
+              },
+              exploration: {
+                ...prev.exploration,
+                explorationCount: result.explorationCount ?? prev.exploration.explorationCount + 1,
+              },
+            }));
+          }
           await loadFromServer();
         } else {
           result = exploreLocation(zoneId);
@@ -82,10 +100,10 @@ function World() {
       }
 
       setNotification(result);
-      setIsExploring(false);
+      setExploringZoneId(null);
       setTimeout(() => setNotification(null), 4000);
     }, 1000);
-  }, [cancelPendingSave, characterId, isExploring, exploreLocation, loadFromServer, saveToServer]);
+  }, [cancelPendingSave, characterId, exploringZoneId, exploreLocation, loadFromServer, saveToServer, setGameState]);
 
   const handleRefreshExploration = useCallback(async () => {
     if (resources.spiritStones < REFRESH_COST) {
@@ -176,8 +194,8 @@ function World() {
   const expPercent = Math.floor((player.exp / player.maxExp) * 100);
   const hpPercent = Math.floor((stats.hp / stats.maxHp) * 100);
   const questPercent = quests.active ? Math.floor((quests.active.progress / quests.active.target) * 100) : 0;
-  const explorationPercent = Math.floor((exploration.explorationCount / exploration.maxExplorationPerDay) * 100);
-  const remainingExploration = exploration.maxExplorationPerDay - exploration.explorationCount;
+  const remainingExploration = Math.max(0, exploration.maxExplorationPerDay - exploration.explorationCount);
+  const explorationPercent = Math.floor((remainingExploration / exploration.maxExplorationPerDay) * 100);
 
   // Lấy inventory preview
   const inventory = getInventoryWithDetails().slice(0, 4);
@@ -289,9 +307,10 @@ function World() {
                 const canExplore = remainingExploration > 0;
                 const canEnter = canEnterZone(zone);
                 const requiredRealm = REALMS[zone.minRealm]?.name || '';
+                const isCurrentZoneExploring = exploringZoneId === zone.id;
 
                 return (
-                  <div key={zone.id} className={`location-card ${isExploring ? 'exploring' : ''} ${!canEnter ? 'locked' : ''}`}>
+                  <div key={zone.id} className={`location-card ${isCurrentZoneExploring ? 'exploring' : ''} ${!canEnter ? 'locked' : ''}`}>
                     <div className="location-image-wrapper">
                       <div
                         className="location-image"
@@ -333,7 +352,7 @@ function World() {
                         onClick={() => handleExplore(zone.id)}
                         disabled={!canExplore || isExploring || !canEnter}
                       >
-                        {isExploring ? (
+                        {isCurrentZoneExploring ? (
                           <>
                             <span className="material-symbols-outlined animate-spin">sync</span>
                             Đang khám phá...

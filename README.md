@@ -45,6 +45,7 @@ Backend:
 
 - `npm run dev`: run Express with nodemon
 - `npm start`: run Express with node
+- `npm run db:migrate`: apply pending SQL migrations in `backend/src/db/migrations`
 - `npm test`: run real-DB integration tests; set `RUN_DB_INTEGRATION=true` and `TEST_DATABASE_URL` to enable them
 
 ## API

@@ -32,7 +32,9 @@ router.post('/:characterId/explore', gameplayLimiter, validate(exploreSchema), a
     const result = await withTransaction(async (client) => {
       const characterResult = await client.query(
         `SELECT realm_index, level, exp, max_exp, hp, max_hp,
-                spirit_stones, exploration_count, exploration_last_reset
+                spirit_stones, exploration_count,
+                exploration_last_reset::text AS exploration_last_reset,
+                CURRENT_DATE::text AS current_date
          FROM characters
          WHERE id = $1
          FOR UPDATE`,
@@ -46,10 +48,8 @@ router.post('/:characterId/explore', gameplayLimiter, validate(exploreSchema), a
       }
 
       const character = characterResult.rows[0];
-      const today = new Date().toISOString().slice(0, 10);
-      const resetDate = character.exploration_last_reset
-        ? new Date(character.exploration_last_reset).toISOString().slice(0, 10)
-        : today;
+      const today = character.current_date;
+      const resetDate = character.exploration_last_reset || today;
       const currentCount = resetDate === today ? Number(character.exploration_count) : 0;
 
       if (Number(character.hp) <= 0) {
@@ -73,7 +73,8 @@ router.post('/:characterId/explore', gameplayLimiter, validate(exploreSchema), a
       const baseRewards = calculateZoneRewards(zone, character.realm_index, character.level);
       const rewards = { exp: 0, spiritStones: 0, items: [] };
       const isSafe = Math.random() > zone.encounterChance;
-      let hpLoss = 0;
+      const explorationHpCost = 1;
+      let hpLoss = explorationHpCost;
 
       if (isSafe) {
         rewards.exp = baseRewards.exp + Math.floor(Math.random() * baseRewards.exp * 0.5);
@@ -128,7 +129,7 @@ router.post('/:characterId/explore', gameplayLimiter, validate(exploreSchema), a
       }
 
       const message = isSafe
-        ? `Explored ${zone.name}: +${rewards.exp} EXP, +${rewards.spiritStones} Spirit Stones`
+        ? `Explored ${zone.name}: -${hpLoss} HP, +${rewards.exp} EXP, +${rewards.spiritStones} Spirit Stones`
         : `Encountered danger at ${zone.name}: -${hpLoss} HP, +${rewards.exp} EXP`;
 
       await client.query(
@@ -137,17 +138,19 @@ router.post('/:characterId/explore', gameplayLimiter, validate(exploreSchema), a
         [characterId, isSafe ? 'success' : 'danger', message]
       );
 
+      const questUpdate = await trackQuestProgress(characterId, 'explore', client);
+
       return {
         success: true,
         message,
         rewards,
         hpLoss,
         explorationCount: currentCount + 1,
+        questUpdate,
       };
     });
 
-    const questUpdate = await trackQuestProgress(req.params.characterId, 'explore');
-    ok(res, { ...result, questUpdate });
+    ok(res, result);
   } catch (error) {
     if (error.status) {
       return failFromError(res, error, 'Error exploring zone');

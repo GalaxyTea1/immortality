@@ -3,7 +3,7 @@ import { ITEM_DEFINITIONS } from '../data/items.js';
 const makeEquipmentUid = () => `equip_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
 export const createGameStateMappers = (initialState) => {
-  const mapServerToGameState = (charData, inventoryData, equipmentData, skillsData, questData) => {
+  const mapServerToGameState = (charData, inventoryData, equipmentData, skillsData, questData, eventData) => {
     const state = { ...initialState };
 
     if (charData) {
@@ -51,21 +51,26 @@ export const createGameStateMappers = (initialState) => {
         exp: charData.alchemy_exp ?? initialState.alchemy.exp,
       };
 
-      const today = new Date().toISOString().split('T')[0];
-      const serverResetDate = charData.exploration_last_reset
-        ? new Date(charData.exploration_last_reset).toISOString().split('T')[0]
-        : today;
-      const isNewDay = serverResetDate !== today;
+      const serverResetDate = typeof charData.exploration_last_reset === 'string'
+        ? charData.exploration_last_reset.slice(0, 10)
+        : new Date().toISOString().split('T')[0];
 
       state.exploration = {
         ...initialState.exploration,
-        explorationCount: isNewDay ? 0 : (charData.exploration_count ?? 0),
-        lastResetDate: today,
+        explorationCount: charData.exploration_count ?? 0,
+        lastResetDate: serverResetDate,
       };
 
       state.lastMeditationTime = charData.last_meditation_time
         ? new Date(charData.last_meditation_time).getTime()
         : null;
+      state.meditation = {
+        ...initialState.meditation,
+        isMeditating: Boolean(charData.meditation_started_at),
+        startedAt: charData.meditation_started_at
+          ? new Date(charData.meditation_started_at).getTime()
+          : null,
+      };
     }
 
     if (Array.isArray(inventoryData) && inventoryData.length > 0) {
@@ -100,10 +105,20 @@ export const createGameStateMappers = (initialState) => {
       state.learnedSkills = skillsData.map(s => s.skill_id || s.skillId);
     }
 
+    if (Array.isArray(eventData) && eventData.length > 0) {
+      state.events = eventData.map(event => ({
+        id: event.id,
+        type: event.type,
+        message: event.message,
+        time: event.time ? new Date(event.time).getTime() : Date.now(),
+      }));
+    }
+
+    const initialQuests = initialState.quests || { completed: [] };
     state.quests = {
-      ...initialState.quests,
+      ...initialQuests,
       active: questData || null,
-      completed: questData ? initialState.quests.completed : ['daily'],
+      completed: questData ? (initialQuests.completed || []) : ['daily'],
     };
 
     const newStats = { ...state.baseStats };

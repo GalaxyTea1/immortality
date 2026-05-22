@@ -32,6 +32,7 @@ If `psql` configured user/database local:
 
 ```bash
 npm run db:schema
+npm run db:migrate
 ```
 
 ## Run server

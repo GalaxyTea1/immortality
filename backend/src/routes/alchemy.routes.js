@@ -142,18 +142,18 @@ router.post('/:characterId/craft', gameplayLimiter, validate(craftPillSchema), a
         [characterId, `Crafted ${outputName}`]
       );
 
+      const questUpdate = await trackQuestProgress(characterId, 'craft', client);
+
       return {
         success: true,
         finalRate,
         output: recipe.output,
+        questUpdate,
         message: `Crafted ${recipe.output.quantity}x ${outputName}`,
       };
     });
 
-    const questUpdate = result.success
-      ? await trackQuestProgress(req.params.characterId, 'craft')
-      : null;
-    ok(res, { ...result, questUpdate });
+    ok(res, result);
   } catch (error) {
     if (error.status) {
       return failFromError(res, error, 'Error crafting pill');

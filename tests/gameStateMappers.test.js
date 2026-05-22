@@ -90,24 +90,33 @@ test('maps server character payload into game state and recalculates equipment s
       alchemy_level: 2,
       alchemy_exp: 30,
       exploration_count: 4,
-      exploration_last_reset: new Date().toISOString(),
+      exploration_last_reset: '2000-01-01T17:00:00.000Z',
       last_meditation_time: '2026-01-01T00:00:00.000Z',
+      meditation_started_at: '2026-01-01T01:00:00.000Z',
     },
     [{ item_id: 'huyen_thiet_giap', quantity: 2, enhance_level: 1 }],
     { armor: { itemId: 'huyen_thiet_giap', enhanceLevel: 1 } },
     [{ skill_id: 'tu_ha_bi_dien' }],
+    { id: 'daily_gather', progress: 2 },
+    [{ id: 42, type: 'success', message: 'Explored', time: '2026-01-03T00:00:00.000Z' }],
   );
 
   assert.equal(mapped.player.name, 'Thanh Van');
   assert.equal(mapped.player.realmIndex, 1);
   assert.equal(mapped.resources.spiritStones, 900);
   assert.equal(mapped.baseStats.cultivationSpeed, 1.25);
+  assert.equal(mapped.exploration.explorationCount, 4);
+  assert.equal(mapped.exploration.lastResetDate, '2000-01-01');
   assert.equal(mapped.inventory[0].itemId, 'huyen_thiet_giap');
   assert.ok(mapped.inventory[0].uid);
   assert.equal(mapped.equipment.armor.itemId, 'huyen_thiet_giap');
   assert.ok(mapped.equipment.armor.uid);
   assert.equal(mapped.stats.defense, 52);
   assert.deepEqual(mapped.learnedSkills, ['tu_ha_bi_dien']);
+  assert.equal(mapped.events[0].id, 42);
+  assert.equal(mapped.events[0].time, Date.UTC(2026, 0, 3));
+  assert.equal(mapped.meditation.isMeditating, true);
+  assert.equal(mapped.meditation.startedAt, Date.UTC(2026, 0, 1, 1));
 });
 
 test('maps game state back to server payload', () => {

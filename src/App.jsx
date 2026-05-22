@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { Toaster } from "sonner";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { GameProvider } from "./context/GameContext";
 import Layout from "./components/Layout";
@@ -81,6 +82,7 @@ function AppContent() {
 function App() {
   return (
     <AuthProvider>
+      <Toaster position="top-right" richColors closeButton />
       <AppContent />
     </AuthProvider>
   );

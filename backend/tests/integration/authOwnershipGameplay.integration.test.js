@@ -99,10 +99,29 @@ test('auth, ownership, and gameplay mutations work against a real database', { s
 
   await pool.query(
     `UPDATE character_quests
-     SET progress = $2
+     SET quest_id = 'daily_gather', progress = $2
      WHERE character_id = $1 AND status = 'active'`,
-    [characterA, quest.json.data.quest.target]
+    [characterA, 4]
   );
+
+  const explore = await request('POST', `/world/${characterA}/explore`, {
+    token: tokenA,
+    body: { zoneId: 'tan_thu_thon' },
+  });
+  assert.equal(explore.response.status, 200);
+  assert.equal(explore.json.data.questUpdate.completed, true);
+
+  const progressedQuest = await pool.query(
+    `SELECT progress
+     FROM character_quests
+     WHERE character_id = $1 AND status = 'active'`,
+    [characterA]
+  );
+  assert.equal(Number(progressedQuest.rows[0].progress), 5);
+
+  const events = await request('GET', `/events/${characterA}`, { token: tokenA });
+  assert.equal(events.response.status, 200);
+  assert.ok(events.json.data.events.length > 0);
 
   const beforeClaim = await pool.query('SELECT spirit_stones FROM characters WHERE id = $1', [characterA]);
   const claim = await request('POST', `/quests/${characterA}/claim`, { token: tokenA });

@@ -15,7 +15,9 @@ router.get('/:id', authMiddleware, requireCharacterOwner('id'), async (req, res)
   try {
     const { id } = req.params;
     const result = await query(
-      'SELECT * FROM characters WHERE id = $1',
+      `SELECT *, exploration_last_reset::text AS exploration_last_reset
+       FROM characters
+       WHERE id = $1`,
       [id]
     );
 

@@ -8,6 +8,7 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "db:schema": "psql -d immortality_db -f src/db/schema.sql",
+    "db:migrate": "node src/db/runMigrations.js",
     "test": "node --test tests/integration/*.integration.test.js",
     "test:integration": "node --test tests/integration/*.integration.test.js"
   },

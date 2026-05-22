@@ -1,4 +1,5 @@
 import { useCallback, useState, useEffect } from 'react';
+import { useGame } from '../context/GameContext';
 import { leaderboard as leaderboardApi } from '../services/api.js';
 import { getSocket } from '../services/socket.js';
 import { REALMS } from '../data/realms.js';
@@ -58,22 +59,59 @@ const getRealmClass = (realmIndex) => {
   return 'green';
 };
 
+const toNumber = (value, fallback = 0) => {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : fallback;
+};
+
+const calculateCombatPower = ({ attack = 0, defense = 0, spirit = 0, agility = 0, realmIndex = 0, level = 1 }) =>
+  Math.round(
+    (toNumber(attack) + toNumber(defense) + toNumber(spirit) + toNumber(agility)) *
+    (toNumber(realmIndex) + 1) *
+    toNumber(level, 1)
+  );
+
+const getLeaderboardPower = (row, realmIndex, level) => {
+  const serverPower = Number(row.power);
+  if (row.power !== undefined && row.power !== null && Number.isFinite(serverPower)) {
+    return Math.round(serverPower);
+  }
+
+  const hasStatPowerInput = ['attack', 'defense', 'spirit', 'agility'].some(
+    (stat) => row[stat] !== undefined && row[stat] !== null
+  );
+
+  if (hasStatPowerInput) {
+    return calculateCombatPower({
+      attack: row.attack,
+      defense: row.defense,
+      spirit: row.spirit,
+      agility: row.agility,
+      realmIndex,
+      level,
+    });
+  }
+
+  return ((realmIndex + 1) * level * 100000) + (Number(row.exp) || 0);
+};
+
 const mapLeaderboardRow = (row, index) => {
   const realmIndex = Number(row.realm_index) || 0;
   const level = Number(row.level) || 1;
-  const exp = Number(row.exp) || 0;
   return {
     rank: Number(row.rank) || index + 1,
     name: row.name || row.username || 'Daoist',
     sect: row.username ? `@${row.username}` : 'Độc hành',
     realm: getRealmLabel(realmIndex, level),
     realmClass: getRealmClass(realmIndex),
-    power: Number(row.power) || ((realmIndex + 1) * level * 100000 + exp),
+    power: getLeaderboardPower(row, realmIndex, level),
     avatar: avatarPool[index % avatarPool.length],
   };
 };
 
 function Leaderboard() {
+  const { gameState, formatNumber } = useGame();
+  const { player, reputation, stats } = gameState;
   const [leaderboardRows, setLeaderboardRows] = useState([]);
   const [hasLeaderboardResponse, setHasLeaderboardResponse] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -132,6 +170,25 @@ function Leaderboard() {
   const showPodium = displayedRows.length >= 3;
   const podiumRows = showPodium ? displayedRows.slice(0, 3) : [];
   const tableRows = showPodium ? displayedRows.slice(3) : displayedRows;
+  const currentExp = Number(player.exp) || 0;
+  const maxExp = Math.max(Number(player.maxExp) || 1, 1);
+  const expPercent = Math.min(100, Math.max(0, (currentExp / maxExp) * 100));
+  const currentPower = calculateCombatPower({
+    attack: stats.attack,
+    defense: stats.defense,
+    spirit: stats.spirit,
+    agility: stats.agility,
+    realmIndex: player.realmIndex,
+    level: player.level,
+  });
+  const currentRankRow = hasLeaderboardResponse
+    ? displayedRows.find((row) => row.name === player.name)
+    : null;
+  const currentRank = currentRankRow
+    ? `#${currentRankRow.rank}`
+    : hasLeaderboardResponse
+      ? 'Ngoài top 20'
+      : 'Chưa xếp hạng';
 
   return (
     <div className="leaderboard-page">
@@ -286,18 +343,6 @@ function Leaderboard() {
               </table>
             </div>
 
-            <div className="pagination">
-              <button className="page-btn" disabled>
-                <span className="material-symbols-outlined">arrow_back_ios_new</span>
-              </button>
-              <button className="page-btn active">1</button>
-              <button className="page-btn">2</button>
-              <button className="page-btn">3</button>
-              <span className="page-dots">...</span>
-              <button className="page-btn">
-                <span className="material-symbols-outlined">arrow_forward_ios</span>
-              </button>
-            </div>
           </div>
 
           {/* Sidebar */}
@@ -314,27 +359,31 @@ function Leaderboard() {
                   style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuBJu_ptbTajUE7FCY7SDrRSaZI0qO6P5NPGmTpwPfZrcFC2nFDzME3BXeOUotm57WBKv90x6YEGksQuOvwKXsv6UHs8VSHz3QGrRkWXqivgvoPnCnQB2leH2Sj80ORDhlYqXdWnEco80wNjV8z0kxeWwSDTNXX9vzFkdtXw64ZURR36yW2ZV5_Y296LiACytkLZoTeBXePVFg4qOqw6-wLsAy4NUXLS-jbVNs27ptrv_L0ggZt0QVq8MVyio5AuvctLDeYsxLGtDmA")' }}
                 ></div>
                 <div>
-                  <div className="my-name">Lăng Tiếu</div>
-                  <div className="my-realm">Trúc Cơ Sơ Kỳ</div>
+                  <div className="my-name">{player.name}</div>
+                  <div className="my-realm">{getRealmLabel(player.realmIndex, player.level)}</div>
                 </div>
               </div>
               <div className="xp-bar">
                 <div className="xp-header">
                   <span>Kinh nghiệm</span>
-                  <span>8,402 / 10,000</span>
+                  <span>{formatNumber(currentExp)} / {formatNumber(maxExp)}</span>
                 </div>
                 <div className="xp-progress">
-                  <div className="xp-fill" style={{ width: '84%' }}></div>
+                  <div className="xp-fill" style={{ width: `${expPercent}%` }}></div>
                 </div>
               </div>
               <div className="my-stats-grid">
                 <div className="my-stat">
                   <span className="stat-label">Hạng</span>
-                  <span className="stat-value">#1,204</span>
+                  <span className="stat-value">{currentRank}</span>
                 </div>
                 <div className="my-stat">
                   <span className="stat-label">Uy Danh</span>
-                  <span className="stat-value">540</span>
+                  <span className="stat-value">{formatNumber(Number(reputation.value) || 0)}</span>
+                </div>
+                <div className="my-stat my-stat-wide">
+                  <span className="stat-label">Chiến Lực</span>
+                  <span className="stat-value">{formatNumber(currentPower)}</span>
                 </div>
               </div>
             </div>

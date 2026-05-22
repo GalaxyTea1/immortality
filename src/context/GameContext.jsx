@@ -99,6 +99,10 @@ const initialState = {
 
   // ===== HỆ THỐNG THIỀN ĐỊNH =====
   lastMeditationTime: null, // Timestamp of last meditation
+  meditation: {
+    isMeditating: false,
+    startedAt: null,
+  },
 
   // Exploration system
   exploration: {
@@ -267,6 +271,7 @@ export function GameProvider({ children, characterId }) {
         reputation: { ...initialState.reputation, ...parsed.reputation },
         alchemy: { ...initialState.alchemy, ...parsed.alchemy },
         baseStats: { ...initialState.baseStats, ...parsed.baseStats },
+        meditation: { ...initialState.meditation, ...parsed.meditation },
       });
       return { success: true, message: 'Import thành công!' };
     } catch {

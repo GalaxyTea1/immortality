@@ -248,11 +248,11 @@ router.post('/:characterId/meditation/finish', gameplayLimiter, async (req, res)
       const durationSeconds = Number(session.rows[0].duration_seconds) || 1;
       const ticks = Math.min(300, Math.max(1, durationSeconds));
       const meditationResult = await applyMeditationTicks(client, characterId, ticks);
-      return { ...meditationResult, durationSeconds };
+      const questUpdate = await trackQuestProgress(characterId, 'meditate', client);
+      return { ...meditationResult, durationSeconds, questUpdate };
     });
 
-    const questUpdate = await trackQuestProgress(characterId, 'meditate');
-    ok(res, { ...result, questUpdate });
+    ok(res, result);
   } catch (error) {
     if (error.status) return failFromError(res, error, 'Error finishing meditation session');
     console.error('Error finishing meditation session:', error);

@@ -37,6 +37,8 @@ export function useGameWorldSystems({
 
     const baseRewards = calculateZoneRewards(zone, gameState.player.realmIndex, gameState.player.level);
     const rewards = { exp: 0, spiritStones: 0, items: [] };
+    const explorationHpCost = 1;
+    let hpLoss = explorationHpCost;
     let eventMessage = '';
 
     const roll = Math.random();
@@ -59,13 +61,14 @@ export function useGameWorldSystems({
       }
     } else {
       // Gặp nguy hiểm
-      const damage = zone.encounterDamage || 10;
-      setGameState(prev => ({
-        ...prev,
-        stats: { ...prev.stats, hp: Math.max(1, prev.stats.hp - damage) },
-      }));
+      hpLoss = zone.encounterDamage || 10;
+      const damage = hpLoss;
       rewards.exp = Math.floor(baseRewards.exp * 0.3);
       eventMessage = `Gặp nguy hiểm tại ${zone.name}! Mất ${damage} HP, +${rewards.exp} EXP`;
+    }
+
+    if (roll > zone.encounterChance) {
+      eventMessage += `, -${hpLoss} HP`;
     }
 
     if (rewards.exp > 0) addExp(rewards.exp);
@@ -74,12 +77,14 @@ export function useGameWorldSystems({
 
     setGameState(prev => ({
       ...prev,
+      baseStats: { ...prev.baseStats, hp: Math.max(1, prev.baseStats.hp - hpLoss) },
+      stats: { ...prev.stats, hp: Math.max(1, prev.stats.hp - hpLoss) },
       exploration: { ...prev.exploration, explorationCount: prev.exploration.explorationCount + 1 },
     }));
 
     addEvent(roll > zone.encounterChance ? 'success' : 'danger', eventMessage);
 
-    return { success: true, message: eventMessage, rewards };
+    return { success: true, message: eventMessage, rewards, hpLoss };
   }, [gameState, addExp, addSpiritStones, addItem, addEvent, setGameState]);
 
   const claimQuestReward = useCallback(() => {
