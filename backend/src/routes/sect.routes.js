@@ -9,6 +9,71 @@ import { created, fail, failFromError, ok } from '../http/response.js';
 
 const router = express.Router();
 
+const DEFAULT_DAILY_BOSS_ATTACKS = 8;
+const DEFAULT_RAID_MINUTES = 60;
+
+const SECT_SHOP_CATALOG = [
+  {
+    id: 'sect_recovery_pack',
+    itemId: 'tu_khi_dan',
+    quantity: 2,
+    contributionCost: 60,
+    minSectLevel: 1,
+    label: 'Gói hồi phục tông môn',
+  },
+  {
+    id: 'sect_enhance_stone',
+    itemId: 'cuong_hoa_thach',
+    quantity: 1,
+    contributionCost: 140,
+    minSectLevel: 1,
+    label: 'Cường hóa thạch',
+  },
+  {
+    id: 'sect_breakthrough_pill',
+    itemId: 'truc_co_dan',
+    quantity: 1,
+    contributionCost: 360,
+    minSectLevel: 2,
+    label: 'Trúc Cơ Đan',
+  },
+  {
+    id: 'sect_core_pill',
+    itemId: 'kim_dan_dan',
+    quantity: 1,
+    contributionCost: 900,
+    minSectLevel: 3,
+    label: 'Kim Đan Đan',
+  },
+];
+
+const SECT_DAILY_QUESTS = [
+  {
+    id: 'daily_raid_damage',
+    title: 'Dồn sát thương raid',
+    description: 'Cả tông môn gây 5000 sát thương lên boss hôm nay.',
+    metric: 'damage',
+    target: 5000,
+    rewards: { sectExp: 120, spiritStones: 500, contribution: 40 },
+  },
+  {
+    id: 'daily_raid_party',
+    title: 'Hợp lực đồng môn',
+    description: 'Có 3 thành viên khác nhau tham gia đánh boss hôm nay.',
+    metric: 'participants',
+    target: 3,
+    rewards: { sectExp: 100, spiritStones: 350, contribution: 35 },
+  },
+  {
+    id: 'daily_boss_defeat',
+    title: 'Trấn áp yêu thú',
+    description: 'Hạ gục 1 boss tông môn trong ngày.',
+    metric: 'defeats',
+    target: 1,
+    rewards: { sectExp: 180, spiritStones: 700, contribution: 60 },
+  },
+];
+
 const createSectSchema = Joi.object({
   characterId: Joi.number().integer().positive().required(),
   name: Joi.string().trim().min(3).max(100).required(),
@@ -22,6 +87,11 @@ const characterActionSchema = Joi.object({
 const spawnBossSchema = Joi.object({
   characterId: Joi.number().integer().positive().required(),
   bossId: Joi.string().trim().max(100).required(),
+});
+
+const buySectShopSchema = Joi.object({
+  characterId: Joi.number().integer().positive().required(),
+  shopItemId: Joi.string().trim().max(100).required(),
 });
 
 const validateBody = (schema) => (req, res, next) => {
@@ -86,6 +156,22 @@ const normalizeSect = (row) => row && ({
   createdAt: row.created_at,
 });
 
+const normalizeTreasuryRow = (row) => row && ({
+  id: row.id,
+  sectId: row.sect_id,
+  itemId: row.item_id,
+  itemName: row.item_name || row.item_id,
+  quantity: toNumber(row.quantity),
+  enhanceLevel: toNumber(row.enhance_level),
+  rarity: row.rarity || 'common',
+  type: row.type || 'material',
+});
+
+const normalizeSectShopItem = (item, sectLevel = 1) => ({
+  ...item,
+  unlocked: toNumber(sectLevel, 1) >= item.minSectLevel,
+});
+
 const normalizeMember = (row) => row && ({
   id: row.id,
   sectId: row.sect_id,
@@ -122,6 +208,9 @@ const normalizeBossInstance = (row, damageBoard = []) => row && ({
   spawnedAt: row.spawned_at,
   defeatedAt: row.defeated_at,
   expiresAt: row.expires_at,
+  secondsRemaining: row.expires_at
+    ? Math.max(0, Math.floor((new Date(row.expires_at).getTime() - Date.now()) / 1000))
+    : null,
   totalDamage: toNumber(row.total_damage),
   damageBoard,
 });
@@ -134,6 +223,108 @@ const listBossDefinitions = async (executor = { query }) => {
      ORDER BY realm_index ASC, level ASC, max_hp ASC`
   );
   return result.rows.map(normalizeBossDefinition);
+};
+
+const expireActiveBosses = async (sectId, executor = { query }) => {
+  await executor.query(
+    `UPDATE boss_instances
+     SET status = 'expired'
+     WHERE sect_id = $1
+       AND status = 'active'
+       AND expires_at IS NOT NULL
+       AND expires_at <= NOW()`,
+    [sectId]
+  );
+};
+
+const getSectTreasury = async (sectId, executor = { query }) => {
+  const result = await executor.query(
+    `SELECT sti.*, idf.name AS item_name, idf.rarity, idf.type
+     FROM sect_treasury_items sti
+     JOIN item_definitions idf ON idf.item_id = sti.item_id
+     WHERE sti.sect_id = $1 AND sti.quantity > 0
+     ORDER BY idf.rarity DESC, idf.name ASC`,
+    [sectId]
+  );
+  return result.rows.map(normalizeTreasuryRow);
+};
+
+const getSectShopItems = (sectLevel) => SECT_SHOP_CATALOG.map((item) => normalizeSectShopItem(item, sectLevel));
+
+const getDailyAttackInfo = async (characterId, bossRewards = {}, executor = { query }) => {
+  const limit = toNumber(bossRewards.dailyAttackLimit, DEFAULT_DAILY_BOSS_ATTACKS);
+  const result = await executor.query(
+    `SELECT COUNT(*)::int AS used
+     FROM boss_attacks
+     WHERE character_id = $1
+       AND created_at::date = CURRENT_DATE`,
+    [characterId]
+  );
+  const used = toNumber(result.rows[0]?.used);
+  return {
+    dailyLimit: limit,
+    usedToday: used,
+    remainingToday: Math.max(0, limit - used),
+  };
+};
+
+const getBossParticipantCount = async (bossInstanceId, executor = { query }) => {
+  const result = await executor.query(
+    `SELECT COUNT(DISTINCT character_id)::int AS participants
+     FROM boss_attacks
+     WHERE boss_instance_id = $1`,
+    [bossInstanceId]
+  );
+  return toNumber(result.rows[0]?.participants);
+};
+
+const getSectDailyMetrics = async (sectId, executor = { query }) => {
+  const result = await executor.query(
+    `SELECT
+       COALESCE(SUM(ba.damage), 0)::bigint AS damage,
+       COUNT(DISTINCT ba.character_id)::int AS participants,
+       (
+         SELECT COUNT(*)::int
+         FROM boss_instances bi2
+         WHERE bi2.sect_id = $1
+           AND bi2.status = 'defeated'
+           AND bi2.defeated_at::date = CURRENT_DATE
+       ) AS defeats
+     FROM boss_instances bi
+     LEFT JOIN boss_attacks ba ON ba.boss_instance_id = bi.id
+       AND ba.created_at::date = CURRENT_DATE
+     WHERE bi.sect_id = $1`,
+    [sectId]
+  );
+
+  return {
+    damage: toNumber(result.rows[0]?.damage),
+    participants: toNumber(result.rows[0]?.participants),
+    defeats: toNumber(result.rows[0]?.defeats),
+  };
+};
+
+const getSectDailyQuests = async (sectId, executor = { query }) => {
+  const [metrics, claims] = await Promise.all([
+    getSectDailyMetrics(sectId, executor),
+    executor.query(
+      `SELECT quest_id
+       FROM sect_quest_claims
+       WHERE sect_id = $1 AND quest_date = CURRENT_DATE`,
+      [sectId]
+    ),
+  ]);
+  const claimed = new Set(claims.rows.map((row) => row.quest_id));
+
+  return SECT_DAILY_QUESTS.map((questDef) => {
+    const progress = Math.min(questDef.target, toNumber(metrics[questDef.metric]));
+    return {
+      ...questDef,
+      progress,
+      completed: progress >= questDef.target,
+      claimed: claimed.has(questDef.id),
+    };
+  });
 };
 
 const getBossDamageBoard = async (bossInstanceId, executor = { query }) => {
@@ -156,6 +347,7 @@ const getBossDamageBoard = async (bossInstanceId, executor = { query }) => {
 };
 
 const getActiveBossForSect = async (sectId, executor = { query }) => {
+  await expireActiveBosses(sectId, executor);
   const result = await executor.query(
     `SELECT
        bi.id,
@@ -225,14 +417,14 @@ const assertSectMember = async (sectId, characterId, executor) => {
   return normalizeMember(result.rows[0]);
 };
 
-const calculateDamage = (character, boss, phase) => {
+const calculateDamage = (character, boss, phase, coordinationMultiplier = 1) => {
   const attack = toNumber(character.attack);
   const spirit = toNumber(character.spirit);
   const agility = toNumber(character.agility);
   const defenseMultiplier = toNumber(phase.defenseMultiplier, 1);
   const effectiveDefense = toNumber(boss.defense) * defenseMultiplier;
   const rawDamage = attack * 1.5 + spirit * 0.8 + agility * 0.35 - effectiveDefense * 0.4;
-  return Math.max(1, Math.floor(rawDamage));
+  return Math.max(1, Math.floor(rawDamage * coordinationMultiplier));
 };
 
 const rollLoot = (rewards, recipient) => {
@@ -243,13 +435,13 @@ const rollLoot = (rewards, recipient) => {
       itemId: drop.itemId,
       quantity: randomInteger(drop.minQty, drop.maxQty),
       mode: drop.mode || 'mvp',
-      characterId: recipient?.characterId || null,
-      characterName: recipient?.characterName || null,
+      characterId: drop.mode === 'treasury' ? null : recipient?.characterId || null,
+      characterName: drop.mode === 'treasury' ? null : recipient?.characterName || null,
     }));
 };
 
 const grantLoot = async (client, lootDrops) => {
-  for (const drop of lootDrops) {
+  for (const drop of lootDrops.filter((entry) => entry.mode !== 'treasury')) {
     if (!drop.characterId || !drop.itemId || drop.quantity <= 0) continue;
     await client.query(
       `INSERT INTO inventory (character_id, item_id, quantity, enhance_level)
@@ -257,6 +449,19 @@ const grantLoot = async (client, lootDrops) => {
        ON CONFLICT (character_id, item_id, enhance_level)
        DO UPDATE SET quantity = inventory.quantity + $3`,
       [drop.characterId, drop.itemId, drop.quantity]
+    );
+  }
+};
+
+const grantTreasuryLoot = async (client, sectId, lootDrops) => {
+  for (const drop of lootDrops.filter((entry) => entry.mode === 'treasury')) {
+    if (!drop.itemId || drop.quantity <= 0) continue;
+    await client.query(
+      `INSERT INTO sect_treasury_items (sect_id, item_id, quantity, enhance_level)
+       VALUES ($1, $2, $3, 0)
+       ON CONFLICT (sect_id, item_id, enhance_level)
+       DO UPDATE SET quantity = sect_treasury_items.quantity + $3`,
+      [sectId, drop.itemId, drop.quantity]
     );
   }
 };
@@ -318,6 +523,7 @@ const distributeDefeatRewards = async ({ client, sectId, bossInstanceId, rewards
   const fallbackMvp = mvp || { characterId: attackerId, characterName: null };
   const lootDrops = rollLoot(rewards, fallbackMvp);
   await grantLoot(client, lootDrops);
+  await grantTreasuryLoot(client, sectId, lootDrops);
 
   return { damageBoard, rewardDistribution, lootDrops, mvp: fallbackMvp };
 };
@@ -349,6 +555,52 @@ router.get('/bosses/catalog', async (req, res) => {
   }
 });
 
+router.get('/leaderboard', async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT
+         s.id,
+         s.name,
+         s.level,
+         s.exp,
+         s.spirit_stones,
+         COUNT(DISTINCT sm.character_id) AS member_count,
+         COALESCE(SUM(CASE WHEN ba.created_at >= NOW() - INTERVAL '7 days' THEN ba.damage ELSE 0 END), 0) AS weekly_damage,
+         COUNT(DISTINCT CASE WHEN bi.status = 'defeated' AND bi.defeated_at >= NOW() - INTERVAL '7 days' THEN bi.id END) AS weekly_defeats,
+         RANK() OVER (
+           ORDER BY
+             COALESCE(SUM(CASE WHEN ba.created_at >= NOW() - INTERVAL '7 days' THEN ba.damage ELSE 0 END), 0) DESC,
+             s.level DESC,
+             s.exp DESC
+         ) AS rank
+       FROM sects s
+       LEFT JOIN sect_members sm ON sm.sect_id = s.id
+       LEFT JOIN boss_instances bi ON bi.sect_id = s.id
+       LEFT JOIN boss_attacks ba ON ba.boss_instance_id = bi.id
+       GROUP BY s.id
+       ORDER BY rank
+       LIMIT 50`
+    );
+
+    ok(res, {
+      leaderboard: result.rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        level: toNumber(row.level, 1),
+        exp: toNumber(row.exp),
+        spiritStones: toNumber(row.spirit_stones),
+        memberCount: toNumber(row.member_count),
+        weeklyDamage: toNumber(row.weekly_damage),
+        weeklyDefeats: toNumber(row.weekly_defeats),
+        rank: toNumber(row.rank),
+      })),
+    });
+  } catch (error) {
+    console.error('Không thể tải bảng xếp hạng tông môn:', error);
+    fail(res, 500, 'Không thể tải bảng xếp hạng tông môn');
+  }
+});
+
 router.get('/character/:characterId', requireCharacterOwner('characterId'), async (req, res) => {
   try {
     const { characterId } = req.params;
@@ -362,6 +614,10 @@ router.get('/character/:characterId', requireCharacterOwner('characterId'), asyn
         members: [],
         activeBoss: null,
         bossCatalog: bosses,
+        attackInfo: { dailyLimit: DEFAULT_DAILY_BOSS_ATTACKS, usedToday: 0, remainingToday: DEFAULT_DAILY_BOSS_ATTACKS },
+        treasury: [],
+        sectShop: [],
+        dailyQuests: [],
       });
     }
 
@@ -386,12 +642,19 @@ router.get('/character/:characterId', requireCharacterOwner('characterId'), asyn
       [member.sectId]
     );
 
+    const sect = normalizeSect(sectResult.rows[0]);
+    const activeBoss = await getActiveBossForSect(member.sectId);
+
     ok(res, {
-      sect: normalizeSect(sectResult.rows[0]),
+      sect,
       member,
       members: membersResult.rows.map(normalizeMember),
-      activeBoss: await getActiveBossForSect(member.sectId),
+      activeBoss,
       bossCatalog: bosses,
+      attackInfo: await getDailyAttackInfo(characterId, activeBoss?.rewards),
+      treasury: await getSectTreasury(member.sectId),
+      sectShop: getSectShopItems(sect?.level),
+      dailyQuests: await getSectDailyQuests(member.sectId),
     });
   } catch (error) {
     console.error('Không thể tải thông tin tông môn:', error);
@@ -540,13 +803,143 @@ router.post('/:sectId/leave', gameplayLimiter, validateBody(characterActionSchem
   }
 });
 
+router.post('/:sectId/shop/buy', gameplayLimiter, validateBody(buySectShopSchema), requireCharacterOwner('characterId'), async (req, res) => {
+  try {
+    const { sectId } = req.params;
+    const { characterId, shopItemId } = req.body;
+
+    const result = await withTransaction(async (client) => {
+      const member = await assertSectMember(sectId, characterId, client);
+      const sectResult = await client.query('SELECT * FROM sects WHERE id = $1 FOR UPDATE', [sectId]);
+      const sect = sectResult.rows[0];
+      if (!sect) {
+        const error = new Error('Không tìm thấy tông môn');
+        error.status = 404;
+        throw error;
+      }
+
+      const shopItem = getSectShopItems(sect.level).find((item) => item.id === shopItemId);
+      if (!shopItem) {
+        const error = new Error('Không tìm thấy vật phẩm tông môn');
+        error.status = 404;
+        throw error;
+      }
+      if (!shopItem.unlocked) {
+        const error = new Error('Cấp tông môn chưa đủ để đổi vật phẩm này');
+        error.status = 400;
+        throw error;
+      }
+      if (toNumber(member.contribution) < shopItem.contributionCost) {
+        const error = new Error('Không đủ cống hiến tông môn');
+        error.status = 400;
+        error.details = { required: shopItem.contributionCost, current: toNumber(member.contribution) };
+        throw error;
+      }
+
+      await client.query(
+        `UPDATE sect_members
+         SET contribution = contribution - $3
+         WHERE sect_id = $1 AND character_id = $2`,
+        [sectId, characterId, shopItem.contributionCost]
+      );
+      await client.query(
+        `INSERT INTO inventory (character_id, item_id, quantity, enhance_level)
+         VALUES ($1, $2, $3, 0)
+         ON CONFLICT (character_id, item_id, enhance_level)
+         DO UPDATE SET quantity = inventory.quantity + $3`,
+        [characterId, shopItem.itemId, shopItem.quantity]
+      );
+
+      return {
+        shopItem,
+        message: `Đã đổi ${shopItem.quantity}x ${shopItem.label}`,
+      };
+    });
+
+    ok(res, result);
+  } catch (error) {
+    if (error.status) return failFromError(res, error, 'Không thể đổi vật phẩm tông môn');
+    console.error('Không thể đổi vật phẩm tông môn:', error);
+    fail(res, 500, 'Không thể đổi vật phẩm tông môn');
+  }
+});
+
+router.post('/:sectId/quests/:questId/claim', gameplayLimiter, validateBody(characterActionSchema), requireCharacterOwner('characterId'), async (req, res) => {
+  try {
+    const { sectId, questId } = req.params;
+    const { characterId } = req.body;
+
+    const result = await withTransaction(async (client) => {
+      await assertSectMember(sectId, characterId, client);
+      const quests = await getSectDailyQuests(sectId, client);
+      const questState = quests.find((quest) => quest.id === questId);
+      if (!questState) {
+        const error = new Error('Không tìm thấy nhiệm vụ tông môn');
+        error.status = 404;
+        throw error;
+      }
+      if (!questState.completed) {
+        const error = new Error('Nhiệm vụ tông môn chưa hoàn thành');
+        error.status = 400;
+        throw error;
+      }
+      if (questState.claimed) {
+        const error = new Error('Nhiệm vụ tông môn đã nhận thưởng hôm nay');
+        error.status = 400;
+        throw error;
+      }
+
+      await client.query(
+        `INSERT INTO sect_quest_claims (sect_id, quest_id, quest_date, claimed_by)
+         VALUES ($1, $2, CURRENT_DATE, $3)`,
+        [sectId, questId, characterId]
+      );
+
+      const rewards = questState.rewards || {};
+      await client.query(
+        `UPDATE sects
+         SET exp = exp + $2,
+             spirit_stones = spirit_stones + $3
+         WHERE id = $1`,
+        [sectId, toNumber(rewards.sectExp), toNumber(rewards.spiritStones)]
+      );
+      await client.query(
+        `UPDATE sect_members
+         SET contribution = contribution + $3
+         WHERE sect_id = $1 AND character_id = $2`,
+        [sectId, characterId, toNumber(rewards.contribution)]
+      );
+
+      return {
+        quest: { ...questState, claimed: true },
+        dailyQuests: await getSectDailyQuests(sectId, client),
+        message: `Đã nhận thưởng nhiệm vụ ${questState.title}`,
+      };
+    });
+
+    ok(res, result);
+  } catch (error) {
+    if (error.code === '23505') {
+      return fail(res, 400, 'Nhiệm vụ tông môn đã nhận thưởng hôm nay');
+    }
+    if (error.status) return failFromError(res, error, 'Không thể nhận thưởng nhiệm vụ tông môn');
+    console.error('Không thể nhận thưởng nhiệm vụ tông môn:', error);
+    fail(res, 500, 'Không thể nhận thưởng nhiệm vụ tông môn');
+  }
+});
+
 router.post('/:sectId/bosses/spawn', gameplayLimiter, validateBody(spawnBossSchema), requireCharacterOwner('characterId'), async (req, res) => {
   try {
     const { sectId } = req.params;
     const { characterId, bossId } = req.body;
 
     const result = await withTransaction(async (client) => {
-      await assertSectMember(sectId, characterId, client);
+      const member = await assertSectMember(sectId, characterId, client);
+      if (!['leader', 'elder'].includes(member.role)) {
+        const error = new Error('Chỉ tông chủ hoặc trưởng lão có thể mở raid boss');
+        error.status = 400;
+        throw error;
+      }
 
       const activeBoss = await getActiveBossForSect(sectId, client);
       if (activeBoss) {
@@ -568,11 +961,12 @@ router.post('/:sectId/bosses/spawn', gameplayLimiter, validateBody(spawnBossSche
         throw error;
       }
 
+      const raidMinutes = Math.max(15, Math.min(180, toNumber(boss.rewards?.raidMinutes, DEFAULT_RAID_MINUTES)));
       const instanceResult = await client.query(
         `INSERT INTO boss_instances (sect_id, boss_id, current_hp, expires_at)
-         VALUES ($1, $2, $3, NOW() + ($4::integer * INTERVAL '1 hour'))
+         VALUES ($1, $2, $3, NOW() + ($4::integer * INTERVAL '1 minute'))
          RETURNING *`,
-        [sectId, boss.boss_id, boss.max_hp, boss.respawn_hours]
+        [sectId, boss.boss_id, boss.max_hp, raidMinutes]
       );
 
       return normalizeBossInstance({ ...instanceResult.rows[0], ...boss, total_damage: 0 }, []);
@@ -620,7 +1014,46 @@ router.post('/:sectId/bosses/:instanceId/attack', gameplayLimiter, validateBody(
         throw error;
       }
 
+      if (boss.expires_at && new Date(boss.expires_at).getTime() <= Date.now()) {
+        await client.query(
+          `UPDATE boss_instances
+           SET status = 'expired'
+           WHERE id = $1`,
+          [instanceId]
+        );
+        const error = new Error('Raid boss đã hết thời gian khiêu chiến');
+        error.status = 400;
+        throw error;
+      }
+
       const phase = getBossPhase(boss);
+      const attackInfo = await getDailyAttackInfo(characterId, boss.rewards || {}, client);
+      if (attackInfo.remainingToday <= 0) {
+        const error = new Error('Đã hết lượt đánh boss hôm nay');
+        error.status = 429;
+        error.details = attackInfo;
+        throw error;
+      }
+
+      const participantResult = await client.query(
+        `SELECT EXISTS (
+           SELECT 1 FROM boss_attacks
+           WHERE boss_instance_id = $1 AND character_id = $2
+         ) AS has_attacked`,
+        [instanceId, characterId]
+      );
+      const existingParticipants = await getBossParticipantCount(instanceId, client);
+      const participantCount = existingParticipants + (participantResult.rows[0]?.has_attacked ? 0 : 1);
+      const requiredParticipants = Math.max(1, toNumber(phase.requiredParticipants, 1));
+      const coordinationMultiplier = participantCount >= requiredParticipants
+        ? 1
+        : Math.max(0.35, participantCount / requiredParticipants);
+      const phaseMechanic = {
+        requiredParticipants,
+        participantCount,
+        coordinationMultiplier,
+        underCoordinated: participantCount < requiredParticipants,
+      };
       const characterResult = await client.query(
         `WITH equipment_bonus AS (
            SELECT
@@ -665,7 +1098,7 @@ router.post('/:sectId/bosses/:instanceId/attack', gameplayLimiter, validateBody(
         throw error;
       }
 
-      const damage = Math.min(toNumber(boss.current_hp), calculateDamage(character, boss, phase));
+      const damage = Math.min(toNumber(boss.current_hp), calculateDamage(character, boss, phase, coordinationMultiplier));
       const nextHp = Math.max(0, toNumber(boss.current_hp) - damage);
       const defeated = nextHp <= 0;
       const rewards = boss.rewards || {};
@@ -742,6 +1175,12 @@ router.post('/:sectId/bosses/:instanceId/attack', gameplayLimiter, validateBody(
         defeated,
         phase,
         nextPhase,
+        phaseMechanic,
+        attackInfo: {
+          ...attackInfo,
+          usedToday: attackInfo.usedToday + 1,
+          remainingToday: Math.max(0, attackInfo.remainingToday - 1),
+        },
         rewards: defeated ? rewards : {},
         rewardDistribution: defeatRewards.rewardDistribution,
         lootDrops: defeatRewards.lootDrops,

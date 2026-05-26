@@ -513,6 +513,11 @@ export const sects = {
         return authFetch(`/sects/character/${characterId}`);
     },
 
+    getLeaderboard: async () => {
+        const data = await authFetch('/sects/leaderboard');
+        return data.leaderboard || [];
+    },
+
     create: async (characterId, name, description = '') => {
         return authFetch('/sects', {
             method: 'POST',
@@ -543,6 +548,20 @@ export const sects = {
 
     attackBoss: async (sectId, instanceId, characterId) => {
         return authFetch(`/sects/${sectId}/bosses/${instanceId}/attack`, {
+            method: 'POST',
+            body: JSON.stringify({ characterId }),
+        });
+    },
+
+    buyShopItem: async (sectId, characterId, shopItemId) => {
+        return authFetch(`/sects/${sectId}/shop/buy`, {
+            method: 'POST',
+            body: JSON.stringify({ characterId, shopItemId }),
+        });
+    },
+
+    claimQuest: async (sectId, characterId, questId) => {
+        return authFetch(`/sects/${sectId}/quests/${questId}/claim`, {
             method: 'POST',
             body: JSON.stringify({ characterId }),
         });

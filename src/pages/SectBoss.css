@@ -319,6 +319,97 @@
   border-color: rgba(246, 199, 106, 0.28);
 }
 
+.raid-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.raid-meta-grid span {
+  border-radius: 8px;
+  padding: 9px 10px;
+  color: #e8deca;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.82rem;
+}
+
+.sect-task-list,
+.sect-shop-list,
+.treasury-list,
+.sect-leaderboard-list {
+  display: grid;
+  gap: 10px;
+}
+
+.sect-task-row,
+.sect-shop-row,
+.treasury-row,
+.sect-rank-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.sect-task-row > div,
+.sect-shop-row > div,
+.sect-rank-row > div {
+  display: grid;
+  gap: 5px;
+}
+
+.sect-task-row span,
+.sect-shop-row span,
+.sect-rank-row span,
+.treasury-row span {
+  color: #b8ad9b;
+  font-size: 0.84rem;
+}
+
+.sect-task-row button,
+.sect-shop-row button {
+  border: none;
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: #21160c;
+  background: #f6c76a;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.sect-task-row button:disabled,
+.sect-shop-row button:disabled {
+  color: #766b5f;
+  background: rgba(255, 255, 255, 0.12);
+  cursor: not-allowed;
+}
+
+.task-progress {
+  width: 100%;
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.task-progress div {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #7fb069, #f6c76a);
+}
+
+.sect-rank-row > span {
+  min-width: 42px;
+  color: #f6c76a;
+  font-weight: 900;
+}
+
 @keyframes bossPulse {
   0%, 100% {
     transform: scale(1);
@@ -366,8 +457,16 @@
   }
 
   .sect-row,
-  .member-row {
+  .member-row,
+  .sect-task-row,
+  .sect-shop-row,
+  .treasury-row,
+  .sect-rank-row {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .raid-meta-grid {
+    grid-template-columns: 1fr;
   }
 }

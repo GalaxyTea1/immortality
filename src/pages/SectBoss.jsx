@@ -6,6 +6,14 @@ import './SectBoss.css';
 
 const formatNumber = (value) => new Intl.NumberFormat('vi-VN').format(Number(value) || 0);
 
+const formatDuration = (seconds) => {
+  const totalSeconds = Math.max(0, Number(seconds) || 0);
+  const minutes = Math.floor(totalSeconds / 60);
+  const remainingSeconds = totalSeconds % 60;
+  if (minutes <= 0) return `${remainingSeconds}s`;
+  return `${minutes}p ${remainingSeconds.toString().padStart(2, '0')}s`;
+};
+
 const getBossPercent = (boss) => {
   if (!boss?.maxHp) return 0;
   return Math.max(0, Math.min(100, Math.round((Number(boss.currentHp) / Number(boss.maxHp)) * 100)));
@@ -17,13 +25,26 @@ const getRoleLabel = (role) => {
   return 'Thành viên';
 };
 
+const emptyProfile = {
+  sect: null,
+  member: null,
+  members: [],
+  activeBoss: null,
+  bossCatalog: [],
+  attackInfo: null,
+  treasury: [],
+  sectShop: [],
+  dailyQuests: [],
+};
+
 function SectBoss() {
   const { characterId, loadFromServer, ITEM_DEFINITIONS } = useGame();
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [combatResult, setCombatResult] = useState(null);
-  const [profile, setProfile] = useState({ sect: null, member: null, members: [], activeBoss: null, bossCatalog: [] });
+  const [profile, setProfile] = useState(emptyProfile);
   const [sectList, setSectList] = useState([]);
+  const [sectLeaderboard, setSectLeaderboard] = useState([]);
   const [newSect, setNewSect] = useState({ name: '', description: '' });
   const [selectedBossId, setSelectedBossId] = useState('');
 
@@ -36,17 +57,23 @@ function SectBoss() {
   const damageBoard = activeBoss?.damageBoard || combatResult?.damageBoard || [];
   const currentPhase = activeBoss?.phase || selectedBoss?.phase || null;
   const bossPercent = getBossPercent(activeBoss);
+  const attackInfo = combatResult?.attackInfo || profile.attackInfo;
+  const canManageRaid = ['leader', 'elder'].includes(profile.member?.role);
+
+  const getItemName = useCallback((itemId) => ITEM_DEFINITIONS?.[itemId]?.name || itemId, [ITEM_DEFINITIONS]);
 
   const loadSectData = useCallback(async () => {
     if (!characterId) return;
     setIsLoading(true);
     try {
-      const [nextProfile, nextSectList] = await Promise.all([
+      const [nextProfile, nextSectList, nextSectLeaderboard] = await Promise.all([
         sectApi.getProfile(characterId),
         sectApi.getAll(),
+        sectApi.getLeaderboard(),
       ]);
-      setProfile(nextProfile);
+      setProfile({ ...emptyProfile, ...nextProfile });
       setSectList(nextSectList);
+      setSectLeaderboard(nextSectLeaderboard);
       setSelectedBossId((current) => current || nextProfile.bossCatalog?.[0]?.id || '');
     } catch (error) {
       toast.error(error.message || 'Không thể tải dữ liệu tông môn');
@@ -101,7 +128,7 @@ function SectBoss() {
     setCombatResult(null);
     runAction(
       () => sectApi.spawnBoss(profile.sect.id, characterId, selectedBoss.id),
-      'Đã triệu hồi boss'
+      'Đã mở raid boss'
     );
   };
 
@@ -113,7 +140,21 @@ function SectBoss() {
     );
   };
 
-  const getItemName = (itemId) => ITEM_DEFINITIONS?.[itemId]?.name || itemId;
+  const handleBuyShopItem = (shopItemId) => {
+    if (!profile.sect) return;
+    runAction(
+      () => sectApi.buyShopItem(profile.sect.id, characterId, shopItemId),
+      'Đã đổi vật phẩm tông môn'
+    );
+  };
+
+  const handleClaimQuest = (questId) => {
+    if (!profile.sect) return;
+    runAction(
+      () => sectApi.claimQuest(profile.sect.id, characterId, questId),
+      'Đã nhận thưởng nhiệm vụ tông môn'
+    );
+  };
 
   if (isLoading) {
     return (
@@ -129,12 +170,12 @@ function SectBoss() {
     <div className="sect-page">
       <section className="sect-hero">
         <div>
-          <p className="sect-kicker">Tông môn và boss</p>
+          <p className="sect-kicker">Tông môn raid</p>
           <h1>{hasSect ? profile.sect.name : 'Chưa gia nhập tông môn'}</h1>
           <p>
             {hasSect
-              ? profile.sect.description || 'Cùng đạo hữu trong môn phái khiêu chiến boss, tích lũy cống hiến và chia thưởng theo sát thương.'
-              : 'Sáng lập hoặc gia nhập một tông môn để mở khóa boss tông môn, bảng sát thương và phần thưởng cộng đồng.'}
+              ? profile.sect.description || 'Mở raid theo thời gian, phối hợp qua từng phase, tích cống hiến và đổi thưởng tông môn.'
+              : 'Sáng lập hoặc gia nhập tông môn để mở khóa raid boss, nhiệm vụ ngày, kho chiến lợi phẩm và shop cống hiến.'}
           </p>
         </div>
         {hasSect && (
@@ -208,8 +249,8 @@ function SectBoss() {
         <div className="sect-grid">
           <section className="sect-panel boss-panel">
             <div className="panel-title-row">
-              <h2>Boss tông môn</h2>
-              {activeBoss && <span className="boss-state">Đang khiêu chiến</span>}
+              <h2>Raid boss</h2>
+              {activeBoss && <span className="boss-state">Đang mở</span>}
             </div>
 
             {activeBoss ? (
@@ -230,12 +271,17 @@ function SectBoss() {
                   <div className="boss-hp-bar">
                     <div style={{ width: `${bossPercent}%` }} />
                   </div>
+                  <div className="raid-meta-grid">
+                    <span>Thời gian: {formatDuration(activeBoss.secondsRemaining)}</span>
+                    <span>Lượt hôm nay: {formatNumber(attackInfo?.remainingToday)} / {formatNumber(attackInfo?.dailyLimit)}</span>
+                    <span>Cần phối hợp: {currentPhase?.requiredParticipants || 1} người</span>
+                  </div>
                   <div className="boss-actions">
-                    <button className="sect-danger-btn" onClick={handleAttackBoss} disabled={isSubmitting}>
+                    <button className="sect-danger-btn" onClick={handleAttackBoss} disabled={isSubmitting || attackInfo?.remainingToday <= 0}>
                       <span className="material-symbols-outlined">swords</span>
                       Đánh boss
                     </button>
-                    <span className="boss-note">Thưởng cuối trận chia theo tổng sát thương.</span>
+                    <span className="boss-note">Thưởng cuối trận chia theo sát thương; loot treasury vào kho tông môn.</span>
                   </div>
                 </div>
               </div>
@@ -254,18 +300,23 @@ function SectBoss() {
                 {selectedBoss && (
                   <div className="boss-preview">
                     <p>{selectedBoss.description}</p>
+                    <div className="raid-meta-grid">
+                      <span>Raid: {selectedBoss.rewards?.raidMinutes || 60} phút</span>
+                      <span>Lượt/ngày: {selectedBoss.rewards?.dailyAttackLimit || 8}</span>
+                      <span>Phase cao nhất cần {Math.max(...(selectedBoss.rewards?.phases || [{ requiredParticipants: 1 }]).map((phase) => phase.requiredParticipants || 1))} người</span>
+                    </div>
                     <div className="loot-preview">
                       {(selectedBoss.rewards?.loot || []).map((drop) => (
-                        <span key={`${selectedBoss.id}-${drop.itemId}`}>
-                          {getItemName(drop.itemId)} · {Math.round((drop.chance || 0) * 100)}%
+                        <span key={`${selectedBoss.id}-${drop.itemId}-${drop.mode}`}>
+                          {getItemName(drop.itemId)} · {drop.mode === 'treasury' ? 'Kho' : 'MVP'} · {Math.round((drop.chance || 0) * 100)}%
                         </span>
                       ))}
                     </div>
                   </div>
                 )}
-                <button className="sect-primary-btn" onClick={handleSpawnBoss} disabled={isSubmitting || !selectedBoss}>
+                <button className="sect-primary-btn" onClick={handleSpawnBoss} disabled={isSubmitting || !selectedBoss || !canManageRaid}>
                   <span className="material-symbols-outlined">flare</span>
-                  Triệu hồi boss
+                  {canManageRaid ? 'Mở raid' : 'Cần trưởng lão'}
                 </button>
               </div>
             )}
@@ -274,17 +325,48 @@ function SectBoss() {
               <div className={`combat-result ${combatResult.defeated ? 'defeated' : ''}`}>
                 <strong>{combatResult.defeated ? 'Boss đã bị hạ gục' : 'Lượt đánh gần nhất'}</strong>
                 <span>Gây {formatNumber(combatResult.damage)} sát thương · mất {formatNumber(combatResult.hpLoss)} HP</span>
+                {combatResult.phaseMechanic?.underCoordinated && (
+                  <span>Thiếu phối hợp: sát thương chỉ còn {Math.round((combatResult.phaseMechanic.coordinationMultiplier || 1) * 100)}%.</span>
+                )}
                 {combatResult.lootDrops?.length > 0 && (
                   <div className="loot-drops">
                     {combatResult.lootDrops.map((drop) => (
-                      <span key={`${drop.itemId}-${drop.quantity}`}>
-                        {drop.characterName || 'MVP'} nhận {drop.quantity}x {getItemName(drop.itemId)}
+                      <span key={`${drop.itemId}-${drop.quantity}-${drop.mode}`}>
+                        {drop.mode === 'treasury'
+                          ? `Kho nhận ${drop.quantity}x ${getItemName(drop.itemId)}`
+                          : `${drop.characterName || 'MVP'} nhận ${drop.quantity}x ${getItemName(drop.itemId)}`}
                       </span>
                     ))}
                   </div>
                 )}
               </div>
             )}
+          </section>
+
+          <section className="sect-panel">
+            <h2>Nhiệm vụ ngày</h2>
+            <div className="sect-task-list">
+              {profile.dailyQuests.length === 0 ? (
+                <div className="sect-empty">Chưa có nhiệm vụ tông môn.</div>
+              ) : profile.dailyQuests.map((quest) => (
+                <article className="sect-task-row" key={quest.id}>
+                  <div>
+                    <strong>{quest.title}</strong>
+                    <span>{quest.description}</span>
+                    <div className="task-progress">
+                      <div style={{ width: `${Math.min(100, Math.round((quest.progress / quest.target) * 100))}%` }} />
+                    </div>
+                    <span>{formatNumber(quest.progress)} / {formatNumber(quest.target)}</span>
+                  </div>
+                  <button
+                    onClick={() => handleClaimQuest(quest.id)}
+                    disabled={isSubmitting || !quest.completed || quest.claimed}
+                  >
+                    {quest.claimed ? 'Đã nhận' : 'Nhận'}
+                  </button>
+                </article>
+              ))}
+            </div>
           </section>
 
           <section className="sect-panel">
@@ -305,6 +387,38 @@ function SectBoss() {
           </section>
 
           <section className="sect-panel">
+            <h2>Shop cống hiến</h2>
+            <div className="sect-shop-list">
+              {profile.sectShop.map((item) => (
+                <article className="sect-shop-row" key={item.id}>
+                  <div>
+                    <strong>{item.label}</strong>
+                    <span>{item.quantity}x {getItemName(item.itemId)} · {formatNumber(item.contributionCost)} cống hiến</span>
+                    {!item.unlocked && <span>Cần tông môn cấp {item.minSectLevel}</span>}
+                  </div>
+                  <button onClick={() => handleBuyShopItem(item.id)} disabled={isSubmitting || !item.unlocked}>
+                    Đổi
+                  </button>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className="sect-panel">
+            <h2>Kho tông môn</h2>
+            <div className="treasury-list">
+              {profile.treasury.length === 0 ? (
+                <div className="sect-empty">Kho chưa có chiến lợi phẩm.</div>
+              ) : profile.treasury.map((item) => (
+                <article className="treasury-row" key={`${item.itemId}-${item.enhanceLevel}`}>
+                  <strong>{item.itemName || getItemName(item.itemId)}</strong>
+                  <span>x{formatNumber(item.quantity)}</span>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className="sect-panel">
             <h2>Thành viên</h2>
             <div className="member-list">
               {profile.members.map((member) => (
@@ -314,6 +428,23 @@ function SectBoss() {
                     <span>{getRoleLabel(member.role)}</span>
                   </div>
                   <strong>{formatNumber(member.contribution)}</strong>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className="sect-panel">
+            <h2>Xếp hạng tông môn</h2>
+            <div className="sect-leaderboard-list">
+              {sectLeaderboard.length === 0 ? (
+                <div className="sect-empty">Chưa có dữ liệu xếp hạng.</div>
+              ) : sectLeaderboard.slice(0, 5).map((sect) => (
+                <article className="sect-rank-row" key={sect.id}>
+                  <span>#{sect.rank}</span>
+                  <div>
+                    <strong>{sect.name}</strong>
+                    <span>{formatNumber(sect.weeklyDamage)} sát thương tuần · {sect.weeklyDefeats} boss</span>
+                  </div>
                 </article>
               ))}
             </div>

@@ -15,6 +15,13 @@ const characterId = {
   schema: { type: 'integer' },
 };
 
+const sectId = {
+  name: 'sectId',
+  in: 'path',
+  required: true,
+  schema: { type: 'integer' },
+};
+
 const ok = (description = 'Success') => ({
   description,
   content: {
@@ -91,6 +98,7 @@ const options = {
       { name: 'Quests' },
       { name: 'Shop' },
       { name: 'Leaderboard' },
+      { name: 'Sects' },
       { name: 'Events' },
       { name: 'Skills' },
     ],
@@ -425,6 +433,128 @@ const options = {
           tags: ['Leaderboard'],
           summary: 'Reputation leaderboard',
           responses: { 200: ok() },
+        },
+      },
+      '/api/sects': {
+        get: {
+          tags: ['Sects'],
+          summary: 'List sects',
+          security: [{ bearerAuth: [] }],
+          responses: { 200: ok() },
+        },
+        post: {
+          tags: ['Sects'],
+          summary: 'Create a sect',
+          security: [{ bearerAuth: [] }],
+          requestBody: json({
+            type: 'object',
+            required: ['characterId', 'name'],
+            properties: {
+              characterId: { type: 'integer' },
+              name: { type: 'string' },
+              description: { type: 'string' },
+            },
+          }),
+          responses: { 201: ok(), 400: error('Invalid sect') },
+        },
+      },
+      '/api/sects/leaderboard': {
+        get: {
+          tags: ['Sects'],
+          summary: 'Sect weekly raid leaderboard',
+          security: [{ bearerAuth: [] }],
+          responses: { 200: ok() },
+        },
+      },
+      '/api/sects/character/{characterId}': {
+        get: {
+          tags: ['Sects'],
+          summary: 'Get sect profile, active raid, daily quests, treasury, and shop',
+          security: [{ bearerAuth: [] }],
+          parameters: [characterId],
+          responses: { 200: ok() },
+        },
+      },
+      '/api/sects/{sectId}/join': {
+        post: {
+          tags: ['Sects'],
+          summary: 'Join a sect',
+          security: [{ bearerAuth: [] }],
+          parameters: [sectId],
+          requestBody: json({
+            type: 'object',
+            required: ['characterId'],
+            properties: { characterId: { type: 'integer' } },
+          }),
+          responses: { 200: ok(), 400: error('Cannot join') },
+        },
+      },
+      '/api/sects/{sectId}/shop/buy': {
+        post: {
+          tags: ['Sects'],
+          summary: 'Buy sect shop item with contribution',
+          security: [{ bearerAuth: [] }],
+          parameters: [sectId],
+          requestBody: json({
+            type: 'object',
+            required: ['characterId', 'shopItemId'],
+            properties: {
+              characterId: { type: 'integer' },
+              shopItemId: { type: 'string' },
+            },
+          }),
+          responses: { 200: ok(), 400: error('Not enough contribution') },
+        },
+      },
+      '/api/sects/{sectId}/quests/{questId}/claim': {
+        post: {
+          tags: ['Sects'],
+          summary: 'Claim completed sect daily quest',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            sectId,
+            { name: 'questId', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          requestBody: json({
+            type: 'object',
+            required: ['characterId'],
+            properties: { characterId: { type: 'integer' } },
+          }),
+          responses: { 200: ok(), 400: error('Quest incomplete or claimed') },
+        },
+      },
+      '/api/sects/{sectId}/bosses/spawn': {
+        post: {
+          tags: ['Sects'],
+          summary: 'Open a timed sect raid boss as leader or elder',
+          security: [{ bearerAuth: [] }],
+          parameters: [sectId],
+          requestBody: json({
+            type: 'object',
+            required: ['characterId', 'bossId'],
+            properties: {
+              characterId: { type: 'integer' },
+              bossId: { type: 'string' },
+            },
+          }),
+          responses: { 200: ok(), 403: error('Role not allowed') },
+        },
+      },
+      '/api/sects/{sectId}/bosses/{instanceId}/attack': {
+        post: {
+          tags: ['Sects'],
+          summary: 'Attack active raid boss with daily attack limit and phase coordination',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            sectId,
+            { name: 'instanceId', in: 'path', required: true, schema: { type: 'integer' } },
+          ],
+          requestBody: json({
+            type: 'object',
+            required: ['characterId'],
+            properties: { characterId: { type: 'integer' } },
+          }),
+          responses: { 200: ok(), 429: error('Daily boss attacks exhausted') },
         },
       },
       '/api/events/{characterId}': {

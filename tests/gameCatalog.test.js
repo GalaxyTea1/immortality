@@ -101,8 +101,12 @@ test('boss catalog entries are ready for database seeding', () => {
     assert.ok(boss.maxHp > 0);
     assert.ok(boss.respawnHours > 0);
     assert.ok(boss.rewards && typeof boss.rewards === 'object');
+    assert.ok(boss.rewards.raidMinutes >= 15);
+    assert.ok(boss.rewards.dailyAttackLimit >= 1);
     assert.ok(Array.isArray(boss.rewards.phases));
     assert.ok(boss.rewards.phases.length >= 1);
+    assert.ok(boss.rewards.phases.every((phase) => phase.requiredParticipants >= 1));
     assert.ok(Array.isArray(boss.rewards.loot));
+    assert.ok(boss.rewards.loot.some((drop) => drop.mode === 'treasury'));
   }
 });
