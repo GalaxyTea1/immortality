@@ -1,15 +1,16 @@
-import { createContext, useContext, useState, useCallback, useRef } from 'react';
+import { createContext, useContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 // Import dữ liệu từ các file riêng biệt
 import { ITEM_DEFINITIONS } from '../data/items.js';
 import { REALMS, TRIBULATION_REQUIREMENTS, REPUTATION_TITLES } from '../data/realms.js';
-import { ALCHEMY_RECIPES } from '../data/recipes.js';
+import { ALCHEMY_RECIPES, calculateAlchemyMaxExp } from '../data/recipes.js';
 import { WORLD_ZONES } from '../data/zones.js';
 import { createGameStateMappers } from './gameStateMappers.js';
 import { useGameInventoryEquipment } from './useGameInventoryEquipment.js';
 import { useGameProgression } from './useGameProgression.js';
 import { useGameServerSync } from './useGameServerSync.js';
 import { useGameWorldSystems } from './useGameWorldSystems.js';
+import { items as itemCatalogApi } from '../services/api.js';
 
 // Trạng thái ban đầu của game
 const initialState = {
@@ -92,7 +93,7 @@ const initialState = {
   alchemy: {
     level: 1,
     exp: 0,
-    maxExp: 50,
+    maxExp: calculateAlchemyMaxExp(1),
     successRate: 0.6,
     craftCount: 0,
   },
@@ -132,7 +133,26 @@ const initialState = {
 
 const GameContext = createContext(null);
 const STORAGE_KEY = 'immortality_save';
+const HP_REGEN_INTERVAL_MS = 60 * 1000;
+const HP_REGEN_PERCENT_PER_INTERVAL = 0.01;
 
+const getHpRegenAmount = (maxHp) => Math.max(1, Math.ceil((Number(maxHp) || 1) * HP_REGEN_PERCENT_PER_INTERVAL));
+
+const normalizeItemCatalog = (items = []) => (
+  items.reduce((catalog, item) => {
+    const itemId = item.itemId || item.id;
+    if (!itemId) return catalog;
+
+    catalog[itemId] = {
+      ...item,
+      id: itemId,
+      itemId,
+      effect: item.effect || {},
+      metadata: item.metadata || {},
+    };
+    return catalog;
+  }, {})
+);
 
 // ==================== SERVER SYNC HELPERS ====================
 
@@ -153,8 +173,33 @@ export const gameStateTestUtils = {
 
 export function GameProvider({ children, characterId }) {
   const [gameState, setGameStateRaw] = useState(initialState);
+  const [itemDefinitions, setItemDefinitions] = useState(ITEM_DEFINITIONS);
   const gameStateRef = useRef(gameState);
   const characterIdRef = useRef(characterId);
+  const activeMappers = useMemo(
+    () => createGameStateMappers(initialState, itemDefinitions),
+    [itemDefinitions]
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+
+    itemCatalogApi.getAll()
+      .then((items) => {
+        if (!isMounted || !Array.isArray(items) || items.length === 0) return;
+        setItemDefinitions({
+          ...ITEM_DEFINITIONS,
+          ...normalizeItemCatalog(items),
+        });
+      })
+      .catch((error) => {
+        console.warn('Load item catalog failed, using bundled fallback:', error);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Wrapper: sync gameStateRef immediately (before React renders)
   const setGameState = useCallback((updater) => {
@@ -165,12 +210,43 @@ export function GameProvider({ children, characterId }) {
     });
   }, []);
 
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setGameState(prev => {
+        const currentHp = Number(prev.stats.hp) || 0;
+        const maxHp = Math.max(Number(prev.stats.maxHp) || 1, 1);
+        if (currentHp >= maxHp) return prev;
+
+        const regenAmount = getHpRegenAmount(maxHp);
+        const nextHp = Math.min(maxHp, currentHp + regenAmount);
+        const nextBaseHp = Math.min(
+          Number(prev.baseStats.maxHp) || maxHp,
+          (Number(prev.baseStats.hp) || 0) + regenAmount
+        );
+
+        return {
+          ...prev,
+          baseStats: {
+            ...prev.baseStats,
+            hp: nextBaseHp,
+          },
+          stats: {
+            ...prev.stats,
+            hp: nextHp,
+          },
+        };
+      });
+    }, HP_REGEN_INTERVAL_MS);
+
+    return () => clearInterval(intervalId);
+  }, [setGameState]);
+
   const { cancelPendingSave, isServerLoading, loadFromServer, saveToServer } = useGameServerSync({
     characterId,
     setGameState,
     gameStateRef,
     characterIdRef,
-    mapServerToGameState,
+    mapServerToGameState: activeMappers.mapServerToGameState,
   });
 
   const {
@@ -184,7 +260,7 @@ export function GameProvider({ children, characterId }) {
     canBreakthrough,
     attemptBreakthrough,
     meditate,
-  } = useGameProgression({ gameState, setGameState });
+  } = useGameProgression({ gameState, setGameState, itemDefinitions });
 
   const {
     getItemInfo,
@@ -197,7 +273,7 @@ export function GameProvider({ children, characterId }) {
     getEquippedItems,
     getInventoryWithDetails,
     buyItem,
-  } = useGameInventoryEquipment({ gameState, setGameState, addExp });
+  } = useGameInventoryEquipment({ gameState, setGameState, addExp, itemDefinitions });
 
   const {
     addEvent,
@@ -219,6 +295,7 @@ export function GameProvider({ children, characterId }) {
     addSpiritStones,
     addItem,
     removeItem,
+    itemDefinitions,
   });
 
   // ===== SAVE/LOAD =====
@@ -332,7 +409,7 @@ export function GameProvider({ children, characterId }) {
     exportSave,
     importSave,
     // Data exports
-    ITEM_DEFINITIONS,
+    ITEM_DEFINITIONS: itemDefinitions,
     ALCHEMY_RECIPES,
     REPUTATION_TITLES,
     REALMS,

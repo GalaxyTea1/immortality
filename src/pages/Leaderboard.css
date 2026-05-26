@@ -61,7 +61,6 @@
 .page-description {
     font-size: 1.125rem;
     color: var(--text-muted);
-    max-width: 600px;
 }
 
 .header-actions {
@@ -218,7 +217,6 @@
 }
 
 .podium-content {
-    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -330,7 +328,6 @@
 .podium-card.rank-1 .cultivator-sect {
     color: #7c3aed;
     font-weight: 500;
-    margin-bottom: 1rem;
 }
 
 .realm-badge {
@@ -365,7 +362,6 @@
     display: flex;
     align-items: center;
     gap: 0.25rem;
-    margin-top: 1rem;
     color: #eab308;
     font-weight: 500;
 }
@@ -373,7 +369,6 @@
 .power-display.gold {
     font-size: 1.125rem;
     font-weight: 700;
-    margin-top: 1.5rem;
 }
 
 .power-display .material-symbols-outlined {

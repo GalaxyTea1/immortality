@@ -1,5 +1,5 @@
 import express from 'express';
-import { assertKnownItem, buildStatIncrementFragments } from '../domain/gameCatalog.js';
+import { assertKnownItemFromDb, buildStatIncrementFragments } from '../domain/gameCatalog.js';
 import { query, withTransaction } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireCharacterOwner } from '../middleware/ownership.middleware.js';
@@ -43,7 +43,7 @@ router.post('/:characterId/learn', gameplayLimiter, async (req, res) => {
             return fail(res, 400, 'Missing skillId or bookItemId');
         }
 
-        const bookDef = assertKnownItem(bookItemId);
+        const bookDef = await assertKnownItemFromDb(bookItemId);
         if (bookDef.type !== 'book' || skillId !== bookItemId) {
             return fail(res, 400, 'Invalid skill book');
         }

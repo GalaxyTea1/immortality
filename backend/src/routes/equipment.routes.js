@@ -1,5 +1,10 @@
 import express from 'express';
-import { assertEquipmentForSlot, VALID_EQUIPMENT_SLOTS } from '../domain/gameCatalog.js';
+import {
+    applyHpRegeneration,
+    assertEquipmentForSlotFromDb,
+    clampHpToEffectiveMax,
+    VALID_EQUIPMENT_SLOTS,
+} from '../domain/gameCatalog.js';
 import { query, withTransaction } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireCharacterOwner } from '../middleware/ownership.middleware.js';
@@ -47,9 +52,10 @@ router.post('/:characterId/equip', gameplayLimiter, async (req, res) => {
             return fail(res, 400, 'Missing slot or itemId');
         }
 
-        assertEquipmentForSlot({ itemId, slot });
+        await assertEquipmentForSlotFromDb({ itemId, slot });
 
         const result = await withTransaction(async (client) => {
+            await applyHpRegeneration(characterId, client);
             const invItem = await client.query(
                 `SELECT quantity FROM inventory
                  WHERE character_id = $1 AND item_id = $2 AND enhance_level = $3
@@ -101,6 +107,8 @@ router.post('/:characterId/equip', gameplayLimiter, async (req, res) => {
                 [characterId, slot, itemId, enhanceLevel]
             );
 
+            await clampHpToEffectiveMax(characterId, client);
+
             return {
                 message: 'Equipped successfully!',
                 equipment: equipped.rows[0],
@@ -136,6 +144,7 @@ router.post('/:characterId/unequip', gameplayLimiter, async (req, res) => {
         }
 
         const result = await withTransaction(async (client) => {
+            await applyHpRegeneration(characterId, client);
             const existingEquip = await client.query(
                 'SELECT * FROM equipment WHERE character_id = $1 AND slot = $2 FOR UPDATE',
                 [characterId, slot]
@@ -160,6 +169,8 @@ router.post('/:characterId/unequip', gameplayLimiter, async (req, res) => {
                 'DELETE FROM equipment WHERE character_id = $1 AND slot = $2',
                 [characterId, slot]
             );
+
+            await clampHpToEffectiveMax(characterId, client);
 
             return {
                 message: 'Unequipped item!',
@@ -195,6 +206,7 @@ router.post('/:characterId/upgrade', gameplayLimiter, async (req, res) => {
         }
 
         const result = await withTransaction(async (client) => {
+            await applyHpRegeneration(characterId, client);
             const equipResult = await client.query(
                 'SELECT * FROM equipment WHERE character_id = $1 AND slot = $2 FOR UPDATE',
                 [characterId, slot]
@@ -207,7 +219,7 @@ router.post('/:characterId/upgrade', gameplayLimiter, async (req, res) => {
             }
 
             const equipment = equipResult.rows[0];
-            assertEquipmentForSlot({ itemId: equipment.item_id, slot });
+            await assertEquipmentForSlotFromDb({ itemId: equipment.item_id, slot }, client);
             const requiredStones = Math.max(1, equipment.enhance_level + 1);
 
             const stoneResult = await client.query(

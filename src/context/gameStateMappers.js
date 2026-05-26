@@ -1,10 +1,38 @@
 import { ITEM_DEFINITIONS } from '../data/items.js';
+import { calculateAlchemyMaxExp } from '../data/recipes.js';
 
 const makeEquipmentUid = () => `equip_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-export const createGameStateMappers = (initialState) => {
+const createBaseState = (initialState) => ({
+  ...initialState,
+  player: { ...initialState.player },
+  resources: { ...initialState.resources },
+  inventory: Array.isArray(initialState.inventory)
+    ? initialState.inventory.map(item => ({ ...item }))
+    : [],
+  equipment: { ...initialState.equipment },
+  baseStats: { ...initialState.baseStats },
+  stats: { ...initialState.stats },
+  foundation: { ...initialState.foundation },
+  innerDemon: { ...initialState.innerDemon },
+  reputation: { ...initialState.reputation },
+  alchemy: { ...initialState.alchemy },
+  meditation: { ...initialState.meditation },
+  exploration: { ...initialState.exploration },
+  quests: {
+    ...initialState.quests,
+    active: initialState.quests?.active ? { ...initialState.quests.active } : null,
+    completed: Array.isArray(initialState.quests?.completed) ? [...initialState.quests.completed] : [],
+  },
+  events: Array.isArray(initialState.events)
+    ? initialState.events.map(event => ({ ...event }))
+    : [],
+  learnedSkills: Array.isArray(initialState.learnedSkills) ? [...initialState.learnedSkills] : [],
+});
+
+export const createGameStateMappers = (initialState, itemDefinitions = ITEM_DEFINITIONS) => {
   const mapServerToGameState = (charData, inventoryData, equipmentData, skillsData, questData, eventData) => {
-    const state = { ...initialState };
+    const state = createBaseState(initialState);
 
     if (charData) {
       state.player = {
@@ -45,10 +73,12 @@ export const createGameStateMappers = (initialState) => {
         level: charData.reputation_level ?? initialState.reputation.level,
         title: charData.reputation_title || initialState.reputation.title,
       };
+      const alchemyLevel = charData.alchemy_level ?? initialState.alchemy.level;
       state.alchemy = {
         ...initialState.alchemy,
-        level: charData.alchemy_level ?? initialState.alchemy.level,
+        level: alchemyLevel,
         exp: charData.alchemy_exp ?? initialState.alchemy.exp,
+        maxExp: calculateAlchemyMaxExp(alchemyLevel),
       };
 
       const serverResetDate = typeof charData.exploration_last_reset === 'string'
@@ -73,23 +103,33 @@ export const createGameStateMappers = (initialState) => {
       };
     }
 
-    if (Array.isArray(inventoryData) && inventoryData.length > 0) {
-      state.inventory = inventoryData.map(item => {
-        const itemDef = ITEM_DEFINITIONS[item.item_id];
-        const entry = {
-          itemId: item.item_id,
-          quantity: item.quantity,
-          enhanceLevel: item.enhance_level || 0,
-        };
+    if (Array.isArray(inventoryData)) {
+      state.inventory = inventoryData.flatMap(item => {
+        const itemDef = itemDefinitions[item.item_id];
+        const quantity = Math.max(Number(item.quantity) || 0, 0);
+        const enhanceLevel = item.enhance_level || 0;
+
+        if (quantity <= 0) return [];
 
         if (itemDef && itemDef.type === 'equipment') {
-          entry.uid = makeEquipmentUid();
+          return Array.from({ length: quantity }, () => ({
+            itemId: item.item_id,
+            quantity: 1,
+            enhanceLevel,
+            uid: makeEquipmentUid(),
+          }));
         }
-        return entry;
+
+        return [{
+          itemId: item.item_id,
+          quantity,
+          enhanceLevel,
+        }];
       });
     }
 
     if (equipmentData && typeof equipmentData === 'object') {
+      state.equipment = { ...initialState.equipment };
       for (const [slot, data] of Object.entries(equipmentData)) {
         if (data && data.itemId) {
           state.equipment[slot] = {
@@ -124,7 +164,7 @@ export const createGameStateMappers = (initialState) => {
     const newStats = { ...state.baseStats };
     for (const equipped of Object.values(state.equipment)) {
       if (equipped && equipped.itemId) {
-        const equipDef = ITEM_DEFINITIONS[equipped.itemId];
+        const equipDef = itemDefinitions[equipped.itemId];
         if (equipDef && equipDef.effect) {
           for (const [stat, value] of Object.entries(equipDef.effect)) {
             if (newStats[stat] !== undefined) {

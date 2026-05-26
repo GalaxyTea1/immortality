@@ -1,6 +1,7 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
-import { query } from '../db/index.js';
+import { query, withTransaction } from '../db/index.js';
+import { applyHpRegeneration } from '../domain/gameCatalog.js';
 import { saveCharacterMetadataSchema, validate } from '../middleware/validation.js';
 import { saveLimiter } from '../middleware/rateLimit.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
@@ -14,18 +15,23 @@ const router = express.Router();
 router.get('/:id', authMiddleware, requireCharacterOwner('id'), async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await query(
-      `SELECT *, exploration_last_reset::text AS exploration_last_reset
-       FROM characters
-       WHERE id = $1`,
-      [id]
-    );
+    const character = await withTransaction(async (client) => {
+      await applyHpRegeneration(id, client);
+      const result = await client.query(
+        `SELECT *, exploration_last_reset::text AS exploration_last_reset
+         FROM characters
+         WHERE id = $1`,
+        [id]
+      );
 
-    if (result.rows.length === 0) {
+      return result.rows[0] || null;
+    });
+
+    if (!character) {
       return fail(res, 404, 'Character not found');
     }
 
-    ok(res, result.rows[0]);
+    ok(res, character);
   } catch (error) {
     console.error('Error fetching character:', error);
     fail(res, 500, 'Error fetching character info');

@@ -278,8 +278,9 @@ export const shop = {
     /**
      * get shop items
      */
-    getItems: async () => {
-        const data = await authFetch('/shop/items');
+    getItems: async (category) => {
+        const query = category ? `?category=${encodeURIComponent(category)}` : '';
+        const data = await authFetch(`/shop/items${query}`);
         return data.items;
     },
 
@@ -307,6 +308,21 @@ export const shop = {
             method: 'POST',
             body: JSON.stringify({ characterId, itemId, quantity }),
         });
+    },
+};
+
+// ==================== ITEM CATALOG API ====================
+
+export const items = {
+    getAll: async (type) => {
+        const query = type ? `?type=${encodeURIComponent(type)}` : '';
+        const data = await authFetch(`/items${query}`);
+        return data.items;
+    },
+
+    getById: async (itemId) => {
+        const data = await authFetch(`/items/${encodeURIComponent(itemId)}`);
+        return data.item;
     },
 };
 
@@ -470,6 +486,18 @@ export const alchemy = {
             method: 'POST',
             body: JSON.stringify({ recipeId }),
         });
+    },
+};
+
+// ==================== REPUTATION API ====================
+
+export const reputation = {
+    /**
+     * list reputation title thresholds from the backend catalog
+     */
+    getTitles: async () => {
+        const response = await authFetch('/reputation/titles');
+        return response.titles || [];
     },
 };
 

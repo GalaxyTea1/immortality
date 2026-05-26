@@ -1,419 +1,466 @@
-import { useCallback, useState, useEffect } from 'react';
-import { useGame } from '../context/GameContext';
-import { leaderboard as leaderboardApi } from '../services/api.js';
-import { getSocket } from '../services/socket.js';
-import { REALMS } from '../data/realms.js';
-import './Leaderboard.css';
+import { useCallback, useState, useEffect } from "react";
+import { useGame } from "../context/GameContext";
+import { leaderboard as leaderboardApi } from "../services/api.js";
+import { getSocket } from "../services/socket.js";
+import { REALMS } from "../data/realms.js";
+import "./Leaderboard.css";
 
 const topCultivators = [
-  {
-    rank: 1,
-    name: 'Hàn Lập',
-    sect: 'Hoàng Phong Cốc',
-    realm: 'Nguyên Anh Hậu Kỳ',
-    power: 9850000,
-    avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOdcCxkFC2lHat1l8dNHy206ddjNbQo8Fb1gZ4UEjiNuxv4HyQNqIrnu-Dc9fwP-aLyB4CZau3HwyxOeudCGAJaB2LRgSK9UdMvqyFcaBROUxGEOkZPI8kULUX5akbDqBbeWXQZOqYEyYZkJw0WIZSoBUfKnJsDwv4rhz75SR4hpm2fv3bESZsqzgex1LnCMFSQrjVwk3fyYcSOSjrg_uD3hM0EpgfrKMYsLk6uFiPCPVWrikraz9L6JMExZpv0HuU1uybOLm9kog'
-  },
-  {
-    rank: 2,
-    name: 'Bạch Tiểu Thuần',
-    sect: 'Linh Khê Tông',
-    realm: 'Nguyên Anh Trung Kỳ',
-    power: 9200000,
-    avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBHkI3xDAKiaHJD8y-ec9cOEpsOqiomGAiJOdvcu57cQFVr4BCgzKb8cDp0vyzEqgV-bDpyFto9cjMFDX8HypbLrtkhSu_V5J6c4eLyOWRVyELduRF06_osSI9QAIRvEHwPMRJK1yKf7O5mo6LwgGwhZD2u-I34fMLOasMZQSsFMgoCRetyQ4L-EiWwZ81ezTF3YP_sxF9emqWWijyHTJ7hn8ROkR3yhL1ZKWtv_CHD3x-HTs57PygAWhH_ibH-5pRLMqXv8gYta8U'
-  },
-  {
-    rank: 3,
-    name: 'Vương Lâm',
-    sect: 'Hằng Nhạc Phái',
-    realm: 'Nguyên Anh Sơ Kỳ',
-    power: 8900000,
-    avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDIGLXNQyrSRrwekkE1XuTyZ1UO58Gmjq7tCioDH4dJrq5nwtcYzKZjbuIWf2s7MMCYkCy4wYgMxT4KQI2r3tM-cC5yc9wlgG6ImCM9Vd0qlMDwdRUFsyDyWX1ot7KGVMEXpN6cUQBNBULKUFjLyETRZU6O7ndveRX9M_1Bnp581AhErZfzlO8_KVf5tvl4ybwzynISVhogwv8Y4eXs-NPhU-bmu4vhTQClSUNMIzP9D61VXoGRBnXr5niab7Yq01Q0GtJ2IHtAkR0'
-  }
+    {
+        rank: 1,
+        name: "Hàn Lập",
+        sect: "Hoàng Phong Cốc",
+        realm: "Nguyên Anh Hậu Kỳ",
+        power: 9850000,
+        avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuCOdcCxkFC2lHat1l8dNHy206ddjNbQo8Fb1gZ4UEjiNuxv4HyQNqIrnu-Dc9fwP-aLyB4CZau3HwyxOeudCGAJaB2LRgSK9UdMvqyFcaBROUxGEOkZPI8kULUX5akbDqBbeWXQZOqYEyYZkJw0WIZSoBUfKnJsDwv4rhz75SR4hpm2fv3bESZsqzgex1LnCMFSQrjVwk3fyYcSOSjrg_uD3hM0EpgfrKMYsLk6uFiPCPVWrikraz9L6JMExZpv0HuU1uybOLm9kog",
+    },
+    {
+        rank: 2,
+        name: "Bạch Tiểu Thuần",
+        sect: "Linh Khê Tông",
+        realm: "Nguyên Anh Trung Kỳ",
+        power: 9200000,
+        avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuBHkI3xDAKiaHJD8y-ec9cOEpsOqiomGAiJOdvcu57cQFVr4BCgzKb8cDp0vyzEqgV-bDpyFto9cjMFDX8HypbLrtkhSu_V5J6c4eLyOWRVyELduRF06_osSI9QAIRvEHwPMRJK1yKf7O5mo6LwgGwhZD2u-I34fMLOasMZQSsFMgoCRetyQ4L-EiWwZ81ezTF3YP_sxF9emqWWijyHTJ7hn8ROkR3yhL1ZKWtv_CHD3x-HTs57PygAWhH_ibH-5pRLMqXv8gYta8U",
+    },
+    {
+        rank: 3,
+        name: "Vương Lâm",
+        sect: "Hằng Nhạc Phái",
+        realm: "Nguyên Anh Sơ Kỳ",
+        power: 8900000,
+        avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuDIGLXNQyrSRrwekkE1XuTyZ1UO58Gmjq7tCioDH4dJrq5nwtcYzKZjbuIWf2s7MMCYkCy4wYgMxT4KQI2r3tM-cC5yc9wlgG6ImCM9Vd0qlMDwdRUFsyDyWX1ot7KGVMEXpN6cUQBNBULKUFjLyETRZU6O7ndveRX9M_1Bnp581AhErZfzlO8_KVf5tvl4ybwzynISVhogwv8Y4eXs-NPhU-bmu4vhTQClSUNMIzP9D61VXoGRBnXr5niab7Yq01Q0GtJ2IHtAkR0",
+    },
 ];
 
 const tableData = [
-  { rank: 4, name: 'Lý Thất Dạ', realm: 'Kim Đan Viên Mãn', realmClass: 'blue', sect: 'Tẩy Nhan Cổ Phái', power: 9500000, avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC9-AWEueaWqTgjVR7jacvBBtPCAZahcVxc-yluL0R5eQg3z1vxack_pSvnfwjDB_6AYdu5XnX6GTcSJjnaXmIHyFMT4JsRgpmSGskxftI_uK0Wr36Ye6Z1NIycUi_bsTx25eT9gh3dNyw6tItgRzyWznFN57mUBRoiPUFzkOAjEQS28PWl6FszX51NYJeYlKuCtN2NIoPtoGOu28Q5XzHxINxBT-SaTB61si1p41nIPn9cFGnufQesWDBakw9uZ3snI6Dt7AanJUg' },
-  { rank: 5, name: 'Phương Nguyên', realm: 'Kim Đan Hậu Kỳ', realmClass: 'purple', sect: 'Cổ Nguyệt Sơn Trại', power: 9200000, avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDZLy5oG208MCB_-1GzmhGup-xD06JQT7dEhdaVG9sUUXgjfvyfnYfKrrjHTjT4jsLsqvKSarzuacwOw_hSeQofq1f_dtHHdpw4POve2p1jtxEM0DSjb4NdmGeKLS47VHsRRuCAMzPlJid5-LvJLKU7aLvpagkbre99sIfVltpc0Or9LvvIC-XF--lFOeU3gjGCDWZlpcfsyVmJ-fmzaf88-PlrrPHcIYfEYhIsXvLB9ZLX5xYOXxn37acIFaO75acsj3mvfQsorDs' },
-  { rank: 6, name: 'Trần Phàm', realm: 'Kim Đan Trung Kỳ', realmClass: 'purple', sect: 'Bắc Huyền Tông', power: 8900000, avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCVWYFUTn56iqdZ_2nYrPmhUxZhkTNe9cgBoxYXBStG2GVUqsN9KPEOKbb-V07HQEfIFMB8XtFZpFqgdkRR4bBPFNgWnAukbn0T0qff5KnV1Wlc4T7FSfVFDvorwcy8_Awp4c8ZhZmMQm_3EhqEZJN4fqkGfJSIsu8PEB94JZiGkPD91-jKZINn5hqGfBKawYoAdnhYonTy9MSbXI3pV214zfDXm9d4EHUoXCpqXfCxzcHXjDOtJ6hIdV2vFvjgpD7JlbSH4skBmsA' },
-  { rank: 7, name: 'Diệp Phàm', realm: 'Kim Đan Sơ Kỳ', realmClass: 'purple', sect: 'Thiên Đình', power: 8700000, avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAHPC4mlAekUYRF3IoL9qV7OsYgRP73IZwN_EOPwwXQpyX1oEQW_7dU9pem0pnjLQQd2SoMoN9VBaFy9XIlcv7er5Y2Uq42wXghlAwe3eBaln68HA56lLdM8mLBeipDZKdXFMAKHDOPUhzVMLy6wbIn0oZv-GNGfU7e8kqQNoPRZJVOsXACCzNhh5H1OowYb7qsQWKWgU0ccnPrMnGUaFmlk80Li49tUbmnblpdiAZT8LGJKWMgKD1mWDQhYP9OMH_KmI1hRBK18iM' },
-  { rank: 8, name: 'Thạch Hạo', realm: 'Trúc Cơ Viên Mãn', realmClass: 'green', sect: 'Hư Thần Giới', power: 8500000, avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDj2LUE8bR-IlDRx7Iw7rkYw3EtMOlfuF6hCCdZVF544PDb7Wu29VcF3FRKLNHB4bzju2B8edVSpo54dOsRDWgM1EQv4g-CK3r9UTBSHTE1fzSWK_2DvyQoMt3fMzNPuEpa_41ZM_haW3sA0XnHD6ofa8MaQwsOsg9EZim3S_7chgIgTpeJWhzxG6f3_pe9yN2quwRQ88hAoig7igG-0yZseTrsQnmu7RWVtiSouQsH2sVuBhifm_VnJhbRzAOYB_KLUZQo0b6Xf9A' },
+    {
+        rank: 4,
+        name: "Lý Thất Dạ",
+        realm: "Kim Đan Viên Mãn",
+        realmClass: "blue",
+        sect: "Tẩy Nhan Cổ Phái",
+        power: 9500000,
+        avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuC9-AWEueaWqTgjVR7jacvBBtPCAZahcVxc-yluL0R5eQg3z1vxack_pSvnfwjDB_6AYdu5XnX6GTcSJjnaXmIHyFMT4JsRgpmSGskxftI_uK0Wr36Ye6Z1NIycUi_bsTx25eT9gh3dNyw6tItgRzyWznFN57mUBRoiPUFzkOAjEQS28PWl6FszX51NYJeYlKuCtN2NIoPtoGOu28Q5XzHxINxBT-SaTB61si1p41nIPn9cFGnufQesWDBakw9uZ3snI6Dt7AanJUg",
+    },
+    {
+        rank: 5,
+        name: "Phương Nguyên",
+        realm: "Kim Đan Hậu Kỳ",
+        realmClass: "purple",
+        sect: "Cổ Nguyệt Sơn Trại",
+        power: 9200000,
+        avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuDZLy5oG208MCB_-1GzmhGup-xD06JQT7dEhdaVG9sUUXgjfvyfnYfKrrjHTjT4jsLsqvKSarzuacwOw_hSeQofq1f_dtHHdpw4POve2p1jtxEM0DSjb4NdmGeKLS47VHsRRuCAMzPlJid5-LvJLKU7aLvpagkbre99sIfVltpc0Or9LvvIC-XF--lFOeU3gjGCDWZlpcfsyVmJ-fmzaf88-PlrrPHcIYfEYhIsXvLB9ZLX5xYOXxn37acIFaO75acsj3mvfQsorDs",
+    },
+    {
+        rank: 6,
+        name: "Trần Phàm",
+        realm: "Kim Đan Trung Kỳ",
+        realmClass: "purple",
+        sect: "Bắc Huyền Tông",
+        power: 8900000,
+        avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuCVWYFUTn56iqdZ_2nYrPmhUxZhkTNe9cgBoxYXBStG2GVUqsN9KPEOKbb-V07HQEfIFMB8XtFZpFqgdkRR4bBPFNgWnAukbn0T0qff5KnV1Wlc4T7FSfVFDvorwcy8_Awp4c8ZhZmMQm_3EhqEZJN4fqkGfJSIsu8PEB94JZiGkPD91-jKZINn5hqGfBKawYoAdnhYonTy9MSbXI3pV214zfDXm9d4EHUoXCpqXfCxzcHXjDOtJ6hIdV2vFvjgpD7JlbSH4skBmsA",
+    },
+    {
+        rank: 7,
+        name: "Diệp Phàm",
+        realm: "Kim Đan Sơ Kỳ",
+        realmClass: "purple",
+        sect: "Thiên Đình",
+        power: 8700000,
+        avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuAHPC4mlAekUYRF3IoL9qV7OsYgRP73IZwN_EOPwwXQpyX1oEQW_7dU9pem0pnjLQQd2SoMoN9VBaFy9XIlcv7er5Y2Uq42wXghlAwe3eBaln68HA56lLdM8mLBeipDZKdXFMAKHDOPUhzVMLy6wbIn0oZv-GNGfU7e8kqQNoPRZJVOsXACCzNhh5H1OowYb7qsQWKWgU0ccnPrMnGUaFmlk80Li49tUbmnblpdiAZT8LGJKWMgKD1mWDQhYP9OMH_KmI1hRBK18iM",
+    },
+    {
+        rank: 8,
+        name: "Thạch Hạo",
+        realm: "Trúc Cơ Viên Mãn",
+        realmClass: "green",
+        sect: "Hư Thần Giới",
+        power: 8500000,
+        avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuDj2LUE8bR-IlDRx7Iw7rkYw3EtMOlfuF6hCCdZVF544PDb7Wu29VcF3FRKLNHB4bzju2B8edVSpo54dOsRDWgM1EQv4g-CK3r9UTBSHTE1fzSWK_2DvyQoMt3fMzNPuEpa_41ZM_haW3sA0XnHD6ofa8MaQwsOsg9EZim3S_7chgIgTpeJWhzxG6f3_pe9yN2quwRQ88hAoig7igG-0yZseTrsQnmu7RWVtiSouQsH2sVuBhifm_VnJhbRzAOYB_KLUZQo0b6Xf9A",
+    },
 ];
 
 const news = [
-  { icon: 'celebration', iconClass: 'yellow', text: '<span class="text-primary">Tiêu Viêm</span> vừa đột phá lên cảnh giới <span class="text-yellow">Đấu Tông</span>!', time: '2 phút trước' },
-  { icon: 'swords', iconClass: 'red', text: '<span class="text-white font-bold">Đường Tam</span> đã đánh bại <span class="text-muted">Thú Vương</span> tại Tinh Đấu Đại Lâm.', time: '15 phút trước' },
-  { icon: 'group_add', iconClass: 'blue', text: 'Tông môn <span class="text-blue font-bold">Vân Lam Tông</span> đang tuyển đệ tử mới.', time: '1 giờ trước' },
+    {
+        icon: "celebration",
+        iconClass: "yellow",
+        text: '<span class="text-primary">Tiêu Viêm</span> vừa đột phá lên cảnh giới <span class="text-yellow">Đấu Tông</span>!',
+        time: "2 phút trước",
+    },
+    {
+        icon: "swords",
+        iconClass: "red",
+        text: '<span class="text-white font-bold">Đường Tam</span> đã đánh bại <span class="text-muted">Thú Vương</span> tại Tinh Đấu Đại Lâm.',
+        time: "15 phút trước",
+    },
+    {
+        icon: "group_add",
+        iconClass: "blue",
+        text: 'Tông môn <span class="text-blue font-bold">Vân Lam Tông</span> đang tuyển đệ tử mới.',
+        time: "1 giờ trước",
+    },
 ];
 
 const avatarPool = [...topCultivators, ...tableData].map((row) => row.avatar);
 
 const getRealmLabel = (realmIndex, level) => {
-  const realm = REALMS[Number(realmIndex)] || REALMS[0];
-  return `${realm.name} Tầng ${Number(level) || 1}`;
+    const realm = REALMS[Number(realmIndex)] || REALMS[0];
+    return `${realm.name} Tầng ${Number(level) || 1}`;
 };
 
 const getRealmClass = (realmIndex) => {
-  if (realmIndex >= 3) return 'blue';
-  if (realmIndex >= 1) return 'purple';
-  return 'green';
+    if (realmIndex >= 3) return "blue";
+    if (realmIndex >= 1) return "purple";
+    return "green";
 };
 
 const toNumber = (value, fallback = 0) => {
-  const numericValue = Number(value);
-  return Number.isFinite(numericValue) ? numericValue : fallback;
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) ? numericValue : fallback;
 };
 
 const calculateCombatPower = ({ attack = 0, defense = 0, spirit = 0, agility = 0, realmIndex = 0, level = 1 }) =>
-  Math.round(
-    (toNumber(attack) + toNumber(defense) + toNumber(spirit) + toNumber(agility)) *
-    (toNumber(realmIndex) + 1) *
-    toNumber(level, 1)
-  );
+    Math.round((toNumber(attack) + toNumber(defense) + toNumber(spirit) + toNumber(agility)) * (toNumber(realmIndex) + 1) * toNumber(level, 1));
 
 const getLeaderboardPower = (row, realmIndex, level) => {
-  const serverPower = Number(row.power);
-  if (row.power !== undefined && row.power !== null && Number.isFinite(serverPower)) {
-    return Math.round(serverPower);
-  }
+    const serverPower = Number(row.power);
+    if (row.power !== undefined && row.power !== null && Number.isFinite(serverPower)) {
+        return Math.round(serverPower);
+    }
 
-  const hasStatPowerInput = ['attack', 'defense', 'spirit', 'agility'].some(
-    (stat) => row[stat] !== undefined && row[stat] !== null
-  );
+    const hasStatPowerInput = ["attack", "defense", "spirit", "agility"].some((stat) => row[stat] !== undefined && row[stat] !== null);
 
-  if (hasStatPowerInput) {
-    return calculateCombatPower({
-      attack: row.attack,
-      defense: row.defense,
-      spirit: row.spirit,
-      agility: row.agility,
-      realmIndex,
-      level,
-    });
-  }
+    if (hasStatPowerInput) {
+        return calculateCombatPower({
+            attack: row.attack,
+            defense: row.defense,
+            spirit: row.spirit,
+            agility: row.agility,
+            realmIndex,
+            level,
+        });
+    }
 
-  return ((realmIndex + 1) * level * 100000) + (Number(row.exp) || 0);
+    return (realmIndex + 1) * level * 100000 + (Number(row.exp) || 0);
 };
 
 const mapLeaderboardRow = (row, index) => {
-  const realmIndex = Number(row.realm_index) || 0;
-  const level = Number(row.level) || 1;
-  return {
-    rank: Number(row.rank) || index + 1,
-    name: row.name || row.username || 'Daoist',
-    sect: row.username ? `@${row.username}` : 'Độc hành',
-    realm: getRealmLabel(realmIndex, level),
-    realmClass: getRealmClass(realmIndex),
-    power: getLeaderboardPower(row, realmIndex, level),
-    avatar: avatarPool[index % avatarPool.length],
-  };
+    const realmIndex = Number(row.realm_index) || 0;
+    const level = Number(row.level) || 1;
+    return {
+        id: row.id,
+        rank: Number(row.rank) || index + 1,
+        name: row.name || row.username || "Daoist",
+        sect: row.username ? `@${row.username}` : "Độc hành",
+        realmIndex,
+        level,
+        exp: Number(row.exp) || 0,
+        realm: getRealmLabel(realmIndex, level),
+        realmClass: getRealmClass(realmIndex),
+        power: getLeaderboardPower(row, realmIndex, level),
+        avatar: avatarPool[index % avatarPool.length],
+    };
 };
 
 function Leaderboard() {
-  const { gameState, formatNumber } = useGame();
-  const { player, reputation, stats } = gameState;
-  const [leaderboardRows, setLeaderboardRows] = useState([]);
-  const [hasLeaderboardResponse, setHasLeaderboardResponse] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [, setAnnouncements] = useState([]);
+    const { gameState, characterId, formatNumber } = useGame();
+    const { player, reputation, stats } = gameState;
+    const [leaderboardRows, setLeaderboardRows] = useState([]);
+    const [hasLeaderboardResponse, setHasLeaderboardResponse] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [, setAnnouncements] = useState([]);
 
-  const fetchLeaderboard = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const rows = await leaderboardApi.getCultivation(20);
-      setHasLeaderboardResponse(true);
-      setLeaderboardRows(Array.isArray(rows) ? rows.map(mapLeaderboardRow) : []);
-    } catch (error) {
-      console.warn('Load leaderboard failed:', error);
-      setHasLeaderboardResponse(false);
-      setLeaderboardRows([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+    const fetchLeaderboard = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const rows = await leaderboardApi.getCultivation(20);
+            setHasLeaderboardResponse(true);
+            setLeaderboardRows(Array.isArray(rows) ? rows.map(mapLeaderboardRow) : []);
+        } catch (error) {
+            console.warn("Load leaderboard failed:", error);
+            setHasLeaderboardResponse(false);
+            setLeaderboardRows([]);
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
 
-  useEffect(() => {
-    fetchLeaderboard();
-  }, [fetchLeaderboard]);
+    useEffect(() => {
+        fetchLeaderboard();
+    }, [fetchLeaderboard]);
 
-  // Listen for real-time updates via WebSocket
-  useEffect(() => {
-    const socket = getSocket();
-    if (!socket) return;
+    // Listen for real-time updates via WebSocket
+    useEffect(() => {
+        const socket = getSocket();
+        if (!socket) return;
 
-    // Subscribe to leaderboard updates
-    socket.emit('leaderboard:subscribe');
+        // Subscribe to leaderboard updates
+        socket.emit("leaderboard:subscribe");
 
-    const handleLeaderboardUpdate = () => {
-      fetchLeaderboard();
-    };
+        const handleLeaderboardUpdate = () => {
+            fetchLeaderboard();
+        };
 
-    const handleWorldAnnouncement = (data) => {
-      setAnnouncements(prev => [
-        { message: data.message, time: 'Vừa xong', timestamp: data.timestamp },
-        ...prev.slice(0, 9), // Keep max 10
-      ]);
-    };
+        const handleWorldAnnouncement = (data) => {
+            setAnnouncements((prev) => [
+                { message: data.message, time: "Vừa xong", timestamp: data.timestamp },
+                ...prev.slice(0, 9), // Keep max 10
+            ]);
+        };
 
-    socket.on('leaderboard:updated', handleLeaderboardUpdate);
-    socket.on('world:announcement', handleWorldAnnouncement);
+        socket.on("leaderboard:updated", handleLeaderboardUpdate);
+        socket.on("world:announcement", handleWorldAnnouncement);
 
-    return () => {
-      socket.emit('leaderboard:unsubscribe');
-      socket.off('leaderboard:updated', handleLeaderboardUpdate);
-      socket.off('world:announcement', handleWorldAnnouncement);
-    };
-  }, [fetchLeaderboard]);
+        return () => {
+            socket.emit("leaderboard:unsubscribe");
+            socket.off("leaderboard:updated", handleLeaderboardUpdate);
+            socket.off("world:announcement", handleWorldAnnouncement);
+        };
+    }, [fetchLeaderboard]);
 
-  const fallbackRows = [...topCultivators, ...tableData];
-  const displayedRows = hasLeaderboardResponse ? leaderboardRows : fallbackRows;
-  const showPodium = displayedRows.length >= 3;
-  const podiumRows = showPodium ? displayedRows.slice(0, 3) : [];
-  const tableRows = showPodium ? displayedRows.slice(3) : displayedRows;
-  const currentExp = Number(player.exp) || 0;
-  const maxExp = Math.max(Number(player.maxExp) || 1, 1);
-  const expPercent = Math.min(100, Math.max(0, (currentExp / maxExp) * 100));
-  const currentPower = calculateCombatPower({
-    attack: stats.attack,
-    defense: stats.defense,
-    spirit: stats.spirit,
-    agility: stats.agility,
-    realmIndex: player.realmIndex,
-    level: player.level,
-  });
-  const currentRankRow = hasLeaderboardResponse
-    ? displayedRows.find((row) => row.name === player.name)
-    : null;
-  const currentRank = currentRankRow
-    ? `#${currentRankRow.rank}`
-    : hasLeaderboardResponse
-      ? 'Ngoài top 20'
-      : 'Chưa xếp hạng';
+    const fallbackRows = [...topCultivators, ...tableData];
+    const displayedRows = hasLeaderboardResponse ? leaderboardRows : fallbackRows;
+    const showPodium = displayedRows.length >= 3;
+    const podiumRows = showPodium ? displayedRows.slice(0, 3) : [];
+    const tableRows = [...displayedRows];
+    const currentRankRow = hasLeaderboardResponse
+        ? displayedRows.find((row) => characterId && Number(row.id) === Number(characterId)) || displayedRows.find((row) => row.name === player.name)
+        : null;
+    const profileRealmIndex = currentRankRow?.realmIndex ?? player.realmIndex;
+    const profileLevel = currentRankRow?.level ?? player.level;
+    const currentExp = Number(currentRankRow?.exp ?? player.exp) || 0;
+    const maxExp = Math.max(Number(player.maxExp) || 1, 1);
+    const expPercent = Math.min(100, Math.max(0, (currentExp / maxExp) * 100));
+    const currentPower =
+        currentRankRow?.power ??
+        calculateCombatPower({
+            attack: stats.attack,
+            defense: stats.defense,
+            spirit: stats.spirit,
+            agility: stats.agility,
+            realmIndex: player.realmIndex,
+            level: player.level,
+        });
+    const currentRank = currentRankRow ? `#${currentRankRow.rank}` : hasLeaderboardResponse ? "Ngoài top 20" : "Chưa xếp hạng";
 
-  return (
-    <div className="leaderboard-page">
-      <div className="leaderboard-container">
-        {/* Header */}
-        <div className="page-header">
-          <div className="header-left">
-            <h1 className="page-title glow-text">Thiên Địa Bảng</h1>
-            <span className="season-badge">Mùa giải 12</span>
-          </div>
-          <p className="page-description">
-            Vinh danh những bậc đại năng cái thế trong giới tu chân. Nơi hội tụ tinh hoa của trời đất.
-          </p>
-        </div>
-
-        <div className="header-actions">
-          <button className="action-btn-secondary">
-            <span className="material-symbols-outlined">filter_list</span>
-            <span>Lọc</span>
-          </button>
-          <button className="action-btn-primary">
-            <span className="material-symbols-outlined">emoji_events</span>
-            <span>Phần Thưởng</span>
-          </button>
-        </div>
-
-        {/* Top 3 Podium */}
-        {showPodium ? <div className="podium">
-          {/* Rank 2 */}
-          <div className="podium-card rank-2">
-            <div className="podium-glow silver"></div>
-            <div className="podium-content">
-              <div className="rank-badge silver">2</div>
-              <div className="podium-avatar silver">
-                <div
-                  className="avatar-img"
-                  style={{ backgroundImage: `url("${podiumRows[1].avatar}")` }}
-                ></div>
-              </div>
-              <h3 className="cultivator-name">{podiumRows[1].name}</h3>
-              <p className="cultivator-sect">{podiumRows[1].sect}</p>
-              <span className="realm-badge silver">{podiumRows[1].realm}</span>
-              <div className="power-display">
-                <span className="material-symbols-outlined">bolt</span>
-                <span>{podiumRows[1].power.toLocaleString()}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Rank 1 */}
-          <div className="podium-card rank-1 animate-float">
-            <span className="material-symbols-outlined crown">crown</span>
-            <div className="podium-glow gold"></div>
-            <div className="podium-content">
-              <div className="rank-badge gold">1</div>
-              <div className="podium-avatar gold">
-                <div
-                  className="avatar-img"
-                  style={{ backgroundImage: `url("${podiumRows[0].avatar}")` }}
-                ></div>
-                <div className="verified-badge">
-                  <span className="material-symbols-outlined">verified</span>
+    return (
+        <div className='leaderboard-page'>
+            <div className='leaderboard-container'>
+                {/* Header */}
+                <div className='page-header'>
+                    <div className='header-left'>
+                        <h1 className='page-title glow-text'>Thiên Địa Bảng</h1>
+                        <span className='season-badge'>Mùa giải 12</span>
+                    </div>
+                    <p className='page-description'>Vinh danh những bậc đại năng cái thế trong giới tu chân. Nơi hội tụ tinh hoa của trời đất.</p>
                 </div>
-              </div>
-              <h3 className="cultivator-name gradient-text">{podiumRows[0].name}</h3>
-              <p className="cultivator-sect text-primary">{podiumRows[0].sect}</p>
-              <span className="realm-badge gold">{podiumRows[0].realm}</span>
-              <div className="power-display gold">
-                <span className="material-symbols-outlined filled">bolt</span>
-                <span>{podiumRows[0].power.toLocaleString()}</span>
-              </div>
-            </div>
-          </div>
 
-          {/* Rank 3 */}
-          <div className="podium-card rank-3">
-            <div className="podium-glow bronze"></div>
-            <div className="podium-content">
-              <div className="rank-badge bronze">3</div>
-              <div className="podium-avatar bronze">
-                <div
-                  className="avatar-img"
-                  style={{ backgroundImage: `url("${podiumRows[2].avatar}")` }}
-                ></div>
-              </div>
-              <h3 className="cultivator-name">{podiumRows[2].name}</h3>
-              <p className="cultivator-sect">{podiumRows[2].sect}</p>
-              <span className="realm-badge bronze">{podiumRows[2].realm}</span>
-              <div className="power-display">
-                <span className="material-symbols-outlined">bolt</span>
-                <span>{podiumRows[2].power.toLocaleString()}</span>
-              </div>
-            </div>
-          </div>
-        </div> : (
-          <div className="leaderboard-empty">Chưa có đủ dữ liệu xếp hạng.</div>
-        )}
+                <div className='header-actions'>
+                    <button className='action-btn-secondary'>
+                        <span className='material-symbols-outlined'>filter_list</span>
+                        <span>Lọc</span>
+                    </button>
+                    <button className='action-btn-primary'>
+                        <span className='material-symbols-outlined'>emoji_events</span>
+                        <span>Phần Thưởng</span>
+                    </button>
+                </div>
 
-        {/* Main Content */}
-        <div className="leaderboard-content">
-          {/* Table Section */}
-          <div className="table-section">
-            <div className="tabs">
-              <button className="tab active">
-                Tu Vi
-                <span className="tab-indicator"></span>
-              </button>
-              <button className="tab">Chiến Lực</button>
-              <button className="tab">Tông Môn</button>
-            </div>
-
-            <div className="table-wrapper">
-              {isLoading && <div className="leaderboard-loading">Đang tải bảng xếp hạng...</div>}
-              <table className="leaderboard-table">
-                <thead>
-                  <tr>
-                    <th>Hạng</th>
-                    <th>Đạo Hữu</th>
-                    <th>Cảnh Giới</th>
-                    <th className="hide-mobile">Tông Môn</th>
-                    <th className="text-right">Chiến Lực</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tableRows.map((row) => (
-                    <tr key={row.rank}>
-                      <td>
-                        <span className="rank-number">#{row.rank}</span>
-                      </td>
-                      <td>
-                        <div className="user-cell">
-                          <div
-                            className="table-avatar"
-                            style={{ backgroundImage: `url("${row.avatar}")` }}
-                          ></div>
-                          <span className="user-name">{row.name}</span>
+                {/* Top 3 Podium */}
+                {showPodium ? (
+                    <div className='podium'>
+                        {/* Rank 2 */}
+                        <div className='podium-card rank-2'>
+                            <div className='podium-glow silver'></div>
+                            <div className='podium-content'>
+                                <div className='rank-badge silver'>2</div>
+                                <div className='podium-avatar silver'>
+                                    <div className='avatar-img' style={{ backgroundImage: `url("${podiumRows[1].avatar}")` }}></div>
+                                </div>
+                                <h3 className='cultivator-name'>{podiumRows[1].name}</h3>
+                                <p className='cultivator-sect'>{podiumRows[1].sect}</p>
+                                <span className='realm-badge silver'>{podiumRows[1].realm}</span>
+                                <div className='power-display'>
+                                    <span className='material-symbols-outlined'>bolt</span>
+                                    <span>{podiumRows[1].power.toLocaleString()}</span>
+                                </div>
+                            </div>
                         </div>
-                      </td>
-                      <td>
-                        <span className={`realm-tag ${row.realmClass}`}>{row.realm}</span>
-                      </td>
-                      <td className="hide-mobile sect-name">{row.sect}</td>
-                      <td className="text-right power-cell">{row.power.toLocaleString()}</td>
-                    </tr>
-                  ))}
-                  {tableRows.length === 0 && (
-                    <tr>
-                      <td colSpan="5" className="leaderboard-empty-cell">Chưa có dữ liệu xếp hạng.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
 
-          </div>
+                        {/* Rank 1 */}
+                        <div className='podium-card rank-1 animate-float'>
+                            <span className='material-symbols-outlined crown'>crown</span>
+                            <div className='podium-glow gold'></div>
+                            <div className='podium-content'>
+                                <div className='rank-badge gold'>1</div>
+                                <div className='podium-avatar gold'>
+                                    <div className='avatar-img' style={{ backgroundImage: `url("${podiumRows[0].avatar}")` }}></div>
+                                    <div className='verified-badge'>
+                                        <span className='material-symbols-outlined'>verified</span>
+                                    </div>
+                                </div>
+                                <h3 className='cultivator-name gradient-text'>{podiumRows[0].name}</h3>
+                                <p className='cultivator-sect text-primary'>{podiumRows[0].sect}</p>
+                                <div className='power-display gold'>
+                                    <span className='material-symbols-outlined filled'>bolt</span>
+                                    <span>{podiumRows[0].power.toLocaleString()}</span>
+                                </div>
+                                <span className='realm-badge gold'>{podiumRows[0].realm}</span>
+                            </div>
+                        </div>
 
-          {/* Sidebar */}
-          <aside className="sidebar">
-            {/* My Stats */}
-            <div className="my-stats-card">
-              <h4>
-                <span className="material-symbols-outlined text-primary">person</span>
-                Tu Vi Của Bạn
-              </h4>
-              <div className="my-profile">
-                <div
-                  className="my-avatar"
-                  style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuBJu_ptbTajUE7FCY7SDrRSaZI0qO6P5NPGmTpwPfZrcFC2nFDzME3BXeOUotm57WBKv90x6YEGksQuOvwKXsv6UHs8VSHz3QGrRkWXqivgvoPnCnQB2leH2Sj80ORDhlYqXdWnEco80wNjV8z0kxeWwSDTNXX9vzFkdtXw64ZURR36yW2ZV5_Y296LiACytkLZoTeBXePVFg4qOqw6-wLsAy4NUXLS-jbVNs27ptrv_L0ggZt0QVq8MVyio5AuvctLDeYsxLGtDmA")' }}
-                ></div>
-                <div>
-                  <div className="my-name">{player.name}</div>
-                  <div className="my-realm">{getRealmLabel(player.realmIndex, player.level)}</div>
-                </div>
-              </div>
-              <div className="xp-bar">
-                <div className="xp-header">
-                  <span>Kinh nghiệm</span>
-                  <span>{formatNumber(currentExp)} / {formatNumber(maxExp)}</span>
-                </div>
-                <div className="xp-progress">
-                  <div className="xp-fill" style={{ width: `${expPercent}%` }}></div>
-                </div>
-              </div>
-              <div className="my-stats-grid">
-                <div className="my-stat">
-                  <span className="stat-label">Hạng</span>
-                  <span className="stat-value">{currentRank}</span>
-                </div>
-                <div className="my-stat">
-                  <span className="stat-label">Uy Danh</span>
-                  <span className="stat-value">{formatNumber(Number(reputation.value) || 0)}</span>
-                </div>
-                <div className="my-stat my-stat-wide">
-                  <span className="stat-label">Chiến Lực</span>
-                  <span className="stat-value">{formatNumber(currentPower)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* News Feed */}
-            <div className="news-card">
-              <div className="news-header">
-                <h4>Tin Tức Giang Hồ</h4>
-                <span className="material-symbols-outlined">rss_feed</span>
-              </div>
-              <div className="news-list">
-                {news.map((item, idx) => (
-                  <div key={idx} className="news-item">
-                    <div className={`news-icon ${item.iconClass}`}>
-                      <span className="material-symbols-outlined">{item.icon}</span>
+                        {/* Rank 3 */}
+                        <div className='podium-card rank-3'>
+                            <div className='podium-glow bronze'></div>
+                            <div className='podium-content'>
+                                <div className='rank-badge bronze'>3</div>
+                                <div className='podium-avatar bronze'>
+                                    <div className='avatar-img' style={{ backgroundImage: `url("${podiumRows[2].avatar}")` }}></div>
+                                </div>
+                                <h3 className='cultivator-name'>{podiumRows[2].name}</h3>
+                                <p className='cultivator-sect'>{podiumRows[2].sect}</p>
+                                <span className='realm-badge bronze'>{podiumRows[2].realm}</span>
+                                <div className='power-display'>
+                                    <span className='material-symbols-outlined'>bolt</span>
+                                    <span>{podiumRows[2].power.toLocaleString()}</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div>
-                      <p dangerouslySetInnerHTML={{ __html: item.text }}></p>
-                      <span className="news-time">{item.time}</span>
+                ) : (
+                    <div className='leaderboard-empty'>Chưa có đủ dữ liệu xếp hạng.</div>
+                )}
+
+                {/* Main Content */}
+                <div className='leaderboard-content'>
+                    {/* Table Section */}
+                    <div className='table-section'>
+                        <div className='tabs'>
+                            <button className='tab active'>
+                                Tu Vi
+                                <span className='tab-indicator'></span>
+                            </button>
+                            <button className='tab'>Chiến Lực</button>
+                            <button className='tab'>Tông Môn</button>
+                        </div>
+
+                        <div className='table-wrapper'>
+                            {isLoading && <div className='leaderboard-loading'>Đang tải bảng xếp hạng...</div>}
+                            <table className='leaderboard-table'>
+                                <thead>
+                                    <tr>
+                                        <th>Hạng</th>
+                                        <th>Đạo Hữu</th>
+                                        <th>Cảnh Giới</th>
+                                        <th className='hide-mobile'>Tông Môn</th>
+                                        <th className='text-right'>Chiến Lực</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {tableRows.map((row) => (
+                                        <tr key={row.rank}>
+                                            <td>
+                                                <span className='rank-number'>#{row.rank}</span>
+                                            </td>
+                                            <td>
+                                                <div className='user-cell'>
+                                                    <div className='table-avatar' style={{ backgroundImage: `url("${row.avatar}")` }}></div>
+                                                    <span className='user-name'>{row.name}</span>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span className={`realm-tag ${row.realmClass}`}>{row.realm}</span>
+                                            </td>
+                                            <td className='hide-mobile sect-name'>{row.sect}</td>
+                                            <td className='text-right power-cell'>{row.power.toLocaleString()}</td>
+                                        </tr>
+                                    ))}
+                                    {/* {tableRows.length === 0 && (
+                                        <tr>
+                                            <td colSpan='5' className='leaderboard-empty-cell'>
+                                                Chưa có dữ liệu xếp hạng.
+                                            </td>
+                                        </tr>
+                                    )} */}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-              <button className="view-all-btn">Xem tất cả</button>
+
+                    {/* Sidebar */}
+                    <aside className='sidebar'>
+                        {/* My Stats */}
+                        <div className='my-stats-card'>
+                            <h4>
+                                <span className='material-symbols-outlined text-primary'>person</span>
+                                Tu Vi Của Bạn
+                            </h4>
+                            <div className='my-profile'>
+                                <div
+                                    className='my-avatar'
+                                    style={{
+                                        backgroundImage:
+                                            'url("https://lh3.googleusercontent.com/aida-public/AB6AXuBJu_ptbTajUE7FCY7SDrRSaZI0qO6P5NPGmTpwPfZrcFC2nFDzME3BXeOUotm57WBKv90x6YEGksQuOvwKXsv6UHs8VSHz3QGrRkWXqivgvoPnCnQB2leH2Sj80ORDhlYqXdWnEco80wNjV8z0kxeWwSDTNXX9vzFkdtXw64ZURR36yW2ZV5_Y296LiACytkLZoTeBXePVFg4qOqw6-wLsAy4NUXLS-jbVNs27ptrv_L0ggZt0QVq8MVyio5AuvctLDeYsxLGtDmA")',
+                                    }}
+                                ></div>
+                                <div>
+                                    <div className='my-name'>{player.name}</div>
+                                    <div className='my-realm'>{getRealmLabel(profileRealmIndex, profileLevel)}</div>
+                                </div>
+                            </div>
+                            <div className='xp-bar'>
+                                <div className='xp-header'>
+                                    <span>Kinh nghiệm</span>
+                                    <span>
+                                        {formatNumber(currentExp)} / {formatNumber(maxExp)}
+                                    </span>
+                                </div>
+                                <div className='xp-progress'>
+                                    <div className='xp-fill' style={{ width: `${expPercent}%` }}></div>
+                                </div>
+                            </div>
+                            <div className='my-stats-grid'>
+                                <div className='my-stat'>
+                                    <span className='stat-label'>Hạng</span>
+                                    <span className='stat-value'>{currentRank}</span>
+                                </div>
+                                <div className='my-stat'>
+                                    <span className='stat-label'>Uy Danh</span>
+                                    <span className='stat-value'>{formatNumber(Number(reputation.value) || 0)}</span>
+                                </div>
+                                <div className='my-stat my-stat-wide'>
+                                    <span className='stat-label'>Chiến Lực</span>
+                                    <span className='stat-value'>{formatNumber(currentPower)}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* News Feed */}
+                        <div className='news-card'>
+                            <div className='news-header'>
+                                <h4>Tin Tức Giang Hồ</h4>
+                                <span className='material-symbols-outlined'>rss_feed</span>
+                            </div>
+                            <div className='news-list'>
+                                {news.map((item, idx) => (
+                                    <div key={idx} className='news-item'>
+                                        <div className={`news-icon ${item.iconClass}`}>
+                                            <span className='material-symbols-outlined'>{item.icon}</span>
+                                        </div>
+                                        <div>
+                                            <p dangerouslySetInnerHTML={{ __html: item.text }}></p>
+                                            <span className='news-time'>{item.time}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            <button className='view-all-btn'>Xem tất cả</button>
+                        </div>
+                    </aside>
+                </div>
             </div>
-          </aside>
         </div>
-      </div>
-    </div>
-  );
+    );
 }
 
 export default Leaderboard;

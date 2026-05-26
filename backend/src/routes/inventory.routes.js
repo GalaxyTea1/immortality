@@ -1,6 +1,7 @@
 import express from 'express';
 import {
-  assertValidInventoryEntry,
+  applyHpRegeneration,
+  assertValidInventoryEntryFromDb,
   buildStatIncrementFragments,
   calculateExpProgress,
 } from '../domain/gameCatalog.js';
@@ -37,7 +38,7 @@ router.post('/:characterId/remove', gameplayLimiter, validate(removeItemSchema),
   try {
     const { characterId } = req.params;
     const { itemId, quantity = 1, enhanceLevel = 0 } = req.body;
-    assertValidInventoryEntry({ itemId, enhanceLevel });
+    await assertValidInventoryEntryFromDb({ itemId, enhanceLevel });
 
     const result = await withTransaction(async (client) => {
       const current = await client.query(
@@ -91,7 +92,7 @@ router.post('/:characterId/use', gameplayLimiter, validate(useItemSchema), async
   try {
     const { characterId } = req.params;
     const { itemId, quantity = 1, enhanceLevel = 0 } = req.body;
-    const itemDef = assertValidInventoryEntry({ itemId, enhanceLevel });
+    const itemDef = await assertValidInventoryEntryFromDb({ itemId, enhanceLevel });
 
     if (!['pill', 'book'].includes(itemDef.type)) {
       return fail(res, 400, 'Item cannot be used directly');
@@ -139,11 +140,30 @@ router.post('/:characterId/use', gameplayLimiter, validate(useItemSchema), async
       );
 
       if (itemDef.type === 'pill') {
+        await applyHpRegeneration(characterId, client);
         const characterResult = await client.query(
-          `SELECT realm_index, level, exp, max_exp, hp, max_hp, inner_demon_value
-           FROM characters
-           WHERE id = $1
-           FOR UPDATE`,
+          `WITH equipment_bonus AS (
+             SELECT
+               e.character_id,
+               COALESCE(SUM(COALESCE((i.effect->>'maxHp')::numeric, 0) * (1 + COALESCE(e.enhance_level, 0))), 0) AS bonus_max_hp
+             FROM equipment e
+             JOIN item_definitions i ON i.item_id = e.item_id
+             WHERE e.character_id = $1
+             GROUP BY e.character_id
+           )
+           SELECT
+             c.realm_index,
+             c.level,
+             c.exp,
+             c.max_exp,
+             c.hp,
+             c.max_hp,
+             (COALESCE(c.max_hp, 1) + COALESCE(eb.bonus_max_hp, 0))::integer AS effective_max_hp,
+             c.inner_demon_value
+           FROM characters c
+           LEFT JOIN equipment_bonus eb ON eb.character_id = c.id
+           WHERE c.id = $1
+           FOR UPDATE OF c`,
           [characterId]
         );
 
@@ -178,8 +198,11 @@ router.post('/:characterId/use', gameplayLimiter, validate(useItemSchema), async
         if (effect.type === 'heal' || effect.hp) {
           const hpGain = (effect.value || effect.hp) * quantity;
           await client.query(
-            'UPDATE characters SET hp = LEAST(max_hp, hp + $2) WHERE id = $1',
-            [characterId, hpGain]
+            `UPDATE characters
+             SET hp = LEAST($3, hp + $2),
+                 last_hp_regen_at = NOW()
+             WHERE id = $1`,
+            [characterId, hpGain, character.effective_max_hp]
           );
           messages.push(`+${hpGain} HP`);
         }

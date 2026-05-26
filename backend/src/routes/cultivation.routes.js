@@ -260,59 +260,8 @@ router.post('/:characterId/meditation/finish', gameplayLimiter, async (req, res)
   }
 });
 
-router.post('/:characterId/meditate', gameplayLimiter, async (req, res) => {
-  try {
-    const { characterId } = req.params;
-    const cooldownMs = 5 * 60 * 1000;
-
-    const result = await withTransaction(async (client) => {
-      const characterResult = await client.query(
-        `SELECT hp, max_hp, last_meditation_time
-         FROM characters
-         WHERE id = $1
-         FOR UPDATE`,
-        [characterId]
-      );
-
-      if (characterResult.rows.length === 0) {
-        const error = new Error('Character not found');
-        error.status = 404;
-        throw error;
-      }
-
-      const character = characterResult.rows[0];
-      if (character.last_meditation_time) {
-        const elapsedMs = Date.now() - new Date(character.last_meditation_time).getTime();
-        if (elapsedMs < cooldownMs) {
-          const error = new Error('Meditation is on cooldown');
-          error.status = 400;
-          error.details = { cooldownRemaining: Math.ceil((cooldownMs - elapsedMs) / 1000) };
-          throw error;
-        }
-      }
-
-      const healAmount = Math.min(20, Number(character.max_hp) - Number(character.hp));
-      await client.query(
-        `UPDATE characters
-         SET hp = LEAST(max_hp, hp + 20),
-             last_meditation_time = NOW()
-         WHERE id = $1`,
-        [characterId]
-      );
-
-      return {
-        success: true,
-        healAmount,
-        message: `Meditation completed! +${healAmount} HP`,
-      };
-    });
-
-    ok(res, result);
-  } catch (error) {
-    if (error.status) return failFromError(res, error, 'Error meditating');
-    console.error('Error meditating:', error);
-    fail(res, 500, 'Error meditating');
-  }
+router.post('/:characterId/meditate', gameplayLimiter, async (_req, res) => {
+  fail(res, 410, 'Meditation HP recovery has been removed. HP recovers over time or by using items.');
 });
 
 router.post('/:characterId/breakthrough', gameplayLimiter, validate(breakthroughSchema), async (req, res) => {

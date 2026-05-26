@@ -4,8 +4,11 @@ import assert from 'node:assert/strict';
 import {
   assertEquipmentForSlot,
   assertValidInventoryEntry,
+  calculateAlchemyMaxExp,
+  calculateAlchemyProgress,
   buildStatIncrementFragments,
   calculateExpProgress,
+  getReputationTitle,
 } from '../backend/src/domain/gameCatalog.js';
 
 test('validates inventory entries against known item definitions', () => {
@@ -59,4 +62,22 @@ test('builds whitelisted character stat update fragments', () => {
     'cultivation_speed = cultivation_speed + $3',
   ]);
   assert.deepEqual(result.values, [10, 0.1]);
+});
+
+test('calculates alchemy progression with level-specific max exp', () => {
+  assert.equal(calculateAlchemyMaxExp(1), 50);
+  assert.equal(calculateAlchemyMaxExp(3), 112);
+
+  assert.deepEqual(
+    calculateAlchemyProgress({ level: 3, exp: 90 }, 30),
+    { level: 4, exp: 8, maxExp: 168 },
+  );
+});
+
+test('uses the shared reputation catalog shape for fallback lookups', () => {
+  const title = getReputationTitle(300);
+
+  assert.equal(title.level, 3);
+  assert.equal(title.title, title.vietnm);
+  assert.equal(title.globalnm, 'Known Cultivator');
 });

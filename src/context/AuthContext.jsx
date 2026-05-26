@@ -8,6 +8,13 @@ import { connectSocket, disconnectSocket } from '../services/socket.js';
 
 const AuthContext = createContext(null);
 
+const normalizeAuthUser = (userData) => ({
+    id: userData.id,
+    username: userData.username,
+    email: userData.email,
+    characterId: userData.characterId ?? userData.character_id,
+});
+
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -24,13 +31,7 @@ export function AuthProvider({ children }) {
 
             try {
                 const userData = await api.auth.me();
-                // Map snake_case from /auth/me to camelCase for consistency
-                setUser({
-                    id: userData.id,
-                    username: userData.username,
-                    email: userData.email,
-                    characterId: userData.character_id,
-                });
+                setUser(normalizeAuthUser(userData));
                 connectSocket(token);
             } catch (err) {
                 console.error('Auth check failed:', err);
@@ -54,7 +55,7 @@ export function AuthProvider({ children }) {
         try {
             const { token, user: userData } = await api.auth.register(username, email, password);
             api.setToken(token);
-            setUser(userData);
+            setUser(normalizeAuthUser(userData));
             connectSocket(token);
             return { success: true };
         } catch (err) {
@@ -72,7 +73,7 @@ export function AuthProvider({ children }) {
         try {
             const { token, user: userData } = await api.auth.login(email, password);
             api.setToken(token);
-            setUser(userData);
+            setUser(normalizeAuthUser(userData));
             connectSocket(token);
             return { success: true };
         } catch (err) {

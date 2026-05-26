@@ -1,9 +1,9 @@
 import express from 'express';
 import {
   ALCHEMY_RECIPES,
-  assertValidInventoryEntry,
-  getItemDefinition,
-  getReputationTitle,
+  assertValidInventoryEntryFromDb,
+  calculateAlchemyProgress,
+  getReputationTitleFromDb,
 } from '../domain/gameCatalog.js';
 import { withTransaction } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
@@ -50,7 +50,7 @@ router.post('/:characterId/craft', gameplayLimiter, validate(craftPillSchema), a
       }
 
       for (const material of recipe.materials) {
-        assertValidInventoryEntry({ itemId: material.itemId });
+        const materialDef = await assertValidInventoryEntryFromDb({ itemId: material.itemId }, client);
         const materialResult = await client.query(
           `SELECT id, quantity FROM inventory
            WHERE character_id = $1 AND item_id = $2 AND enhance_level = 0
@@ -59,7 +59,7 @@ router.post('/:characterId/craft', gameplayLimiter, validate(craftPillSchema), a
         );
 
         if (materialResult.rows.length === 0 || materialResult.rows[0].quantity < material.quantity) {
-          const itemName = getItemDefinition(material.itemId)?.name || material.itemId;
+          const itemName = materialDef.name || material.itemId;
           const error = new Error(`Missing ${itemName}`);
           error.status = 400;
           throw error;
@@ -105,7 +105,7 @@ router.post('/:characterId/craft', gameplayLimiter, validate(craftPillSchema), a
         };
       }
 
-      assertValidInventoryEntry({ itemId: recipe.output.itemId });
+      const outputDef = await assertValidInventoryEntryFromDb({ itemId: recipe.output.itemId }, client);
       await client.query(
         `INSERT INTO inventory (character_id, item_id, quantity, enhance_level)
          VALUES ($1, $2, $3, 0)
@@ -114,28 +114,26 @@ router.post('/:characterId/craft', gameplayLimiter, validate(craftPillSchema), a
         [characterId, recipe.output.itemId, recipe.output.quantity]
       );
 
-      let nextAlchemyExp = Number(character.alchemy_exp) + recipe.expGain;
-      let nextAlchemyLevel = Number(character.alchemy_level);
-      let nextAlchemyMaxExp = Math.floor(50 * (1.5 ** (nextAlchemyLevel - 1)));
-
-      while (nextAlchemyExp >= nextAlchemyMaxExp) {
-        nextAlchemyExp -= nextAlchemyMaxExp;
-        nextAlchemyLevel += 1;
-        nextAlchemyMaxExp = Math.floor(nextAlchemyMaxExp * 1.5);
-      }
+      const nextAlchemy = calculateAlchemyProgress(
+        {
+          level: character.alchemy_level,
+          exp: character.alchemy_exp,
+        },
+        recipe.expGain
+      );
 
       const nextReputation = Number(character.reputation_points) + 5;
-      const title = getReputationTitle(nextReputation);
+      const title = await getReputationTitleFromDb(nextReputation, client);
 
       await client.query(
         `UPDATE characters
          SET alchemy_level = $2, alchemy_exp = $3,
              reputation_points = $4, reputation_level = $5, reputation_title = $6
          WHERE id = $1`,
-        [characterId, nextAlchemyLevel, nextAlchemyExp, nextReputation, title.level, title.title]
+        [characterId, nextAlchemy.level, nextAlchemy.exp, nextReputation, title.level, title.vietnm || title.title]
       );
 
-      const outputName = getItemDefinition(recipe.output.itemId)?.name || recipe.output.itemId;
+      const outputName = outputDef.name || recipe.output.itemId;
       await client.query(
         `INSERT INTO event_logs (character_id, event_type, message)
          VALUES ($1, 'success', $2)`,
@@ -148,6 +146,15 @@ router.post('/:characterId/craft', gameplayLimiter, validate(craftPillSchema), a
         success: true,
         finalRate,
         output: recipe.output,
+        alchemy: nextAlchemy,
+        reputation: {
+          value: nextReputation,
+          level: title.level,
+          title: title.vietnm || title.title,
+          vietnm: title.vietnm || title.title,
+          globalnm: title.globalnm,
+          color: title.color,
+        },
         questUpdate,
         message: `Crafted ${recipe.output.quantity}x ${outputName}`,
       };

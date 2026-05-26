@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
-import { cultivation as cultivationApi, quests as questApi, world as worldApi } from '../services/api.js';
+import { quests as questApi, world as worldApi } from '../services/api.js';
 import './World.css';
 
 const getDangerStyle = (danger) => {
@@ -43,7 +43,6 @@ function World() {
     WORLD_ZONES,
     exploreLocation,
     claimQuestReward,
-    meditate,
     getInventoryWithDetails,
     addEvent,
     saveToServer,
@@ -78,11 +77,11 @@ function World() {
               ...prev,
               baseStats: {
                 ...prev.baseStats,
-                hp: Math.max(1, prev.baseStats.hp - (result.hpLoss || 0)),
+                hp: Math.max(0, prev.baseStats.hp - (result.hpLoss || 0)),
               },
               stats: {
                 ...prev.stats,
-                hp: Math.max(1, prev.stats.hp - (result.hpLoss || 0)),
+                hp: result.hp ?? Math.max(0, prev.stats.hp - (result.hpLoss || 0)),
               },
               exploration: {
                 ...prev.exploration,
@@ -166,6 +165,7 @@ function World() {
   }, [cancelPendingSave, characterId, claimQuestReward, loadFromServer, saveToServer]);
 
   // Xử lý thiền định
+  /*
   const handleMeditate = useCallback(async () => {
     let result;
     if (characterId) {
@@ -183,6 +183,7 @@ function World() {
     setNotification(result);
     setTimeout(() => setNotification(null), 3000);
   }, [cancelPendingSave, characterId, loadFromServer, meditate, saveToServer]);
+  */
 
   // Kiểm tra có thể vào zone không
   const canEnterZone = (zone) => {
@@ -192,7 +193,7 @@ function World() {
 
   // Progress percentages
   const expPercent = Math.floor((player.exp / player.maxExp) * 100);
-  const hpPercent = Math.floor((stats.hp / stats.maxHp) * 100);
+  const hpPercent = Math.min(100, Math.floor((stats.hp / stats.maxHp) * 100));
   const questPercent = quests.active ? Math.floor((quests.active.progress / quests.active.target) * 100) : 0;
   const remainingExploration = Math.max(0, exploration.maxExplorationPerDay - exploration.explorationCount);
   const explorationPercent = Math.floor((remainingExploration / exploration.maxExplorationPerDay) * 100);
@@ -304,7 +305,7 @@ function World() {
             <div className="locations-grid">
               {zones.map((zone) => {
                 const dangerStyle = getDangerStyle(zone.dangerLevel);
-                const canExplore = remainingExploration > 0;
+                const canExplore = remainingExploration > 0 && stats.hp > 1;
                 const canEnter = canEnterZone(zone);
                 const requiredRealm = REALMS[zone.minRealm]?.name || '';
                 const isCurrentZoneExploring = exploringZoneId === zone.id;
@@ -356,6 +357,11 @@ function World() {
                           <>
                             <span className="material-symbols-outlined animate-spin">sync</span>
                             Đang khám phá...
+                          </>
+                        ) : stats.hp <= 1 ? (
+                          <>
+                            <span className="material-symbols-outlined">favorite</span>
+                            Thiếu HP
                           </>
                         ) : !canEnter ? (
                           <>
@@ -467,15 +473,6 @@ function World() {
           </aside>
         </div>
       </div>
-
-      {/* Floating Meditate Button */}
-      <button className="floating-action-btn" onClick={handleMeditate}>
-        <span className="material-symbols-outlined animate-pulse">self_improvement</span>
-        <div className="fab-text">
-          <span className="fab-title">Thiền Định</span>
-          <span className="fab-subtitle">Hồi Phục HP</span>
-        </div>
-      </button>
 
       {/* Refresh Exploration Modal */}
       {showRefreshModal && (

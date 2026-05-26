@@ -9,6 +9,8 @@
     "dev": "nodemon src/index.js",
     "db:schema": "psql -d immortality_db -f src/db/schema.sql",
     "db:migrate": "node src/db/runMigrations.js",
+    "db:seed:catalog": "node src/db/seedCatalog.js",
+    "db:setup": "npm run db:migrate && npm run db:seed:catalog",
     "test": "node --test tests/integration/*.integration.test.js",
     "test:integration": "node --test tests/integration/*.integration.test.js"
   },

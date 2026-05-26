@@ -1,5 +1,5 @@
 import express from 'express';
-import { SHOP_CATALOG, findShopCatalogItem } from '../../../shared/shopCatalog.js';
+import { findShopCatalogItemFromDb, listShopCatalogItemsFromDb } from '../domain/gameCatalog.js';
 import { withTransaction } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { assertCharacterOwner } from '../middleware/ownership.middleware.js';
@@ -25,21 +25,15 @@ const requireOwnedBodyCharacter = async (req, res) => {
 };
 
 // GET /api/shop/items - Shop item list
-router.get('/items', (req, res) => {
-    const { category } = req.query;
-
-    let items = SHOP_CATALOG.map((item) => ({
-        ...item,
-        id: item.itemId,
-        name: item.itemId,
-        description: '',
-    }));
-
-    if (category) {
-        items = items.filter(item => item.category === category);
+router.get('/items', async (req, res) => {
+    try {
+        const { category } = req.query;
+        const items = await listShopCatalogItemsFromDb({ category });
+        ok(res, { items });
+    } catch (error) {
+        console.error('Error fetching shop items:', error);
+        fail(res, 500, 'Error fetching shop items');
     }
-
-    ok(res, { items });
 });
 
 // POST /api/shop/buy - Buy item
@@ -57,7 +51,7 @@ router.post('/buy', authMiddleware, gameplayLimiter, async (req, res) => {
             return fail(res, 400, 'Invalid quantity (1-99)');
         }
 
-        const shopItem = findShopCatalogItem(itemId);
+        const shopItem = await findShopCatalogItemFromDb(itemId);
         if (!shopItem) {
             return fail(res, 404, 'Item not found in shop');
         }
@@ -99,10 +93,10 @@ router.post('/buy', authMiddleware, gameplayLimiter, async (req, res) => {
             );
 
             return {
-                message: `Successfully purchased ${quantity}x ${shopItem.itemId}!`,
+                message: `Successfully purchased ${quantity}x ${shopItem.name}!`,
                 itemPurchased: {
                     id: itemId,
-                    name: shopItem.itemId,
+                    name: shopItem.name,
                     itemId: shopItem.itemId,
                     quantity,
                     totalCost
@@ -149,7 +143,7 @@ router.post('/sell', authMiddleware, gameplayLimiter, async (req, res) => {
                 throw error;
             }
 
-            const shopItem = findShopCatalogItem(itemId);
+            const shopItem = await findShopCatalogItemFromDb(itemId, client);
             const sellPrice = shopItem ? Math.floor(shopItem.price * 0.5) : 10;
             const totalEarn = sellPrice * quantity;
 

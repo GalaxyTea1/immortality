@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
-import { ITEM_DEFINITIONS } from '../data/items.js';
-import { REPUTATION_TITLES, REALMS } from '../data/realms.js';
-import { ALCHEMY_RECIPES } from '../data/recipes.js';
+import { ITEM_DEFINITIONS as FALLBACK_ITEM_DEFINITIONS } from '../data/items.js';
+import { getReputationTitleByPoints, REALMS } from '../data/realms.js';
+import { ALCHEMY_RECIPES, calculateAlchemyProgress } from '../data/recipes.js';
 import { WORLD_ZONES, canEnterZone, calculateZoneRewards } from '../data/zones.js';
 
 export function useGameWorldSystems({
@@ -11,6 +11,7 @@ export function useGameWorldSystems({
   addSpiritStones,
   addItem,
   removeItem,
+  itemDefinitions = FALLBACK_ITEM_DEFINITIONS,
 }) {
   // ===== EVENT SYSTEM =====
   const addEvent = useCallback((type, message) => {
@@ -26,8 +27,14 @@ export function useGameWorldSystems({
     if (!zone) return { success: false, message: 'Khu vực không tồn tại!' };
 
     const { exploration } = gameState;
+    const currentHp = Number(gameState.stats.hp) || 0;
+    const explorationHpCost = 1;
     if (exploration.explorationCount >= exploration.maxExplorationPerDay) {
       return { success: false, message: 'Đã hết lượt khám phá hôm nay!' };
+    }
+
+    if (currentHp <= explorationHpCost) {
+      return { success: false, message: 'Sinh lực quá thấp, cần hồi phục trước khi thám hiểm!' };
     }
 
     // Kiểm tra điều kiện vào zone
@@ -37,7 +44,6 @@ export function useGameWorldSystems({
 
     const baseRewards = calculateZoneRewards(zone, gameState.player.realmIndex, gameState.player.level);
     const rewards = { exp: 0, spiritStones: 0, items: [] };
-    const explorationHpCost = 1;
     let hpLoss = explorationHpCost;
     let eventMessage = '';
 
@@ -67,6 +73,10 @@ export function useGameWorldSystems({
       eventMessage = `Gặp nguy hiểm tại ${zone.name}! Mất ${damage} HP, +${rewards.exp} EXP`;
     }
 
+    if (currentHp <= hpLoss) {
+      return { success: false, message: 'Sinh lực không đủ để chịu tổn thất khi thám hiểm!' };
+    }
+
     if (roll > zone.encounterChance) {
       eventMessage += `, -${hpLoss} HP`;
     }
@@ -77,8 +87,8 @@ export function useGameWorldSystems({
 
     setGameState(prev => ({
       ...prev,
-      baseStats: { ...prev.baseStats, hp: Math.max(1, prev.baseStats.hp - hpLoss) },
-      stats: { ...prev.stats, hp: Math.max(1, prev.stats.hp - hpLoss) },
+      baseStats: { ...prev.baseStats, hp: Math.max(0, prev.baseStats.hp - hpLoss) },
+      stats: { ...prev.stats, hp: prev.stats.hp - hpLoss },
       exploration: { ...prev.exploration, explorationCount: prev.exploration.explorationCount + 1 },
     }));
 
@@ -106,6 +116,7 @@ export function useGameWorldSystems({
   const restoreHp = useCallback((amount) => {
     setGameState(prev => ({
       ...prev,
+      baseStats: { ...prev.baseStats, hp: Math.min(prev.baseStats.hp + amount, prev.baseStats.maxHp) },
       stats: { ...prev.stats, hp: Math.min(prev.stats.hp + amount, prev.stats.maxHp) },
     }));
     addEvent('heal', `Hồi phục ${amount} HP`);
@@ -161,17 +172,14 @@ export function useGameWorldSystems({
   const addReputation = useCallback((points, type = 'general') => {
     setGameState(prev => {
       const newValue = prev.reputation.value + points;
-      let newTitle = REPUTATION_TITLES[0];
-      for (const title of REPUTATION_TITLES) {
-        if (newValue >= title.minPoints) newTitle = title;
-      }
+      const newTitle = getReputationTitleByPoints(newValue);
       return {
         ...prev,
         reputation: {
           ...prev.reputation,
           value: newValue,
           level: newTitle.level,
-          title: newTitle.title,
+          title: newTitle.vietnm || newTitle.title,
           [`${type}Points`]: (prev.reputation[`${type}Points`] || 0) + points,
         },
       };
@@ -189,7 +197,7 @@ export function useGameWorldSystems({
     for (const material of recipe.materials) {
       const invItem = gameState.inventory.find(i => i.itemId === material.itemId);
       if (!invItem || invItem.quantity < material.quantity) {
-        return { success: false, message: `Thiếu ${ITEM_DEFINITIONS[material.itemId]?.name}!` };
+        return { success: false, message: `Thiếu ${itemDefinitions[material.itemId]?.name}!` };
       }
     }
 
@@ -202,25 +210,25 @@ export function useGameWorldSystems({
     if (isSuccess) {
       addItem(recipe.output.itemId, recipe.output.quantity);
       setGameState(prev => {
-        let newExp = prev.alchemy.exp + recipe.expGain;
-        let newLevel = prev.alchemy.level;
-        let newMaxExp = prev.alchemy.maxExp;
-        while (newExp >= newMaxExp) {
-          newExp -= newMaxExp;
-          newLevel++;
-          newMaxExp = Math.floor(newMaxExp * 1.5);
-        }
-        return { ...prev, alchemy: { ...prev.alchemy, exp: newExp, level: newLevel, maxExp: newMaxExp, craftCount: prev.alchemy.craftCount + 1 } };
+        const nextAlchemy = calculateAlchemyProgress(prev.alchemy, recipe.expGain);
+        return {
+          ...prev,
+          alchemy: {
+            ...prev.alchemy,
+            ...nextAlchemy,
+            craftCount: prev.alchemy.craftCount + 1,
+          },
+        };
       });
-      addEvent('success', `Luyện chế thành công ${ITEM_DEFINITIONS[recipe.output.itemId]?.name}!`);
+      addEvent('success', `Luyện chế thành công ${itemDefinitions[recipe.output.itemId]?.name}!`);
       addReputation(5, 'cultivation');
-      return { success: true, message: `Nhận được ${recipe.output.quantity}x ${ITEM_DEFINITIONS[recipe.output.itemId]?.name}` };
+      return { success: true, message: `Nhận được ${recipe.output.quantity}x ${itemDefinitions[recipe.output.itemId]?.name}` };
     } else {
       addInnerDemon(3);
       addEvent('danger', 'Luyện đan thất bại! Tâm ma tăng...');
       return { success: false, message: 'Luyện đan thất bại!' };
     }
-  }, [gameState.alchemy, gameState.inventory, removeItem, addItem, addEvent, addReputation, addInnerDemon, setGameState]);
+  }, [gameState.alchemy, gameState.inventory, itemDefinitions, removeItem, addItem, addEvent, addReputation, addInnerDemon, setGameState]);
 
 
   return {

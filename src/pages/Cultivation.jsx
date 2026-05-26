@@ -460,7 +460,10 @@ function Cultivation() {
     );
 
     // Tính toán tiến độ
-    const progressPercent = Math.floor((player.exp / player.maxExp) * 100);
+    const progressPercent = Math.min(100, Math.floor((player.exp / player.maxExp) * 100));
+    const alchemyMaxExp = Math.max(1, Number(alchemy.maxExp) || 1);
+    const alchemyExp = Math.max(0, Number(alchemy.exp) || 0);
+    const alchemyProgressPercent = Math.min(100, Math.floor((alchemyExp / alchemyMaxExp) * 100));
     const currentRealm = REALMS[player.realmIndex];
     const nextRealm = REALMS[player.realmIndex + 1];
 
@@ -718,12 +721,12 @@ function Cultivation() {
                                     <div
                                         className='alchemy-exp-fill'
                                         style={{
-                                            width: `${(alchemy.exp / alchemy.maxExp) * 100}%`,
+                                            width: `${alchemyProgressPercent}%`,
                                         }}
                                     ></div>
                                 </div>
                                 <span>
-                                    {alchemy.exp}/{alchemy.maxExp}
+                                    {alchemyExp}/{alchemyMaxExp}
                                 </span>
                             </div>
                         </div>

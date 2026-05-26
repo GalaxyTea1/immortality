@@ -1,6 +1,7 @@
 import express from 'express';
 import {
-  assertValidInventoryEntry,
+  assertValidInventoryEntryFromDb,
+  applyHpRegeneration,
   calculateExpProgress,
   calculateZoneRewards,
   canEnterZone,
@@ -31,13 +32,7 @@ router.post('/:characterId/explore', gameplayLimiter, validate(exploreSchema), a
 
     const result = await withTransaction(async (client) => {
       const characterResult = await client.query(
-        `SELECT realm_index, level, exp, max_exp, hp, max_hp,
-                spirit_stones, exploration_count,
-                exploration_last_reset::text AS exploration_last_reset,
-                CURRENT_DATE::text AS current_date
-         FROM characters
-         WHERE id = $1
-         FOR UPDATE`,
+        `SELECT id FROM characters WHERE id = $1 FOR UPDATE`,
         [characterId]
       );
 
@@ -47,14 +42,29 @@ router.post('/:characterId/explore', gameplayLimiter, validate(exploreSchema), a
         throw error;
       }
 
-      const character = characterResult.rows[0];
+      await applyHpRegeneration(characterId, client);
+
+      const refreshedCharacterResult = await client.query(
+        `SELECT realm_index, level, exp, max_exp, hp, max_hp,
+                spirit_stones, exploration_count,
+                exploration_last_reset::text AS exploration_last_reset,
+                CURRENT_DATE::text AS current_date
+         FROM characters
+         WHERE id = $1`,
+        [characterId]
+      );
+
+      const character = refreshedCharacterResult.rows[0];
       const today = character.current_date;
       const resetDate = character.exploration_last_reset || today;
       const currentCount = resetDate === today ? Number(character.exploration_count) : 0;
+      const currentHp = Number(character.hp) || 0;
+      const explorationHpCost = 1;
 
-      if (Number(character.hp) <= 0) {
+      if (currentHp <= explorationHpCost) {
         const error = new Error('Not enough HP to explore');
         error.status = 400;
+        error.details = { requiredHp: explorationHpCost + 1, currentHp };
         throw error;
       }
 
@@ -73,7 +83,6 @@ router.post('/:characterId/explore', gameplayLimiter, validate(exploreSchema), a
       const baseRewards = calculateZoneRewards(zone, character.realm_index, character.level);
       const rewards = { exp: 0, spiritStones: 0, items: [] };
       const isSafe = Math.random() > zone.encounterChance;
-      const explorationHpCost = 1;
       let hpLoss = explorationHpCost;
 
       if (isSafe) {
@@ -83,13 +92,20 @@ router.post('/:characterId/explore', gameplayLimiter, validate(exploreSchema), a
         for (const drop of zone.drops) {
           if (Math.random() < drop.chance) {
             const quantity = Math.floor(Math.random() * (drop.maxQty - drop.minQty + 1)) + drop.minQty;
-            assertValidInventoryEntry({ itemId: drop.itemId });
+            await assertValidInventoryEntryFromDb({ itemId: drop.itemId }, client);
             rewards.items.push({ itemId: drop.itemId, quantity });
           }
         }
       } else {
         hpLoss = zone.encounterDamage || 10;
         rewards.exp = Math.floor(baseRewards.exp * 0.3);
+      }
+
+      if (currentHp <= hpLoss) {
+        const error = new Error('Not enough HP to survive this exploration');
+        error.status = 400;
+        error.details = { requiredHp: hpLoss + 1, currentHp };
+        throw error;
       }
 
       const nextProgress = calculateExpProgress({
@@ -103,7 +119,8 @@ router.post('/:characterId/explore', gameplayLimiter, validate(exploreSchema), a
         `UPDATE characters
          SET exp = $2, level = $3, max_exp = $4,
              spirit_stones = spirit_stones + $5,
-             hp = GREATEST(1, hp - $6),
+             hp = hp - $6,
+             last_hp_regen_at = NOW(),
              exploration_count = $7,
              exploration_last_reset = CURRENT_DATE
          WHERE id = $1`,
@@ -145,6 +162,7 @@ router.post('/:characterId/explore', gameplayLimiter, validate(exploreSchema), a
         message,
         rewards,
         hpLoss,
+        hp: currentHp - hpLoss,
         explorationCount: currentCount + 1,
         questUpdate,
       };

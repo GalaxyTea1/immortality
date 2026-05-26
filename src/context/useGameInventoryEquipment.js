@@ -1,12 +1,50 @@
 import { useCallback } from 'react';
-import { ITEM_DEFINITIONS } from '../data/items.js';
+import { ITEM_DEFINITIONS as FALLBACK_ITEM_DEFINITIONS } from '../data/items.js';
 
-export function useGameInventoryEquipment({ gameState, setGameState, addExp }) {
+const getEnhancedStatValue = (value, enhanceLevel = 0) => {
+  const level = Number(enhanceLevel) || 0;
+  return Number.isInteger(value)
+    ? Math.floor(value * level) + value
+    : parseFloat((value + (value * level)).toFixed(2));
+};
+
+export const buildStatsWithEquipment = (
+  baseStats,
+  equipment,
+  itemDefinitions = FALLBACK_ITEM_DEFINITIONS,
+  currentHp = baseStats?.hp
+) => {
+  const newStats = { ...baseStats };
+
+  for (const equipped of Object.values(equipment || {})) {
+    if (equipped && equipped.itemId) {
+      const itemDef = itemDefinitions[equipped.itemId];
+      if (itemDef && itemDef.effect) {
+        for (const [stat, value] of Object.entries(itemDef.effect)) {
+          if (stat !== 'hp' && newStats[stat] !== undefined && typeof value === 'number') {
+            newStats[stat] += getEnhancedStatValue(value, equipped.enhanceLevel);
+          }
+        }
+      }
+    }
+  }
+
+  const maxHp = Math.max(Number(newStats.maxHp) || 1, 1);
+  newStats.hp = Math.min(Math.max(0, Number(currentHp) || 0), maxHp);
+  return newStats;
+};
+
+export function useGameInventoryEquipment({
+  gameState,
+  setGameState,
+  addExp,
+  itemDefinitions = FALLBACK_ITEM_DEFINITIONS,
+}) {
   // ===== INVENTORY MANAGEMENT =====
-  const getItemInfo = useCallback((itemId) => ITEM_DEFINITIONS[itemId] || null, []);
+  const getItemInfo = useCallback((itemId) => itemDefinitions[itemId] || null, [itemDefinitions]);
 
   const addItem = useCallback((itemId, quantity = 1) => {
-    const itemDef = ITEM_DEFINITIONS[itemId];
+    const itemDef = itemDefinitions[itemId];
     if (!itemDef) return false;
 
     setGameState(prev => {
@@ -38,7 +76,7 @@ export function useGameInventoryEquipment({ gameState, setGameState, addExp }) {
       return { ...prev, inventory: newInventory };
     });
     return true;
-  }, [setGameState]);
+  }, [itemDefinitions, setGameState]);
 
   const removeItem = useCallback((itemId, quantity = 1) => {
     setGameState(prev => {
@@ -71,7 +109,7 @@ export function useGameInventoryEquipment({ gameState, setGameState, addExp }) {
       itemId = itemIdOrUid;
     }
 
-    const itemDef = ITEM_DEFINITIONS[itemId];
+    const itemDef = itemDefinitions[itemId];
     if (!itemDef) return { success: false, message: 'Vật phẩm không tồn tại' };
 
     if (!inventoryItem || inventoryItem.quantity < quantity) {
@@ -93,7 +131,14 @@ export function useGameInventoryEquipment({ gameState, setGameState, addExp }) {
         const totalHp = value * quantity;
         setGameState(prev => ({
           ...prev,
-          stats: { ...prev.stats, hp: Math.min(prev.stats.hp + totalHp, prev.stats.maxHp) },
+          baseStats: {
+            ...prev.baseStats,
+            hp: Math.min((Number(prev.baseStats.hp) || 0) + totalHp, prev.baseStats.maxHp),
+          },
+          stats: {
+            ...prev.stats,
+            hp: Math.min((Number(prev.stats.hp) || 0) + totalHp, prev.stats.maxHp),
+          },
         }));
         messages.push(`+${totalHp} HP`);
       }
@@ -145,23 +190,7 @@ export function useGameInventoryEquipment({ gameState, setGameState, addExp }) {
             uid: uidFromInventory
           }
         };
-        const newStats = { ...prev.baseStats };
-        for (const equipped of Object.values(newEquipment)) {
-          if (equipped && equipped.itemId) {
-            const equipDef = ITEM_DEFINITIONS[equipped.itemId];
-            if (equipDef && equipDef.effect) {
-              for (const [stat, value] of Object.entries(equipDef.effect)) {
-                if (newStats[stat] !== undefined) {
-                  // Mỗi cấp cường hóa tăng thêm FULL effect value
-                  const enhanceBonus = Number.isInteger(value)
-                    ? Math.floor(value * equipped.enhanceLevel)
-                    : parseFloat((value * equipped.enhanceLevel).toFixed(2));
-                  newStats[stat] += value + enhanceBonus;
-                }
-              }
-            }
-          }
-        }
+        const newStats = buildStatsWithEquipment(prev.baseStats, newEquipment, itemDefinitions, prev.stats.hp);
         return { ...prev, inventory: newInventory, equipment: newEquipment, stats: newStats };
       });
       return { success: true, message: `Đã trang bị ${itemDef.name}${enhanceLevelFromInventory > 0 ? ` (+${enhanceLevelFromInventory})` : ''}!` };
@@ -176,23 +205,7 @@ export function useGameInventoryEquipment({ gameState, setGameState, addExp }) {
           if (newBaseStats[stat] !== undefined) newBaseStats[stat] += value;
         }
 
-        // Recalculate stats from baseStats + equipment
-        const newStats = { ...newBaseStats };
-        for (const equipped of Object.values(prev.equipment)) {
-          if (equipped && equipped.itemId) {
-            const equipDef = ITEM_DEFINITIONS[equipped.itemId];
-            if (equipDef && equipDef.effect) {
-              for (const [stat, value] of Object.entries(equipDef.effect)) {
-                if (newStats[stat] !== undefined) {
-                  const enhanceBonus = Number.isInteger(value)
-                    ? Math.floor(value * equipped.enhanceLevel)
-                    : parseFloat((value * equipped.enhanceLevel).toFixed(2));
-                  newStats[stat] += value + enhanceBonus;
-                }
-              }
-            }
-          }
-        }
+        const newStats = buildStatsWithEquipment(newBaseStats, prev.equipment, itemDefinitions, prev.stats.hp);
 
         return { ...prev, baseStats: newBaseStats, stats: newStats, learnedSkills: [...prev.learnedSkills, itemId] };
       });
@@ -204,37 +217,21 @@ export function useGameInventoryEquipment({ gameState, setGameState, addExp }) {
     }
 
     return { success: false, message: 'Không thể sử dụng vật phẩm này' };
-  }, [gameState.inventory, gameState.equipment, gameState.learnedSkills, addExp, removeItem, setGameState]);
+  }, [gameState.inventory, gameState.equipment, gameState.learnedSkills, addExp, itemDefinitions, removeItem, setGameState]);
 
   const recalculateStats = useCallback(() => {
     setGameState(prev => {
-      const newStats = { ...prev.baseStats };
-      for (const equipped of Object.values(prev.equipment)) {
-        if (equipped && equipped.itemId) {
-          const itemDef = ITEM_DEFINITIONS[equipped.itemId];
-          if (itemDef && itemDef.effect) {
-            for (const [stat, value] of Object.entries(itemDef.effect)) {
-              if (newStats[stat] !== undefined) {
-                // Mỗi cấp cường hóa tăng thêm FULL effect value
-                const enhanceBonus = Number.isInteger(value)
-                  ? Math.floor(value * equipped.enhanceLevel)
-                  : parseFloat((value * equipped.enhanceLevel).toFixed(2));
-                newStats[stat] += value + enhanceBonus;
-              }
-            }
-          }
-        }
-      }
+      const newStats = buildStatsWithEquipment(prev.baseStats, prev.equipment, itemDefinitions, prev.stats.hp);
       return { ...prev, stats: newStats };
     });
-  }, [setGameState]);
+  }, [itemDefinitions, setGameState]);
 
   const unequipItem = useCallback((slot) => {
     const equipped = gameState.equipment[slot];
     if (!equipped || !equipped.itemId) {
       return { success: false, message: 'Slot này đang trống!' };
     }
-    const itemDef = ITEM_DEFINITIONS[equipped.itemId];
+    const itemDef = itemDefinitions[equipped.itemId];
     setGameState(prev => {
       let newInventory = [...prev.inventory];
 
@@ -248,34 +245,18 @@ export function useGameInventoryEquipment({ gameState, setGameState, addExp }) {
       });
 
       const newEquipment = { ...prev.equipment, [slot]: null };
-      const newStats = { ...prev.baseStats };
-      for (const equip of Object.values(newEquipment)) {
-        if (equip && equip.itemId) {
-          const equipDef = ITEM_DEFINITIONS[equip.itemId];
-          if (equipDef && equipDef.effect) {
-            for (const [stat, value] of Object.entries(equipDef.effect)) {
-              if (newStats[stat] !== undefined) {
-                // Mỗi cấp cường hóa tăng thêm FULL effect value
-                const enhanceBonus = Number.isInteger(value)
-                  ? Math.floor(value * equip.enhanceLevel)
-                  : parseFloat((value * equip.enhanceLevel).toFixed(2));
-                newStats[stat] += value + enhanceBonus;
-              }
-            }
-          }
-        }
-      }
+      const newStats = buildStatsWithEquipment(prev.baseStats, newEquipment, itemDefinitions, prev.stats.hp);
       return { ...prev, inventory: newInventory, equipment: newEquipment, stats: newStats };
     });
     return { success: true, message: `Đã tháo ${itemDef?.name || 'trang bị'}!` };
-  }, [gameState.equipment, setGameState]);
+  }, [gameState.equipment, itemDefinitions, setGameState]);
 
   const upgradeEquipment = useCallback((slot) => {
     const equipped = gameState.equipment[slot];
     if (!equipped || !equipped.itemId) {
       return { success: false, message: 'Không có trang bị trong slot này!' };
     }
-    const itemDef = ITEM_DEFINITIONS[equipped.itemId];
+    const itemDef = itemDefinitions[equipped.itemId];
     if (!itemDef) return { success: false, message: 'Trang bị không hợp lệ!' };
 
     // Tìm 1 item cùng loại để làm nguyên liệu (ưu tiên enhanceLevel thấp nhất)
@@ -322,45 +303,28 @@ export function useGameInventoryEquipment({ gameState, setGameState, addExp }) {
       }).filter(item => item.quantity > 0);
 
       const newEquipment = { ...prev.equipment, [slot]: { ...equipped, enhanceLevel: newEnhanceLevel } };
-      const newStats = { ...prev.baseStats };
-
-      for (const equip of Object.values(newEquipment)) {
-        if (equip && equip.itemId) {
-          const equipDef = ITEM_DEFINITIONS[equip.itemId];
-          if (equipDef && equipDef.effect) {
-            for (const [stat, value] of Object.entries(equipDef.effect)) {
-              if (newStats[stat] !== undefined) {
-                // Mỗi cấp cường hóa tăng thêm FULL effect value
-                const enhanceBonus = Number.isInteger(value)
-                  ? Math.floor(value * equip.enhanceLevel)
-                  : parseFloat((value * equip.enhanceLevel).toFixed(2));
-                newStats[stat] += value + enhanceBonus;
-              }
-            }
-          }
-        }
-      }
+      const newStats = buildStatsWithEquipment(prev.baseStats, newEquipment, itemDefinitions, prev.stats.hp);
       return { ...prev, inventory: newInventory, equipment: newEquipment, stats: newStats };
     });
     return { success: true, message: `Cường hóa ${itemDef.name} thành công! Nay là +${newEnhanceLevel}` };
-  }, [gameState.equipment, gameState.inventory, setGameState]);
+  }, [gameState.equipment, gameState.inventory, itemDefinitions, setGameState]);
 
   const getEquippedItems = useCallback(() => {
     const result = {};
     for (const [slot, equipped] of Object.entries(gameState.equipment)) {
       if (equipped && equipped.itemId) {
-        const itemDef = ITEM_DEFINITIONS[equipped.itemId];
+        const itemDef = itemDefinitions[equipped.itemId];
         result[slot] = { ...equipped, ...itemDef };
       } else {
         result[slot] = null;
       }
     }
     return result;
-  }, [gameState.equipment]);
+  }, [gameState.equipment, itemDefinitions]);
 
   const getInventoryWithDetails = useCallback(() => {
-    return gameState.inventory.map(item => ({ ...item, ...ITEM_DEFINITIONS[item.itemId] }));
-  }, [gameState.inventory]);
+    return gameState.inventory.map(item => ({ ...item, ...itemDefinitions[item.itemId] }));
+  }, [gameState.inventory, itemDefinitions]);
 
   const buyItem = useCallback((itemId, price, quantity = 1) => {
     const totalCost = price * quantity;
@@ -372,9 +336,9 @@ export function useGameInventoryEquipment({ gameState, setGameState, addExp }) {
       resources: { ...prev.resources, spiritStones: prev.resources.spiritStones - totalCost },
     }));
     addItem(itemId, quantity);
-    const itemDef = ITEM_DEFINITIONS[itemId];
+    const itemDef = itemDefinitions[itemId];
     return { success: true, message: `Mua thành công ${quantity}x ${itemDef?.name || itemId}!` };
-  }, [gameState.resources.spiritStones, addItem, setGameState]);
+  }, [gameState.resources.spiritStones, addItem, itemDefinitions, setGameState]);
 
 
   return {

@@ -42,7 +42,6 @@ function Inventory() {
     unequipItem,
     upgradeEquipment,
     formatNumber,
-    loadFromServer,
     REALMS,
     saveToServer,
     isServerLoading,
@@ -123,7 +122,10 @@ function Inventory() {
       try {
         cancelPendingSave();
         await equipmentApi.equip(characterId, item.slot, item.itemId, item.enhanceLevel || 0);
-        await loadFromServer();
+        const localResult = consumeItem(itemId, 1);
+        if (!localResult.success) {
+          throw new Error(localResult.message || 'Local equipment update failed');
+        }
         showNotification({ success: true, message: `Đã trang bị ${item.name}!` });
         setSelectedItem(null);
         setUseQuantity(1);
@@ -141,7 +143,10 @@ function Inventory() {
         cancelPendingSave();
         const useQty = item.type === 'pill' ? qty : 1;
         const result = await inventoryApi.use(characterId, item.itemId, useQty, item.enhanceLevel || 0);
-        await loadFromServer();
+        const localResult = consumeItem(itemId, useQty);
+        if (!localResult.success) {
+          throw new Error(localResult.message || 'Local inventory update failed');
+        }
         showNotification({
           success: true,
           message: result.message || `Đã sử dụng ${item.name}!`,
@@ -164,7 +169,7 @@ function Inventory() {
       setUseQuantity(1);
       saveToServer();
     }
-  }, [cancelPendingSave, characterId, consumeItem, getInventoryWithDetails, loadFromServer, showNotification, saveToServer]);
+  }, [cancelPendingSave, characterId, consumeItem, getInventoryWithDetails, showNotification, saveToServer]);
 
   // Xử lý tháo trang bị
   const handleUnequip = useCallback(async (slot) => {
@@ -173,7 +178,10 @@ function Inventory() {
       try {
         cancelPendingSave();
         await equipmentApi.unequip(characterId, slot);
-        await loadFromServer();
+        const localResult = unequipItem(slot);
+        if (!localResult.success) {
+          throw new Error(localResult.message || 'Local equipment update failed');
+        }
         showNotification({ success: true, message: 'Đã tháo trang bị!' });
         setSelectedSlot(null);
       } catch (error) {
@@ -188,7 +196,7 @@ function Inventory() {
     showNotification(result);
     setSelectedSlot(null);
     if (result.success) saveToServer();
-  }, [cancelPendingSave, characterId, loadFromServer, unequipItem, showNotification, saveToServer]);
+  }, [cancelPendingSave, characterId, unequipItem, showNotification, saveToServer]);
 
   // Xử lý cường hóa
   const handleUpgrade = useCallback(async (slot) => {
@@ -197,7 +205,10 @@ function Inventory() {
       try {
         cancelPendingSave();
         const result = await equipmentApi.upgrade(characterId, slot);
-        await loadFromServer();
+        const localResult = upgradeEquipment(slot);
+        if (!localResult.success) {
+          throw new Error(localResult.message || 'Local equipment update failed');
+        }
         showNotification({
           success: true,
           message: result.message || 'Cường hóa trang bị thành công!',
@@ -213,7 +224,7 @@ function Inventory() {
     const result = upgradeEquipment(slot);
     showNotification(result);
     if (result.success) saveToServer();
-  }, [cancelPendingSave, characterId, loadFromServer, upgradeEquipment, showNotification, saveToServer]);
+  }, [cancelPendingSave, characterId, upgradeEquipment, showNotification, saveToServer]);
 
   // Tính toán tiến độ tu luyện
   const currentRealm = REALMS[player.realmIndex];
@@ -226,8 +237,9 @@ function Inventory() {
       if (equipped && equipped.effect) {
         for (const [stat, value] of Object.entries(equipped.effect)) {
           if (bonus[stat] !== undefined) {
-            // Tính cả bonus từ enhance level (10% mỗi cấp)
-            const enhanceBonus = Math.floor(value * (equipped.enhanceLevel || 0) * 0.1);
+            const enhanceBonus = Number.isInteger(value)
+              ? Math.floor(value * (equipped.enhanceLevel || 0))
+              : parseFloat((value * (equipped.enhanceLevel || 0)).toFixed(2));
             bonus[stat] += value + enhanceBonus;
           }
         }

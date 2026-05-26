@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createGameStateMappers } from '../src/context/gameStateMappers.js';
+import { buildStatsWithEquipment } from '../src/context/useGameInventoryEquipment.js';
+import { calculateAlchemyMaxExp } from '../src/data/recipes.js';
 
 const createInitialState = () => ({
   player: {
@@ -107,16 +109,43 @@ test('maps server character payload into game state and recalculates equipment s
   assert.equal(mapped.baseStats.cultivationSpeed, 1.25);
   assert.equal(mapped.exploration.explorationCount, 4);
   assert.equal(mapped.exploration.lastResetDate, '2000-01-01');
+  assert.equal(mapped.inventory.length, 2);
   assert.equal(mapped.inventory[0].itemId, 'huyen_thiet_giap');
+  assert.equal(mapped.inventory[0].quantity, 1);
   assert.ok(mapped.inventory[0].uid);
+  assert.notEqual(mapped.inventory[0].uid, mapped.inventory[1].uid);
   assert.equal(mapped.equipment.armor.itemId, 'huyen_thiet_giap');
   assert.ok(mapped.equipment.armor.uid);
+  assert.notEqual(mapped.equipment, initialState.equipment);
+  assert.equal(initialState.equipment.armor, null);
   assert.equal(mapped.stats.defense, 52);
   assert.deepEqual(mapped.learnedSkills, ['tu_ha_bi_dien']);
   assert.equal(mapped.events[0].id, 42);
   assert.equal(mapped.events[0].time, Date.UTC(2026, 0, 3));
   assert.equal(mapped.meditation.isMeditating, true);
   assert.equal(mapped.meditation.startedAt, Date.UTC(2026, 0, 1, 1));
+  assert.equal(mapped.alchemy.level, 2);
+  assert.equal(mapped.alchemy.exp, 30);
+  assert.equal(mapped.alchemy.maxExp, calculateAlchemyMaxExp(2));
+});
+
+test('maps empty server inventory/equipment without mutating initial state', () => {
+  const initialState = createInitialState();
+  const { mapServerToGameState } = createGameStateMappers(initialState);
+
+  const mapped = mapServerToGameState(
+    { name: 'Empty Bag' },
+    [],
+    {},
+    [],
+    null,
+    [],
+  );
+
+  assert.deepEqual(mapped.inventory, []);
+  assert.notEqual(mapped.inventory, initialState.inventory);
+  assert.notEqual(mapped.equipment, initialState.equipment);
+  assert.deepEqual(mapped.equipment, initialState.equipment);
 });
 
 test('maps game state back to server payload', () => {
@@ -146,7 +175,8 @@ test('maps inventory and excludes equipped item copies from server sync', () => 
 
   const inventoryPayload = mapInventoryToServer(
     [
-      { itemId: 'huyen_thiet_giap', quantity: 2, enhanceLevel: 1 },
+      { itemId: 'huyen_thiet_giap', quantity: 1, enhanceLevel: 1, uid: 'equip-a' },
+      { itemId: 'huyen_thiet_giap', quantity: 1, enhanceLevel: 1, uid: 'equip-b' },
       { itemId: 'thao_duoc', quantity: 5 },
     ],
     {
@@ -161,4 +191,39 @@ test('maps inventory and excludes equipped item copies from server sync', () => 
   assert.deepEqual(mapEquipmentToServer({ weapon: null, armor: { itemId: 'huyen_thiet_giap', enhanceLevel: 1 } }), {
     armor: { itemId: 'huyen_thiet_giap', enhanceLevel: 1 },
   });
+});
+
+test('recalculates equipment stats without resetting current hp', () => {
+  const baseStats = {
+    hp: 40,
+    maxHp: 100,
+    attack: 10,
+    defense: 5,
+    agility: 10,
+    spirit: 10,
+    cultivationSpeed: 1,
+  };
+
+  const itemDefinitions = {
+    armor_a: { effect: { defense: 10 } },
+    robe_a: { effect: { maxHp: 50 } },
+  };
+
+  const equippedStats = buildStatsWithEquipment(
+    baseStats,
+    {
+      armor: { itemId: 'armor_a', enhanceLevel: 1 },
+      fashion: { itemId: 'robe_a', enhanceLevel: 0 },
+    },
+    itemDefinitions,
+    90,
+  );
+
+  assert.equal(equippedStats.hp, 90);
+  assert.equal(equippedStats.maxHp, 150);
+  assert.equal(equippedStats.defense, 25);
+
+  const unequippedStats = buildStatsWithEquipment(baseStats, {}, itemDefinitions, 140);
+  assert.equal(unequippedStats.hp, 100);
+  assert.equal(unequippedStats.maxHp, 100);
 });

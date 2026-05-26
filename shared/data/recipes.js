@@ -59,4 +59,29 @@ export const ALCHEMY_RECIPES = {
   },
 };
 
+export const ALCHEMY_BASE_MAX_EXP = 50;
+
+export const calculateAlchemyMaxExp = (level = 1) => {
+  const safeLevel = Math.max(1, Number(level) || 1);
+  return Math.floor(ALCHEMY_BASE_MAX_EXP * (1.5 ** (safeLevel - 1)));
+};
+
+export const calculateAlchemyProgress = ({ level = 1, exp = 0 } = {}, expGain = 0) => {
+  let nextLevel = Math.max(1, Number(level) || 1);
+  let nextExp = Math.max(0, Number(exp) || 0) + Math.max(0, Number(expGain) || 0);
+  let nextMaxExp = calculateAlchemyMaxExp(nextLevel);
+
+  while (nextExp >= nextMaxExp) {
+    nextExp -= nextMaxExp;
+    nextLevel += 1;
+    nextMaxExp = calculateAlchemyMaxExp(nextLevel);
+  }
+
+  return {
+    level: nextLevel,
+    exp: nextExp,
+    maxExp: nextMaxExp,
+  };
+};
+
 export default ALCHEMY_RECIPES;

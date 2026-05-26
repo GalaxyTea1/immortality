@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS characters (
     -- Reputation
     reputation_points INTEGER DEFAULT 0,
     reputation_level INTEGER DEFAULT 1,
-    reputation_title VARCHAR(100) DEFAULT 'Nameless',
+    reputation_title VARCHAR(100) DEFAULT 'Vô Danh',
     
     -- Alchemy
     alchemy_level INTEGER DEFAULT 1,
@@ -60,8 +60,57 @@ CREATE TABLE IF NOT EXISTS characters (
     exploration_last_reset DATE DEFAULT CURRENT_DATE,
     last_meditation_time TIMESTAMP,
     meditation_started_at TIMESTAMP,
+    last_hp_regen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
     -- Timestamps
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ===========================
+-- Item Definitions Table (Product Catalog)
+-- ===========================
+CREATE TABLE IF NOT EXISTS item_definitions (
+    item_id VARCHAR(100) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT DEFAULT '',
+    type VARCHAR(50) NOT NULL CHECK (type IN ('pill', 'material', 'equipment', 'book')),
+    rarity VARCHAR(50) DEFAULT 'common',
+    slot VARCHAR(50),
+    effect JSONB NOT NULL DEFAULT '{}'::jsonb,
+    price INTEGER DEFAULT 0 CHECK (price >= 0),
+    image TEXT,
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_equipment_slot_required CHECK (type <> 'equipment' OR slot IS NOT NULL)
+);
+
+-- ===========================
+-- Shop Items Table (Sellable Catalog)
+-- ===========================
+CREATE TABLE IF NOT EXISTS shop_items (
+    item_id VARCHAR(100) PRIMARY KEY REFERENCES item_definitions(item_id) ON UPDATE CASCADE,
+    category VARCHAR(50) NOT NULL,
+    tier VARCHAR(50) NOT NULL,
+    price INTEGER NOT NULL CHECK (price >= 0),
+    sort_order INTEGER DEFAULT 0,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ===========================
+-- Reputation Titles Table (Reputation Catalog)
+-- ===========================
+CREATE TABLE IF NOT EXISTS reputation_titles (
+    level INTEGER PRIMARY KEY,
+    min_points INTEGER NOT NULL UNIQUE CHECK (min_points >= 0),
+    vietnm VARCHAR(100) NOT NULL,
+    globalnm VARCHAR(100) NOT NULL,
+    color VARCHAR(30) DEFAULT 'gray',
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -72,7 +121,7 @@ CREATE TABLE IF NOT EXISTS characters (
 CREATE TABLE IF NOT EXISTS inventory (
     id SERIAL PRIMARY KEY,
     character_id INTEGER REFERENCES characters(id) ON DELETE CASCADE,
-    item_id VARCHAR(100) NOT NULL,           -- Item ID (e.g., 'small_recovery_pill')
+    item_id VARCHAR(100) NOT NULL REFERENCES item_definitions(item_id) ON UPDATE CASCADE,
     quantity INTEGER DEFAULT 1,
     enhance_level INTEGER DEFAULT 0,         -- Equipment enhance level (0 for non-equipment)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -86,7 +135,7 @@ CREATE TABLE IF NOT EXISTS equipment (
     id SERIAL PRIMARY KEY,
     character_id INTEGER REFERENCES characters(id) ON DELETE CASCADE,
     slot VARCHAR(50) NOT NULL,               -- 'weapon', 'armor', 'spirit', etc.
-    item_id VARCHAR(100) NOT NULL,
+    item_id VARCHAR(100) NOT NULL REFERENCES item_definitions(item_id) ON UPDATE CASCADE,
     enhance_level INTEGER DEFAULT 0,
     UNIQUE(character_id, slot)
 );
@@ -129,19 +178,43 @@ CREATE TABLE IF NOT EXISTS character_quests (
 -- ===========================
 -- Leaderboard View (For Rankings)
 -- ===========================
-CREATE OR REPLACE VIEW leaderboard_cultivation AS
-SELECT 
+DROP VIEW IF EXISTS leaderboard_cultivation;
+
+CREATE VIEW leaderboard_cultivation AS
+WITH equipment_bonus AS (
+    SELECT
+        e.character_id,
+        COALESCE(SUM(COALESCE((i.effect->>'attack')::numeric, 0) * (1 + COALESCE(e.enhance_level, 0))), 0) AS bonus_attack,
+        COALESCE(SUM(COALESCE((i.effect->>'defense')::numeric, 0) * (1 + COALESCE(e.enhance_level, 0))), 0) AS bonus_defense,
+        COALESCE(SUM(COALESCE((i.effect->>'spirit')::numeric, 0) * (1 + COALESCE(e.enhance_level, 0))), 0) AS bonus_spirit,
+        COALESCE(SUM(COALESCE((i.effect->>'agility')::numeric, 0) * (1 + COALESCE(e.enhance_level, 0))), 0) AS bonus_agility
+    FROM equipment e
+    JOIN item_definitions i ON i.item_id = e.item_id
+    GROUP BY e.character_id
+)
+SELECT
     c.id,
     c.name,
     c.realm_index,
     c.level,
     c.exp,
+    ROUND(
+        (
+            COALESCE(c.attack, 0) + COALESCE(eb.bonus_attack, 0) +
+            COALESCE(c.defense, 0) + COALESCE(eb.bonus_defense, 0) +
+            COALESCE(c.spirit, 0) + COALESCE(eb.bonus_spirit, 0) +
+            COALESCE(c.agility, 0) + COALESCE(eb.bonus_agility, 0)
+        ) *
+        (COALESCE(c.realm_index, 0) + 1) *
+        COALESCE(c.level, 1)
+    ) AS power,
     c.reputation_points,
     c.reputation_title,
     u.username,
     RANK() OVER (ORDER BY c.realm_index DESC, c.level DESC, c.exp DESC) as rank
 FROM characters c
 JOIN users u ON c.user_id = u.id
+LEFT JOIN equipment_bonus eb ON eb.character_id = c.id
 WHERE u.is_active = TRUE
 ORDER BY rank
 LIMIT 100;
@@ -150,6 +223,12 @@ LIMIT 100;
 -- Indexes for Performance
 -- ===========================
 CREATE INDEX IF NOT EXISTS idx_characters_user_id ON characters(user_id);
+CREATE INDEX IF NOT EXISTS idx_item_definitions_type ON item_definitions(type);
+CREATE INDEX IF NOT EXISTS idx_item_definitions_active ON item_definitions(is_active);
+CREATE INDEX IF NOT EXISTS idx_shop_items_category ON shop_items(category);
+CREATE INDEX IF NOT EXISTS idx_shop_items_active ON shop_items(is_active);
+CREATE INDEX IF NOT EXISTS idx_reputation_titles_min_points ON reputation_titles(min_points);
+CREATE INDEX IF NOT EXISTS idx_reputation_titles_active ON reputation_titles(is_active);
 CREATE INDEX IF NOT EXISTS idx_inventory_character_id ON inventory(character_id);
 CREATE INDEX IF NOT EXISTS idx_equipment_character_id ON equipment(character_id);
 CREATE INDEX IF NOT EXISTS idx_event_logs_character_id ON event_logs(character_id);
@@ -171,5 +250,23 @@ $$ language 'plpgsql';
 DROP TRIGGER IF EXISTS update_characters_updated_at ON characters;
 CREATE TRIGGER update_characters_updated_at
     BEFORE UPDATE ON characters
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_item_definitions_updated_at ON item_definitions;
+CREATE TRIGGER update_item_definitions_updated_at
+    BEFORE UPDATE ON item_definitions
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_shop_items_updated_at ON shop_items;
+CREATE TRIGGER update_shop_items_updated_at
+    BEFORE UPDATE ON shop_items
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_reputation_titles_updated_at ON reputation_titles;
+CREATE TRIGGER update_reputation_titles_updated_at
+    BEFORE UPDATE ON reputation_titles
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();

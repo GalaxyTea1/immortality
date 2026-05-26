@@ -1,8 +1,8 @@
 import { useCallback } from 'react';
-import { ITEM_DEFINITIONS } from '../data/items.js';
+import { ITEM_DEFINITIONS as FALLBACK_ITEM_DEFINITIONS } from '../data/items.js';
 import { REALMS, TRIBULATION_REQUIREMENTS } from '../data/realms.js';
 
-export function useGameProgression({ gameState, setGameState }) {
+export function useGameProgression({ gameState, setGameState, itemDefinitions = FALLBACK_ITEM_DEFINITIONS }) {
   const addSpiritStones = useCallback((amount) => {
     setGameState(prev => ({
       ...prev,
@@ -90,7 +90,7 @@ export function useGameProgression({ gameState, setGameState }) {
     if (usePill && tribInfo.requiredPill) {
       const pillInInventory = gameState.inventory.find(i => i.itemId === tribInfo.requiredPill);
       if (!pillInInventory || pillInInventory.quantity < 1) {
-        const pillName = ITEM_DEFINITIONS[tribInfo.requiredPill]?.name || 'ﾄ疎n dﾆｰ盻｣c';
+        const pillName = itemDefinitions[tribInfo.requiredPill]?.name || 'ﾄ疎n dﾆｰ盻｣c';
         return {
           success: false,
           needsConfirmation: true,
@@ -162,9 +162,14 @@ export function useGameProgression({ gameState, setGameState }) {
       success: false,
       message: `ﾄ雪ｻ・ki蘯ｿp th蘯･t b蘯｡i! M蘯･t ${Math.floor(penalty.exp * 100)}% EXP vﾃ +${penalty.innerDemon} Tﾃ｢m Ma. ﾄ親n thﾃｴi ﾄ黛ｻ・lﾃ b盻・lﾃ｡ch`,
     };
-  }, [gameState.inventory, gameState.player, gameState.resources.spiritStones, setGameState]);
+  }, [gameState.inventory, gameState.player, gameState.resources.spiritStones, itemDefinitions, setGameState]);
 
   const meditate = useCallback(() => {
+    return {
+      success: false,
+      message: 'Hồi phục HP bằng thiền định đã bị tắt. HP chỉ hồi theo thời gian hoặc đạo cụ.',
+    };
+    /*
     const now = Date.now();
     const cooldown = 5 * 60 * 1000;
 
@@ -186,7 +191,8 @@ export function useGameProgression({ gameState, setGameState }) {
     }));
 
     return { success: true, message: 'Thi盻］ ﾄ黛ｻ杵h thﾃnh cﾃｴng! +20 HP' };
-  }, [gameState.lastMeditationTime, setGameState]);
+    */
+  }, []);
 
   return {
     addSpiritStones,
