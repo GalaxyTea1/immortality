@@ -199,14 +199,14 @@ SELECT
     c.level,
     c.exp,
     ROUND(
+        (GREATEST(COALESCE(c.realm_index, 0), 0) * 1000000) +
+        (GREATEST(COALESCE(c.level, 1), 1) * 100000) +
         (
             COALESCE(c.attack, 0) + COALESCE(eb.bonus_attack, 0) +
             COALESCE(c.defense, 0) + COALESCE(eb.bonus_defense, 0) +
             COALESCE(c.spirit, 0) + COALESCE(eb.bonus_spirit, 0) +
             COALESCE(c.agility, 0) + COALESCE(eb.bonus_agility, 0)
-        ) *
-        (COALESCE(c.realm_index, 0) + 1) *
-        COALESCE(c.level, 1)
+        ) * 10
     ) AS power,
     c.reputation_points,
     c.reputation_title,

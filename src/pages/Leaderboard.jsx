@@ -3,6 +3,7 @@ import { useGame } from "../context/GameContext";
 import { leaderboard as leaderboardApi } from "../services/api.js";
 import { getSocket } from "../services/socket.js";
 import { REALMS } from "../data/realms.js";
+import { calculateCombatPower } from "../data/combatPower.js";
 import "./Leaderboard.css";
 
 const topCultivators = [
@@ -114,14 +115,6 @@ const getRealmClass = (realmIndex) => {
     return "green";
 };
 
-const toNumber = (value, fallback = 0) => {
-    const numericValue = Number(value);
-    return Number.isFinite(numericValue) ? numericValue : fallback;
-};
-
-const calculateCombatPower = ({ attack = 0, defense = 0, spirit = 0, agility = 0, realmIndex = 0, level = 1 }) =>
-    Math.round((toNumber(attack) + toNumber(defense) + toNumber(spirit) + toNumber(agility)) * (toNumber(realmIndex) + 1) * toNumber(level, 1));
-
 const getLeaderboardPower = (row, realmIndex, level) => {
     const serverPower = Number(row.power);
     if (row.power !== undefined && row.power !== null && Number.isFinite(serverPower)) {
@@ -141,16 +134,17 @@ const getLeaderboardPower = (row, realmIndex, level) => {
         });
     }
 
-    return (realmIndex + 1) * level * 100000 + (Number(row.exp) || 0);
+    return calculateCombatPower({ realmIndex, level });
 };
 
 const mapLeaderboardRow = (row, index) => {
     const realmIndex = Number(row.realm_index) || 0;
     const level = Number(row.level) || 1;
+    console.log("Mapping leaderboard row:", { row, realmIndex, level });
     return {
         id: row.id,
         rank: Number(row.rank) || index + 1,
-        name: row.name || row.username || "Daoist",
+        name: row.name || row.username || "Noname",
         sect: row.username ? `@${row.username}` : "Độc hành",
         realmIndex,
         level,
@@ -222,7 +216,7 @@ function Leaderboard() {
     const displayedRows = hasLeaderboardResponse ? leaderboardRows : fallbackRows;
     const showPodium = displayedRows.length >= 3;
     const podiumRows = showPodium ? displayedRows.slice(0, 3) : [];
-    const tableRows = [...displayedRows];
+    const tableRows = showPodium ? displayedRows.slice(3) : displayedRows;
     const currentRankRow = hasLeaderboardResponse
         ? displayedRows.find((row) => characterId && Number(row.id) === Number(characterId)) || displayedRows.find((row) => row.name === player.name)
         : null;

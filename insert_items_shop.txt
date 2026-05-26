@@ -1,0 +1,51 @@
+BEGIN;
+
+INSERT INTO item_definitions (item_id, name, description, type, rarity, slot, effect, price, image, metadata, is_active)
+VALUES
+  ('tieu_hoan_dan', 'Tiểu Hoàn Đan', 'Đan dược cấp thấp, hồi phục 50 HP', 'pill', 'common', NULL, '{"type":"heal","value":50}'::jsonb, 50, 'https://images.unsplash.com/photo-1515263487990-61b07816b324?q=80&w=200', '{}'::jsonb, TRUE),
+  ('tu_khi_dan', 'Tụ Khí Đan', 'Tăng 20 EXP tu luyện', 'pill', 'uncommon', NULL, '{"type":"exp","value":20}'::jsonb, 100, 'https://images.unsplash.com/photo-1550989460-0adf9ea622e2?q=80&w=200', '{}'::jsonb, TRUE),
+  ('truc_co_dan', 'Trúc Cơ Đan', 'Đan dược quý hiếm, tăng 100 EXP. Cần thiết khi độ kiếp Trúc Cơ.', 'pill', 'rare', NULL, '{"type":"exp","value":100}'::jsonb, 500, 'https://images.unsplash.com/photo-1515263487990-61b07816b324?q=80&w=200', '{}'::jsonb, TRUE),
+  ('kim_dan_dan', 'Kim Đan Đan', 'Đan dược thượng phẩm, tăng 500 EXP. Cần thiết khi độ kiếp Kim Đan.', 'pill', 'epic', NULL, '{"type":"exp","value":500}'::jsonb, 2000, 'https://images.unsplash.com/photo-1615870216519-2f9fa575fa5c?q=80&w=200', '{}'::jsonb, TRUE),
+  ('nguyen_anh_dan', 'Nguyên Anh Đan', 'Đan dược cực phẩm, tăng 2000 EXP. Cần thiết khi độ kiếp Nguyên Anh.', 'pill', 'legendary', NULL, '{"type":"exp","value":2000}'::jsonb, 10000, 'https://images.unsplash.com/photo-1615870216519-2f9fa575fa5c?q=80&w=200', '{}'::jsonb, TRUE),
+  ('hoa_than_dan', 'Hóa Thần Đan', 'Đan dược truyền thuyết, tăng 10000 EXP. Cần thiết khi độ kiếp Hóa Thần.', 'pill', 'legendary', NULL, '{"type":"exp","value":10000}'::jsonb, 50000, 'https://images.unsplash.com/photo-1615870216519-2f9fa575fa5c?q=80&w=200', '{}'::jsonb, TRUE),
+  ('tinh_than_dan', 'Tĩnh Thần Đan', 'Giảm 20 điểm Tâm Ma, giúp tâm hồn thanh tịnh.', 'pill', 'rare', NULL, '{"type":"suppress_demon","value":20}'::jsonb, 800, 'https://images.unsplash.com/photo-1550989460-0adf9ea622e2?q=80&w=200', '{}'::jsonb, TRUE),
+  ('thao_duoc', 'Thảo Dược', 'Nguyên liệu luyện đan cơ bản', 'material', 'common', NULL, '{}'::jsonb, 10, 'https://images.unsplash.com/photo-1550989460-0adf9ea622e2?q=80&w=200', '{}'::jsonb, TRUE),
+  ('thiet_khoang', 'Thiết Khoáng', 'Quặng sắt dùng để rèn vũ khí', 'material', 'common', NULL, '{}'::jsonb, 15, 'https://images.unsplash.com/photo-1534944883526-a0d4ea910903?q=80&w=200', '{}'::jsonb, TRUE),
+  ('linh_thach_khoang', 'Linh Thạch Khoáng', 'Quặng chứa linh khí', 'material', 'uncommon', NULL, '{}'::jsonb, 80, 'https://images.unsplash.com/photo-1601342630318-7b4c6e4e083c?q=80&w=200', '{}'::jsonb, TRUE),
+  ('cuong_hoa_thach', 'Cường Hóa Thạch', 'Đá cường hóa trang bị', 'material', 'rare', NULL, '{}'::jsonb, 500, 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=200', '{}'::jsonb, TRUE),
+  ('huyet_ma_kiem', 'Huyết Ma Kiếm', 'Kiếm ma đạo, tăng 50 công kích', 'equipment', 'legendary', 'weapon', '{"attack":50}'::jsonb, 10000, 'https://lh3.googleusercontent.com/aida-public/AB6AXuCmig9T3VNe8tsp4kjHeELlD5bgAc6jgjbqBN0_roLlswhGNPkYCyzS3sO61vMqqCmeuiJaUP5vQiP29pDGiqbKwf2qME758M-oiJe8CqGIspgspzmm7fa9VKDhom2xw8alMHQh6K_DFYzsAYI4ylooOBW_sAkpzMqXksmIjr3iPeyzAzIgQY_JmX0gb-A-EeA5ENa19k25ug_phao3mXOl1oJb1OpHtKI3vMO7B8KRQWtf89l67C-A5owdx_ECxTMlh3lD2YW42Ik', '{"upgradeRequirements":{"cuong_hoa_thach":1}}'::jsonb, TRUE),
+  ('thien_loi_kiem', 'Thiên Lôi Kiếm', 'Kiếm sấm sét, tăng 30 công kích', 'equipment', 'epic', 'weapon', '{"attack":30}'::jsonb, 5000, 'https://images.unsplash.com/photo-1590779033100-9f60a05a013d?q=80&w=200', '{"upgradeRequirements":{"cuong_hoa_thach":1}}'::jsonb, TRUE),
+  ('kim_chung_tao', 'Kim Chung Tạo', 'Giáp hoàng kim, tăng 40 phòng thủ', 'equipment', 'legendary', 'armor', '{"defense":40}'::jsonb, 8000, 'https://images.unsplash.com/photo-1557531365-e8b22d93dbd0?q=80&w=200', '{"upgradeRequirements":{"cuong_hoa_thach":1}}'::jsonb, TRUE),
+  ('huyen_thiet_giap', 'Huyền Thiết Giáp', 'Giáp sắt đen, tăng 20 phòng thủ', 'equipment', 'rare', 'armor', '{"defense":20}'::jsonb, 3000, 'https://images.unsplash.com/photo-1599839575850-994c5029a8a6?q=80&w=200', '{"upgradeRequirements":{"cuong_hoa_thach":1}}'::jsonb, TRUE),
+  ('linh_hon_chu', 'Linh Hồn Châu', 'Ngọc linh hồn, tăng 30 tinh thần', 'equipment', 'epic', 'spirit', '{"spirit":30}'::jsonb, 6000, 'https://images.unsplash.com/photo-1601342630318-7b4c6e4e083c?q=80&w=200', '{"upgradeRequirements":{"cuong_hoa_thach":1}}'::jsonb, TRUE),
+  ('phong_than_hai', 'Phong Thần Hài', 'Giày thần tốc, tăng 25 nhanh nhẹn', 'equipment', 'epic', 'speed', '{"agility":25}'::jsonb, 4500, 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=200', '{"upgradeRequirements":{"cuong_hoa_thach":1}}'::jsonb, TRUE),
+  ('ngoc_boi', 'Ngọc Bội', 'Trang sức quý hiếm, +10% EXP tu luyện', 'equipment', 'rare', 'vip', '{"cultivationSpeed":0.1}'::jsonb, 2000, 'https://i.etsystatic.com/29320864/r/il/7d221a/4206023060/il_340x270.4206023060_di3b.jpg', '{"upgradeRequirements":{"cuong_hoa_thach":1}}'::jsonb, TRUE),
+  ('tien_than_y', 'Tiên Thần Y', 'Áo tiên nhân, tăng 50 HP tối đa', 'equipment', 'legendary', 'fashion', '{"maxHp":50}'::jsonb, 7000, 'https://images.unsplash.com/photo-1558171813-4c088753af8f?q=80&w=200', '{"upgradeRequirements":{"cuong_hoa_thach":1}}'::jsonb, TRUE),
+  ('tu_ha_bi_dien', 'Tử Hà Bí Điển', 'Công pháp thượng cổ, tăng tốc tu luyện vĩnh viễn +10%', 'book', 'epic', NULL, '{"cultivationSpeed":0.1}'::jsonb, 5000, 'https://images.unsplash.com/photo-1615870216519-2f9fa575fa5c?q=80&w=200', '{}'::jsonb, TRUE),
+  ('kim_cuong_cuong_than_quyet', 'Kim Cương Cường Thân Quyết', 'Thể thuật cường hóa, +20 phòng thủ vĩnh viễn', 'book', 'rare', NULL, '{"defense":20}'::jsonb, 3000, 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=200', '{}'::jsonb, TRUE);
+
+INSERT INTO shop_items (item_id, category, tier, price, sort_order, is_active)
+VALUES
+  ('kim_dan_dan', 'pill', 'heaven', 2000, 0, TRUE),
+  ('tu_ha_bi_dien', 'book', 'earth', 5000, 1, TRUE),
+  ('huyet_ma_kiem', 'equipment', 'heaven', 10000, 2, TRUE),
+  ('thao_duoc', 'material', 'yellow', 10, 3, TRUE),
+  ('truc_co_dan', 'pill', 'black', 500, 4, TRUE),
+  ('tieu_hoan_dan', 'pill', 'yellow', 50, 5, TRUE),
+  ('tu_khi_dan', 'pill', 'yellow', 100, 6, TRUE),
+  ('ngoc_boi', 'equipment', 'black', 800, 7, TRUE),
+  ('cuong_hoa_thach', 'material', 'black', 500, 8, TRUE);
+  
+INSERT INTO reputation_titles (level ,min_points, vietnm, globalnm, color, is_active)
+VALUES
+  (1, 0, 'Vô Danh', 'Nameless', 'gray', TRUE),
+  (2, 100, 'Sơ Nhập Tu Tiên', 'Newcomer', 'white', TRUE),
+  (3, 300, 'Tiểu Hữu Danh', 'Known Cultivator', 'green', TRUE),
+  (4, 600, 'Danh Trấn Nhất Phương', 'Regional Name', 'blue', TRUE),
+  (5, 1000, 'Phong Vân Nhân Vật', 'Storm Figure', 'purple', TRUE),
+  (6, 2000, 'Nhất Đại Tông Sư', 'Grandmaster', 'orange', TRUE),
+  (7, 5000, 'Thiên Hạ Đệ Nhất', 'Peerless', 'red', TRUE),
+  (8, 10000, 'Truyền Thuyết Bất Hủ', 'Legendary', 'gold', TRUE);
+
+
+COMMIT;

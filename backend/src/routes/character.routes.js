@@ -1,12 +1,10 @@
 import express from 'express';
-import jwt from 'jsonwebtoken';
 import { query, withTransaction } from '../db/index.js';
 import { applyHpRegeneration } from '../domain/gameCatalog.js';
 import { saveCharacterMetadataSchema, validate } from '../middleware/validation.js';
 import { saveLimiter } from '../middleware/rateLimit.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
-import { assertCharacterOwner, requireCharacterOwner } from '../middleware/ownership.middleware.js';
-import { JWT_SECRET } from '../config.js';
+import { requireCharacterOwner } from '../middleware/ownership.middleware.js';
 import { created, fail, ok } from '../http/response.js';
 
 const router = express.Router();
@@ -80,48 +78,6 @@ router.put('/:id', authMiddleware, requireCharacterOwner('id'), saveLimiter, val
   } catch (error) {
     console.error('Error updating character:', error);
     fail(res, 500, 'Error updating character');
-  }
-});
-
-// POST /api/characters/:id/beacon-save
-// Special endpoint for navigator.sendBeacon() on page unload.
-router.post('/:id/beacon-save', async (req, res) => {
-  try {
-    const characterId = req.params.id;
-    const { token, name } = req.body;
-
-    if (!token) {
-      return fail(res, 401, 'Token required');
-    }
-
-    let decoded;
-    try {
-      decoded = jwt.verify(token, JWT_SECRET);
-    } catch {
-      return fail(res, 403, 'Invalid token');
-    }
-
-    const isOwner = await assertCharacterOwner(decoded.userId, characterId);
-    if (!isOwner) {
-      return fail(res, 403, 'Forbidden character access');
-    }
-
-    if (name !== undefined) {
-      const { error } = saveCharacterMetadataSchema.validate({ name });
-      if (error) {
-        return fail(res, 400, error.details[0].message);
-      }
-
-      await query(
-        'UPDATE characters SET name = $1, updated_at = NOW() WHERE id = $2',
-        [name, characterId]
-      );
-    }
-
-    ok(res, { saved: true, metadataOnly: true });
-  } catch (error) {
-    console.error('Beacon save error:', error);
-    fail(res, 500, 'Beacon save failed');
   }
 });
 

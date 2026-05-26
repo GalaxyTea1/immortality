@@ -132,7 +132,6 @@ const initialState = {
 };
 
 const GameContext = createContext(null);
-const STORAGE_KEY = 'immortality_save';
 const HP_REGEN_INTERVAL_MS = 60 * 1000;
 const HP_REGEN_PERCENT_PER_INTERVAL = 0.01;
 
@@ -174,7 +173,6 @@ export const gameStateTestUtils = {
 export function GameProvider({ children, characterId }) {
   const [gameState, setGameStateRaw] = useState(initialState);
   const [itemDefinitions, setItemDefinitions] = useState(ITEM_DEFINITIONS);
-  const gameStateRef = useRef(gameState);
   const characterIdRef = useRef(characterId);
   const activeMappers = useMemo(
     () => createGameStateMappers(initialState, itemDefinitions),
@@ -201,11 +199,9 @@ export function GameProvider({ children, characterId }) {
     };
   }, []);
 
-  // Wrapper: sync gameStateRef immediately (before React renders)
   const setGameState = useCallback((updater) => {
     setGameStateRaw(prev => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
-      gameStateRef.current = next; // sync ref immediately
       return next;
     });
   }, []);
@@ -241,174 +237,44 @@ export function GameProvider({ children, characterId }) {
     return () => clearInterval(intervalId);
   }, [setGameState]);
 
-  const { cancelPendingSave, isServerLoading, loadFromServer, saveToServer } = useGameServerSync({
+  const { isServerLoading, loadFromServer } = useGameServerSync({
     characterId,
     setGameState,
-    gameStateRef,
     characterIdRef,
     mapServerToGameState: activeMappers.mapServerToGameState,
   });
 
   const {
-    addSpiritStones,
-    spendSpiritStones,
-    addPills,
-    spendPills,
-    addExp,
-    getRealmName,
     formatNumber,
     canBreakthrough,
-    attemptBreakthrough,
-    meditate,
-  } = useGameProgression({ gameState, setGameState, itemDefinitions });
+  } = useGameProgression({ gameState });
 
   const {
-    getItemInfo,
-    addItem,
-    removeItem,
-    useItem,
-    recalculateStats,
-    unequipItem,
-    upgradeEquipment,
-    getEquippedItems,
     getInventoryWithDetails,
-    buyItem,
-  } = useGameInventoryEquipment({ gameState, setGameState, addExp, itemDefinitions });
+  } = useGameInventoryEquipment({ gameState, itemDefinitions });
 
   const {
     addEvent,
-    exploreLocation,
-    claimQuestReward,
-    restoreHp,
-    reduceFoundation,
-    recoverFoundation,
     getFoundationStatus,
-    addInnerDemon,
-    suppressInnerDemon,
     getInnerDemonStatus,
-    addReputation,
-    craftPill,
   } = useGameWorldSystems({
     gameState,
     setGameState,
-    addExp,
-    addSpiritStones,
-    addItem,
-    removeItem,
-    itemDefinitions,
   });
 
-  // ===== SAVE/LOAD =====
-  const ensureOfflineSaveMode = useCallback(() => {
-    if (!characterId) return null;
-    return {
-      success: false,
-      message: 'Import/export/reset save local chỉ dùng cho chế độ offline/dev.',
-    };
-  }, [characterId]);
-
-  const resetGame = useCallback(() => {
-    const blocked = ensureOfflineSaveMode();
-    if (blocked) return blocked;
-    localStorage.removeItem(STORAGE_KEY);
-    setGameState(initialState);
-    return { success: true, message: 'Đã reset save local.' };
-  }, [ensureOfflineSaveMode, setGameState]);
-
-  const exportSave = useCallback(() => {
-    const blocked = ensureOfflineSaveMode();
-    if (blocked) return blocked;
-    const saveData = JSON.stringify(gameState);
-    const blob = new Blob([saveData], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `tutien_save_${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    return { success: true, message: 'Export save local thành công.' };
-  }, [ensureOfflineSaveMode, gameState]);
-
-  const importSave = useCallback((jsonString) => {
-    const blocked = ensureOfflineSaveMode();
-    if (blocked) return blocked;
-    try {
-      const parsed = JSON.parse(jsonString);
-      setGameState({
-        ...initialState,
-        ...parsed,
-        player: { ...initialState.player, ...parsed.player },
-        resources: { ...initialState.resources, ...parsed.resources },
-        stats: { ...initialState.stats, ...parsed.stats },
-        equipment: { ...initialState.equipment, ...parsed.equipment },
-        exploration: { ...initialState.exploration, ...parsed.exploration },
-        quests: { ...initialState.quests, ...parsed.quests },
-        foundation: { ...initialState.foundation, ...parsed.foundation },
-        innerDemon: { ...initialState.innerDemon, ...parsed.innerDemon },
-        reputation: { ...initialState.reputation, ...parsed.reputation },
-        alchemy: { ...initialState.alchemy, ...parsed.alchemy },
-        baseStats: { ...initialState.baseStats, ...parsed.baseStats },
-        meditation: { ...initialState.meditation, ...parsed.meditation },
-      });
-      return { success: true, message: 'Import thành công!' };
-    } catch {
-      return { success: false, message: 'File không hợp lệ!' };
-    }
-  }, [ensureOfflineSaveMode, setGameState]);
 
   const value = {
     gameState,
     setGameState,
     characterId,
-    addSpiritStones,
-    spendSpiritStones,
-    addPills,
-    spendPills,
-    addExp,
-    getRealmName,
     formatNumber,
-    // Tribulation
     canBreakthrough,
-    attemptBreakthrough,
-    // Meditation
-    meditate,
-    // Inventory
-    getItemInfo,
-    addItem,
-    removeItem,
-    useItem,
     getInventoryWithDetails,
-    buyItem,
-    // Equipment
-    recalculateStats,
-    unequipItem,
-    upgradeEquipment,
-    getEquippedItems,
-    // Exploration & Quest
     addEvent,
-    exploreLocation,
-    claimQuestReward,
-    restoreHp,
-    // Foundation & Inner Demon
-    reduceFoundation,
-    recoverFoundation,
     getFoundationStatus,
-    addInnerDemon,
-    suppressInnerDemon,
     getInnerDemonStatus,
-    // Reputation
-    addReputation,
-    // Alchemy
-    craftPill,
-    // Save/Load
-    cancelPendingSave,
-    saveToServer,
     loadFromServer,
     isServerLoading,
-    resetGame,
-    exportSave,
-    importSave,
-    // Data exports
     ITEM_DEFINITIONS: itemDefinitions,
     ALCHEMY_RECIPES,
     REPUTATION_TITLES,

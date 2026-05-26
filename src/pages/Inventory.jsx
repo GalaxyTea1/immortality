@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 import { equipment as equipmentApi, inventory as inventoryApi } from '../services/api.js';
+import { calculateCombatPower } from '../data/combatPower.js';
 import './Inventory.css';
 
 // Định nghĩa 6 slots trang bị
@@ -32,18 +33,20 @@ const TABS = [
   { id: 'book', label: 'Bí Kíp' },
 ];
 
+const clampUseQuantity = (value, max) => {
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) return 1;
+  return Math.min(Math.max(1, Math.floor(numberValue)), Math.max(1, max));
+};
+
 function Inventory() {
   const {
     gameState,
-    cancelPendingSave,
     characterId,
     getInventoryWithDetails,
-    useItem: consumeItem,
-    unequipItem,
-    upgradeEquipment,
     formatNumber,
     REALMS,
-    saveToServer,
+    loadFromServer,
     isServerLoading,
     ITEM_DEFINITIONS,
   } = useGame();
@@ -117,15 +120,16 @@ function Inventory() {
       (i.uid && i.uid === itemId) || (!i.uid && i.itemId === itemId)
     );
 
+    if (!characterId) {
+      showNotification({ success: false, message: 'Khong tim thay nhan vat dang online.' });
+      return;
+    }
+
     if (characterId && item?.type === 'equipment') {
       setEquipmentAction(`equip:${itemId}`);
       try {
-        cancelPendingSave();
         await equipmentApi.equip(characterId, item.slot, item.itemId, item.enhanceLevel || 0);
-        const localResult = consumeItem(itemId, 1);
-        if (!localResult.success) {
-          throw new Error(localResult.message || 'Local equipment update failed');
-        }
+        await loadFromServer();
         showNotification({ success: true, message: `Đã trang bị ${item.name}!` });
         setSelectedItem(null);
         setUseQuantity(1);
@@ -140,13 +144,9 @@ function Inventory() {
     if (characterId && ['pill', 'book'].includes(item?.type)) {
       setItemAction(`use:${itemId}`);
       try {
-        cancelPendingSave();
         const useQty = item.type === 'pill' ? qty : 1;
         const result = await inventoryApi.use(characterId, item.itemId, useQty, item.enhanceLevel || 0);
-        const localResult = consumeItem(itemId, useQty);
-        if (!localResult.success) {
-          throw new Error(localResult.message || 'Local inventory update failed');
-        }
+        await loadFromServer();
         showNotification({
           success: true,
           message: result.message || `Đã sử dụng ${item.name}!`,
@@ -161,27 +161,16 @@ function Inventory() {
       return;
     }
 
-    const result = consumeItem(itemId, qty);
-    showNotification(result);
-
-    if (result.success) {
-      setSelectedItem(null);
-      setUseQuantity(1);
-      saveToServer();
-    }
-  }, [cancelPendingSave, characterId, consumeItem, getInventoryWithDetails, showNotification, saveToServer]);
+    showNotification({ success: false, message: 'Vat pham nay khong the su dung.' });
+  }, [characterId, getInventoryWithDetails, loadFromServer, showNotification]);
 
   // Xử lý tháo trang bị
   const handleUnequip = useCallback(async (slot) => {
     if (characterId) {
       setEquipmentAction(`unequip:${slot}`);
       try {
-        cancelPendingSave();
         await equipmentApi.unequip(characterId, slot);
-        const localResult = unequipItem(slot);
-        if (!localResult.success) {
-          throw new Error(localResult.message || 'Local equipment update failed');
-        }
+        await loadFromServer();
         showNotification({ success: true, message: 'Đã tháo trang bị!' });
         setSelectedSlot(null);
       } catch (error) {
@@ -192,23 +181,17 @@ function Inventory() {
       return;
     }
 
-    const result = unequipItem(slot);
-    showNotification(result);
+    showNotification({ success: false, message: 'Khong tim thay nhan vat dang online.' });
     setSelectedSlot(null);
-    if (result.success) saveToServer();
-  }, [cancelPendingSave, characterId, unequipItem, showNotification, saveToServer]);
+  }, [characterId, loadFromServer, showNotification]);
 
   // Xử lý cường hóa
   const handleUpgrade = useCallback(async (slot) => {
     if (characterId) {
       setEquipmentAction(`upgrade:${slot}`);
       try {
-        cancelPendingSave();
         const result = await equipmentApi.upgrade(characterId, slot);
-        const localResult = upgradeEquipment(slot);
-        if (!localResult.success) {
-          throw new Error(localResult.message || 'Local equipment update failed');
-        }
+        await loadFromServer();
         showNotification({
           success: true,
           message: result.message || 'Cường hóa trang bị thành công!',
@@ -221,14 +204,20 @@ function Inventory() {
       return;
     }
 
-    const result = upgradeEquipment(slot);
-    showNotification(result);
-    if (result.success) saveToServer();
-  }, [cancelPendingSave, characterId, upgradeEquipment, showNotification, saveToServer]);
+    showNotification({ success: false, message: 'Khong tim thay nhan vat dang online.' });
+  }, [characterId, loadFromServer, showNotification]);
 
   // Tính toán tiến độ tu luyện
   const currentRealm = REALMS[player.realmIndex];
   const progressPercent = Math.floor((player.exp / player.maxExp) * 100);
+  const currentCombatPower = calculateCombatPower({
+    attack: stats.attack,
+    defense: stats.defense,
+    agility: stats.agility,
+    spirit: stats.spirit,
+    realmIndex: player.realmIndex,
+    level: player.level,
+  });
 
   // Tính bonus từ equipment (bao gồm cả enhance level)
   const equipmentBonus = useMemo(() => {
@@ -427,7 +416,7 @@ function Inventory() {
             <div className="stats-card">
               <div className="stats-header">
                 <span>Chỉ Số</span>
-                <span className="power-value">{formatNumber(stats.attack + stats.defense + stats.agility + stats.spirit)}</span>
+                <span className="power-value">{formatNumber(currentCombatPower)}</span>
               </div>
               <div className="stats-grid">
                 <div className="stat-item">
@@ -562,6 +551,11 @@ function Inventory() {
                   if (!item) return null;
 
                   const itemKey = item.uid || item.itemId;
+                  const isUsingItem = itemAction === `use:${itemKey}`;
+                  const isEquippingItem = equipmentAction === `equip:${itemKey}`;
+                  const maxUsableQuantity = Math.max(1, item.quantity || 1);
+                  const selectedUseQuantity = clampUseQuantity(useQuantity, maxUsableQuantity);
+                  const canUseMultiple = item.type === 'pill' && maxUsableQuantity > 1;
 
                   return (
                     <>
@@ -573,31 +567,43 @@ function Inventory() {
                         <p className="item-detail-desc">{item.description}</p>
                       </div>
 
-                      {item.type === 'pill' && item.quantity > 1 && (
+                      {canUseMultiple && (
                         <div className="quantity-selector">
                           <label>Số lượng:</label>
                           <input
                             type="number"
                             min="1"
-                            max={item.quantity}
-                            value={useQuantity}
-                            onChange={(e) => setUseQuantity(Math.min(Math.max(1, parseInt(e.target.value) || 1), item.quantity))}
+                            max={maxUsableQuantity}
+                            value={selectedUseQuantity}
+                            onChange={(e) => setUseQuantity(clampUseQuantity(e.target.value, maxUsableQuantity))}
                           />
-                          <span>/ {item.quantity}</span>
+                          <span>/ {maxUsableQuantity}</span>
                         </div>
                       )}
 
                       <div className="action-btns">
                         <button
                           className="action-btn use-btn"
-                          onClick={() => handleUseItem(itemKey, item.type === 'pill' ? useQuantity : 1)}
-                          disabled={equipmentAction === `equip:${itemKey}` || itemAction === `use:${itemKey}`}
+                          onClick={() => handleUseItem(itemKey, item.type === 'pill' ? selectedUseQuantity : 1)}
+                          disabled={isEquippingItem || isUsingItem}
                         >
                           <span className="material-symbols-outlined">
-                            {equipmentAction === `equip:${itemKey}` || itemAction === `use:${itemKey}` ? 'sync' : item.type === 'equipment' ? 'checkroom' : item.type === 'book' ? 'menu_book' : 'play_arrow'}
+                            {isEquippingItem || isUsingItem ? 'sync' : item.type === 'equipment' ? 'checkroom' : item.type === 'book' ? 'menu_book' : 'play_arrow'}
                           </span>
                           {item.type === 'equipment' ? 'Trang Bị' : item.type === 'book' ? 'Học' : 'Sử dụng'}
                         </button>
+                        {canUseMultiple && (
+                          <button
+                            className="action-btn use-all-btn"
+                            onClick={() => handleUseItem(itemKey, maxUsableQuantity)}
+                            disabled={isUsingItem}
+                          >
+                            <span className="material-symbols-outlined">
+                              {isUsingItem ? 'sync' : 'done_all'}
+                            </span>
+                            Dùng hết
+                          </button>
+                        )}
                         <button
                           className="action-btn info-btn"
                           onClick={() => {

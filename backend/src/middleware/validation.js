@@ -85,7 +85,7 @@ export const removeItemSchema = Joi.object({
 
 export const useItemSchema = Joi.object({
     itemId: Joi.string().required(),
-    quantity: Joi.number().integer().min(1).max(99).default(1),
+    quantity: Joi.number().integer().min(1).default(1),
     enhanceLevel: Joi.number().integer().min(0).default(0),
 });
 

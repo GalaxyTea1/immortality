@@ -178,22 +178,6 @@ const options = {
           responses: { 200: ok('Character'), 400: error('Invalid metadata') },
         },
       },
-      '/api/characters/{id}/beacon-save': {
-        post: {
-          tags: ['Characters'],
-          summary: 'Metadata-only unload save',
-          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
-          requestBody: json({
-            type: 'object',
-            required: ['token'],
-            properties: {
-              token: { type: 'string' },
-              name: { type: 'string' },
-            },
-          }),
-          responses: { 200: ok('Saved metadata only'), 403: error('Invalid token') },
-        },
-      },
       '/api/inventory/{characterId}': {
         get: {
           tags: ['Inventory'],
@@ -214,7 +198,7 @@ const options = {
             required: ['itemId'],
             properties: {
               itemId: { type: 'string' },
-              quantity: { type: 'integer', minimum: 1, maximum: 99, default: 1 },
+              quantity: { type: 'integer', minimum: 1, default: 1 },
               enhanceLevel: { type: 'integer', minimum: 0, default: 0 },
             },
           }),
@@ -287,7 +271,7 @@ const options = {
             properties: {
               characterId: { type: 'integer' },
               itemId: { type: 'string' },
-              quantity: { type: 'integer', minimum: 1, maximum: 99, default: 1 },
+              quantity: { type: 'integer', minimum: 1, maximum: 999, default: 1 },
             },
           }),
           responses: { 200: ok(), 403: error('Not owner') },

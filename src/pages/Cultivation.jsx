@@ -47,8 +47,6 @@ function Cultivation() {
     const {
         gameState,
         setGameState,
-        addExp,
-        cancelPendingSave,
         characterId,
         isServerLoading,
         formatNumber,
@@ -59,25 +57,17 @@ function Cultivation() {
         getInventoryWithDetails,
         getFoundationStatus,
         getInnerDemonStatus,
-        recoverFoundation,
-        suppressInnerDemon,
-        craftPill,
-        addReputation,
         addEvent,
         canBreakthrough,
-        attemptBreakthrough,
-        saveToServer,
     } = useGame();
 
-    const { player, foundation, innerDemon, reputation, alchemy, stats, events = [] } = gameState;
+    const { player, foundation, innerDemon, reputation, alchemy, events = [] } = gameState;
     const isMeditating = Boolean(gameState.meditation?.isMeditating);
 
     // Nhật ký hoạt động
     const [activityLog, setActivityLog] = useState([]);
 
     // Trạng thái tu luyện
-    const [clickCount, setClickCount] = useState(0);
-
     // Modal luyện đan
     const [showAlchemyModal, setShowAlchemyModal] = useState(false);
     // Modal độ kiếp
@@ -170,9 +160,16 @@ function Cultivation() {
         setIsBreakingThrough(true);
         let result;
 
+        if (!characterId) {
+            result = { success: false, message: "Khong tim thay nhan vat dang online." };
+            setIsBreakingThrough(false);
+            setBreakthroughResult(result);
+            addLog(`<span class="text-danger">${result.message}</span>`, "danger");
+            return;
+        }
+
         if (characterId) {
             try {
-                cancelPendingSave();
                 result = await cultivationApi.breakthrough(characterId, usePillForBreakthrough);
                 await loadFromServer();
             } catch (error) {
@@ -180,22 +177,17 @@ function Cultivation() {
             } finally {
                 setIsBreakingThrough(false);
             }
-        } else {
-            result = attemptBreakthrough(usePillForBreakthrough);
-            setIsBreakingThrough(false);
         }
 
         setBreakthroughResult(result);
         if (result.success) {
             addLog(`<span class="text-success">${result.message}</span>`, "success");
             addEvent("success", result.message);
-            saveToServer();
         } else {
             addLog(`<span class="text-danger">${result.message}</span>`, "danger");
             addEvent("danger", result.message);
-            saveToServer();
         }
-    }, [attemptBreakthrough, cancelPendingSave, characterId, usePillForBreakthrough, loadFromServer, addLog, addEvent, saveToServer]);
+    }, [characterId, usePillForBreakthrough, loadFromServer, addLog, addEvent]);
 
     const scheduleCultivationFlush = useCallback((delayMs = 250) => {
         if (cultivationFlushTimerRef.current) {
@@ -218,7 +210,6 @@ function Cultivation() {
         cultivationFlushInFlightRef.current = true;
 
         try {
-            cancelPendingSave();
             const result = await cultivationApi.cultivateBatch(characterId, ticks, "manual");
             if (result.progress) {
                 setGameState((prev) => ({
@@ -233,7 +224,6 @@ function Cultivation() {
             }
 
             const appliedTicks = result.ticks || ticks;
-            setClickCount((prev) => prev + appliedTicks);
             addLog(
                 `Bạn đã tu luyện <span class="text-primary">${appliedTicks} lần</span>, hấp thụ <span class="text-primary">${result.expGain} Linh Khí</span>.`,
                 "primary"
@@ -247,7 +237,7 @@ function Cultivation() {
                 scheduleCultivationFlush(50);
             }
         }
-    }, [addLog, cancelPendingSave, characterId, scheduleCultivationFlush, setGameState]);
+    }, [addLog, characterId, scheduleCultivationFlush, setGameState]);
 
     useEffect(() => {
         flushCultivationBatchRef.current = flushCultivationBatch;
@@ -313,52 +303,33 @@ function Cultivation() {
 
     // Xử lý click tu luyện (thủ công)
     const handleCultivateClick = useCallback(async () => {
-        // Tính bonus từ căn cơ
-        const foundationStatus = getFoundationStatus();
-        let expMultiplier = 1;
-        if (foundationStatus.label === "Vững Chắc") expMultiplier = 1.05;
-        else if (foundationStatus.label === "Lung Lay") expMultiplier = 0.95;
-        else if (foundationStatus.label === "Rất Yếu") expMultiplier = 0.85;
-
-        const baseExp = Math.floor(Math.random() * 5) + 3; // 3-7 EXP mỗi click
-        let expGain = Math.floor(baseExp * expMultiplier);
-        if (characterId) {
-            pendingCultivationTicksRef.current = Math.min(100, pendingCultivationTicksRef.current + 1);
-            if (!cultivationFlushInFlightRef.current) {
-                scheduleCultivationFlush(pendingCultivationTicksRef.current >= 10 ? 0 : 250);
-            }
+        if (!characterId) {
+            addLog(`<span class="text-danger">Khong tim thay nhan vat dang online.</span>`, "danger");
             return;
-        } else {
-            addExp(expGain);
-        }
-        setClickCount((prev) => prev + 1);
-
-        // Thêm điểm danh vọng mỗi 10 click
-        if (!characterId && (clickCount + 1) % 10 === 0) {
-            addReputation(1, "cultivation");
         }
 
-        // Mỗi 5 click thì log + save
-        if ((clickCount + 1) % 5 === 0) {
-            addLog(`Bạn đã hấp thụ <span class="text-primary">${expGain * 5} Linh Khí</span> từ thiên địa.`, "primary");
-            if (!characterId) saveToServer();
+        pendingCultivationTicksRef.current = Math.min(100, pendingCultivationTicksRef.current + 1);
+        if (!cultivationFlushInFlightRef.current) {
+            scheduleCultivationFlush(pendingCultivationTicksRef.current >= 10 ? 0 : 250);
         }
-    }, [addExp, characterId, clickCount, addLog, getFoundationStatus, addReputation, saveToServer, scheduleCultivationFlush]);
+    }, [characterId, addLog, scheduleCultivationFlush]);
 
     // Xử lý thiền định (tự động tu luyện)
     const handleMeditation = useCallback(async () => {
+        if (!characterId) {
+            addLog(`<span class="text-danger">Khong tim thay nhan vat dang online.</span>`, "danger");
+            return;
+        }
+
         if (!isMeditating) {
             if (characterId) {
                 try {
-                    cancelPendingSave();
                     const result = await cultivationApi.startMeditation(characterId);
                     setMeditationState(true, result.startedAt);
                 } catch (error) {
                     addLog(`<span class="text-danger">${error.message || "Không thể bắt đầu thiền định."}</span>`, "danger");
                     return;
                 }
-            } else {
-                setMeditationState(true);
             }
             addLog("Bắt đầu thiền định...", "primary");
             addEvent("info", "Bắt đầu thiền định");
@@ -368,7 +339,6 @@ function Cultivation() {
         addLog("Kết thúc thiền định.", "");
         if (characterId) {
             try {
-                cancelPendingSave();
                 const result = await cultivationApi.finishMeditation(characterId);
                 setMeditationState(false);
                 addLog(`<span class="text-success">${result.message}</span>`, "success");
@@ -376,15 +346,12 @@ function Cultivation() {
             } catch (error) {
                 addLog(`<span class="text-danger">${error.message || "Thiền định thất bại."}</span>`, "danger");
             }
-        } else {
-            setMeditationState(false);
-            saveToServer();
         }
-    }, [cancelPendingSave, characterId, isMeditating, addLog, addEvent, loadFromServer, saveToServer, setMeditationState]);
+    }, [characterId, isMeditating, addLog, addEvent, loadFromServer, setMeditationState]);
 
     // Auto tu luyện khi thiền định
     useEffect(() => {
-        if (!isMeditating) return;
+        if (!isMeditating || !characterId) return;
 
         const interval = setInterval(() => {
             if (characterId) {
@@ -394,42 +361,14 @@ function Cultivation() {
                 }
                 return;
             }
-
-            const expGain = (Math.floor(Math.random() * 3) + 1) * stats.cultivationSpeed.toFixed(1);
-            triggerCultivationPulse();
-            addExp(expGain);
-
-            if (Math.random() < 0.2) {
-                recoverFoundation(1);
-            }
-
-            if (Math.random() < 0.1 && innerDemon.value > 0) {
-                suppressInnerDemon(1);
-            }
-
-            // Random event
-            if (Math.random() < 0.1) {
-                addLog(
-                    `Tâm cảnh ổn định, bạn nhận được <span class="text-success">+${
-                        expGain * 2 * stats.cultivationSpeed.toFixed(1)
-                    } Linh Lực</span> bonus!`,
-                    "success"
-                );
-                addExp(expGain * 2 * stats.cultivationSpeed.toFixed(1));
-            }
         }, 1000);
 
         return () => clearInterval(interval);
     }, [
         isMeditating,
         characterId,
-        addExp,
         addLog,
         triggerCultivationPulse,
-        recoverFoundation,
-        suppressInnerDemon,
-        innerDemon.value,
-        stats.cultivationSpeed,
     ]);
 
     // Xử lý luyện đan
@@ -438,14 +377,13 @@ function Cultivation() {
             let result;
             if (characterId) {
                 try {
-                    cancelPendingSave();
                     result = await alchemyApi.craft(characterId, recipeId);
                     await loadFromServer();
                 } catch (error) {
                     result = { success: false, message: error.message || "Luyện đan thất bại!" };
                 }
             } else {
-                result = craftPill(recipeId);
+                result = { success: false, message: "Khong tim thay nhan vat dang online." };
             }
 
             showResultToast(result, "Luyện đan hoàn tất");
@@ -454,9 +392,8 @@ function Cultivation() {
             } else {
                 addLog(`<span class="text-danger">Luyện đan thất bại!</span> ${result.message}`, "danger");
             }
-            if (!characterId) saveToServer();
         },
-        [cancelPendingSave, characterId, craftPill, addLog, ALCHEMY_RECIPES, loadFromServer, saveToServer]
+        [characterId, addLog, ALCHEMY_RECIPES, loadFromServer]
     );
 
     // Tính toán tiến độ
@@ -473,7 +410,6 @@ function Cultivation() {
 
     // Lấy inventory
     const inventory = getInventoryWithDetails();
-    const inventoryCount = inventory.reduce((sum, item) => sum + item.quantity, 0);
 
     return (
         <div className='cultivation-page'>
@@ -672,18 +608,18 @@ function Cultivation() {
                         <p className='stat-hint'>Tu luyện, khám phá, quest tăng danh vọng</p>
                     </div>
 
-                    <Link to='/inventory' className='inventory-link glass-panel'>
+                    {/* <Link to='/inventory' className='inventory-link glass-panel'>
                         <div className='inventory-link-content'>
                             <div className='inventory-icon'>
                                 <span className='material-symbols-outlined'>backpack</span>
                             </div>
                             <div>
                                 <p className='inventory-title'>Túi Đồ</p>
-                                <p className='inventory-count'>{inventoryCount}/50 vật phẩm</p>
+                                <p className='inventory-count'>{inventoryCount} vật phẩm</p>
                             </div>
                         </div>
                         <span className='material-symbols-outlined chevron'>chevron_right</span>
-                    </Link>
+                    </Link> */}
                 </aside>
             </div>
 

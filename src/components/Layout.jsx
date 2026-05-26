@@ -44,7 +44,7 @@ function Layout() {
           <div className="header-actions">
             {/* User info */}
             <div className="user-info">
-              <span className="user-name">{user?.username || 'Đạo Hữu'}</span>
+              <span className="user-name">{user?.username || 'Vô Danh'}</span>
             </div>
 
             <button className="notification-btn">

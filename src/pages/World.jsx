@@ -34,18 +34,12 @@ const REFRESH_COST = 5000;
 function World() {
   const {
     gameState,
-    cancelPendingSave,
     characterId,
-    setGameState,
     formatNumber,
     loadFromServer,
     REALMS,
     WORLD_ZONES,
-    exploreLocation,
-    claimQuestReward,
     getInventoryWithDetails,
-    addEvent,
-    saveToServer,
   } = useGame();
 
   const { player, stats, exploration, quests, events, resources } = gameState;
@@ -58,11 +52,16 @@ function World() {
   const isExploring = exploringZoneId !== null;
 
   // Daily exploration reset is handled server-side in mapServerToGameState
-  // No localStorage needed
 
   // Xử lý khám phá với zone mới
   const handleExplore = useCallback((zoneId) => {
     if (exploringZoneId) return;
+
+    if (!characterId) {
+      setNotification({ success: false, message: 'Khong tim thay nhan vat dang online.' });
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
 
     setExploringZoneId(zoneId);
 
@@ -70,29 +69,10 @@ function World() {
       let result;
       try {
         if (characterId) {
-          cancelPendingSave();
           result = await worldApi.explore(characterId, zoneId);
-          if (result.success) {
-            setGameState(prev => ({
-              ...prev,
-              baseStats: {
-                ...prev.baseStats,
-                hp: Math.max(0, prev.baseStats.hp - (result.hpLoss || 0)),
-              },
-              stats: {
-                ...prev.stats,
-                hp: result.hp ?? Math.max(0, prev.stats.hp - (result.hpLoss || 0)),
-              },
-              exploration: {
-                ...prev.exploration,
-                explorationCount: result.explorationCount ?? prev.exploration.explorationCount + 1,
-              },
-            }));
-          }
           await loadFromServer();
         } else {
-          result = exploreLocation(zoneId);
-          saveToServer();
+          result = { success: false, message: 'Khong tim thay nhan vat dang online.' };
         }
       } catch (error) {
         result = { success: false, message: error.message || 'Không thể khám phá khu vực.' };
@@ -102,7 +82,7 @@ function World() {
       setExploringZoneId(null);
       setTimeout(() => setNotification(null), 4000);
     }, 1000);
-  }, [cancelPendingSave, characterId, exploringZoneId, exploreLocation, loadFromServer, saveToServer, setGameState]);
+  }, [characterId, exploringZoneId, loadFromServer]);
 
   const handleRefreshExploration = useCallback(async () => {
     if (resources.spiritStones < REFRESH_COST) {
@@ -111,9 +91,14 @@ function World() {
       return;
     }
 
+    if (!characterId) {
+      setNotification({ success: false, message: 'Khong tim thay nhan vat dang online.' });
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+
     if (characterId) {
       try {
-        cancelPendingSave();
         const result = await worldApi.refreshExploration(characterId);
         await loadFromServer();
         setNotification({ success: true, message: result.message });
@@ -125,65 +110,25 @@ function World() {
       }
       return;
     }
-
-    setGameState(prev => ({
-      ...prev,
-      resources: {
-        ...prev.resources,
-        spiritStones: prev.resources.spiritStones - REFRESH_COST,
-      },
-      exploration: {
-        ...prev.exploration,
-        explorationCount: 0,
-      },
-    }));
-
-    addEvent('info', `Đã làm mới lượt khám phá! -${formatNumber(REFRESH_COST)} Linh Thạch`);
-    setNotification({ success: true, message: `Đã làm mới lượt khám phá! -${formatNumber(REFRESH_COST)} Linh Thạch` });
-    setShowRefreshModal(false);
-    saveToServer();
-    setTimeout(() => setNotification(null), 3000);
-  }, [resources.spiritStones, characterId, cancelPendingSave, loadFromServer, setGameState, addEvent, formatNumber, saveToServer]);
+  }, [resources.spiritStones, characterId, loadFromServer, formatNumber]);
 
   // Xử lý nhận thưởng quest
   const handleClaimQuest = useCallback(async () => {
     let result;
     if (characterId) {
       try {
-        cancelPendingSave();
         result = await questApi.claimReward(characterId);
         await loadFromServer();
       } catch (error) {
         result = { success: false, message: error.message || 'Không thể nhận thưởng quest.' };
       }
     } else {
-      result = claimQuestReward();
-      saveToServer();
+      result = { success: false, message: 'Khong tim thay nhan vat dang online.' };
     }
     setNotification(result);
     setTimeout(() => setNotification(null), 3000);
-  }, [cancelPendingSave, characterId, claimQuestReward, loadFromServer, saveToServer]);
+  }, [characterId, loadFromServer]);
 
-  // Xử lý thiền định
-  /*
-  const handleMeditate = useCallback(async () => {
-    let result;
-    if (characterId) {
-      try {
-        cancelPendingSave();
-        result = await cultivationApi.meditate(characterId);
-        await loadFromServer();
-      } catch (error) {
-        result = { success: false, message: error.message || 'Không thể thiền định.' };
-      }
-    } else {
-      result = meditate();
-      saveToServer();
-    }
-    setNotification(result);
-    setTimeout(() => setNotification(null), 3000);
-  }, [cancelPendingSave, characterId, loadFromServer, meditate, saveToServer]);
-  */
 
   // Kiểm tra có thể vào zone không
   const canEnterZone = (zone) => {

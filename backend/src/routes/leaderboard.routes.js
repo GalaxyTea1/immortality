@@ -1,6 +1,11 @@
 import express from "express";
 import { query } from "../db/index.js";
 import { fail, ok } from "../http/response.js";
+import {
+    COMBAT_POWER_LEVEL_STEP,
+    COMBAT_POWER_REALM_STEP,
+    COMBAT_POWER_STAT_WEIGHT,
+} from "../../../shared/data/combatPower.js";
 
 const router = express.Router();
 
@@ -16,6 +21,13 @@ const EQUIPMENT_BONUS_CTE = `equipment_bonus AS (
   GROUP BY e.character_id
 )`;
 
+const EFFECTIVE_STAT_SUM_SQL = `(
+  COALESCE(c.attack, 0) + COALESCE(eb.bonus_attack, 0) +
+  COALESCE(c.defense, 0) + COALESCE(eb.bonus_defense, 0) +
+  COALESCE(c.spirit, 0) + COALESCE(eb.bonus_spirit, 0) +
+  COALESCE(c.agility, 0) + COALESCE(eb.bonus_agility, 0)
+)`;
+
 const EFFECTIVE_CHARACTER_SELECT = `
   SELECT
     c.id,
@@ -28,14 +40,9 @@ const EFFECTIVE_CHARACTER_SELECT = `
     (COALESCE(c.spirit, 0) + COALESCE(eb.bonus_spirit, 0)) AS spirit,
     (COALESCE(c.agility, 0) + COALESCE(eb.bonus_agility, 0)) AS agility,
     ROUND(
-      (
-        COALESCE(c.attack, 0) + COALESCE(eb.bonus_attack, 0) +
-        COALESCE(c.defense, 0) + COALESCE(eb.bonus_defense, 0) +
-        COALESCE(c.spirit, 0) + COALESCE(eb.bonus_spirit, 0) +
-        COALESCE(c.agility, 0) + COALESCE(eb.bonus_agility, 0)
-      ) *
-      (COALESCE(c.realm_index, 0) + 1) *
-      COALESCE(c.level, 1)
+      (GREATEST(COALESCE(c.realm_index, 0), 0) * ${COMBAT_POWER_REALM_STEP}) +
+      (GREATEST(COALESCE(c.level, 1), 1) * ${COMBAT_POWER_LEVEL_STEP}) +
+      (${EFFECTIVE_STAT_SUM_SQL} * ${COMBAT_POWER_STAT_WEIGHT})
     ) AS power,
     c.reputation_points,
     c.reputation_title,

@@ -10,6 +10,7 @@ import {
   calculateExpProgress,
   getReputationTitle,
 } from '../backend/src/domain/gameCatalog.js';
+import { calculateCombatPower } from '../shared/data/combatPower.js';
 
 test('validates inventory entries against known item definitions', () => {
   assert.equal(assertValidInventoryEntry({ itemId: 'thao_duoc' }).type, 'material');
@@ -80,4 +81,13 @@ test('uses the shared reputation catalog shape for fallback lookups', () => {
   assert.equal(title.level, 3);
   assert.equal(title.title, title.vietnm);
   assert.equal(title.globalnm, 'Known Cultivator');
+});
+
+test('calculates combat power with realm floors above previous realm peak', () => {
+  const sharedStats = { attack: 10, defense: 10, spirit: 10, agility: 5 };
+  const nascentSoulPeak = calculateCombatPower({ ...sharedStats, realmIndex: 3, level: 9 });
+  const soulFormationEntry = calculateCombatPower({ ...sharedStats, realmIndex: 4, level: 1 });
+
+  assert.ok(soulFormationEntry > nascentSoulPeak);
+  assert.equal(calculateCombatPower({ realmIndex: 0, level: 1 }), 100000);
 });

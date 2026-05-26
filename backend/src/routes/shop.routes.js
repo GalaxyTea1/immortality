@@ -7,6 +7,7 @@ import { gameplayLimiter } from '../middleware/rateLimit.js';
 import { fail, failFromError, ok } from '../http/response.js';
 
 const router = express.Router();
+const MAX_BUY_QUANTITY = 999;
 
 const requireOwnedBodyCharacter = async (req, res) => {
     const { characterId } = req.body;
@@ -47,8 +48,9 @@ router.post('/buy', authMiddleware, gameplayLimiter, async (req, res) => {
             return fail(res, 400, 'Missing itemId');
         }
 
-        if (quantity < 1 || quantity > 99) {
-            return fail(res, 400, 'Invalid quantity (1-99)');
+        const buyQuantity = Number(quantity);
+        if (!Number.isInteger(buyQuantity) || buyQuantity < 1 || buyQuantity > MAX_BUY_QUANTITY) {
+            return fail(res, 400, `Invalid quantity (1-${MAX_BUY_QUANTITY})`);
         }
 
         const shopItem = await findShopCatalogItemFromDb(itemId);
@@ -57,7 +59,7 @@ router.post('/buy', authMiddleware, gameplayLimiter, async (req, res) => {
         }
 
         const result = await withTransaction(async (client) => {
-            const totalCost = shopItem.price * quantity;
+            const totalCost = shopItem.price * buyQuantity;
             const charResult = await client.query(
                 'SELECT spirit_stones FROM characters WHERE id = $1 FOR UPDATE',
                 [characterId]
@@ -89,16 +91,16 @@ router.post('/buy', authMiddleware, gameplayLimiter, async (req, res) => {
                  VALUES ($1, $2, $3, 0)
                  ON CONFLICT (character_id, item_id, enhance_level)
                  DO UPDATE SET quantity = inventory.quantity + $3`,
-                [characterId, itemId, quantity]
+                [characterId, itemId, buyQuantity]
             );
 
             return {
-                message: `Successfully purchased ${quantity}x ${shopItem.name}!`,
+                message: `Successfully purchased ${buyQuantity}x ${shopItem.name}!`,
                 itemPurchased: {
                     id: itemId,
                     name: shopItem.name,
                     itemId: shopItem.itemId,
-                    quantity,
+                    quantity: buyQuantity,
                     totalCost
                 }
             };

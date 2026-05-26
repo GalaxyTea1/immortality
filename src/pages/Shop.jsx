@@ -41,7 +41,9 @@ const normalizeShopItem = (item) => {
     };
 };
 
-const clampQuantity = (value, max = 99) => {
+const MAX_BUY_QUANTITY = 999;
+
+const clampQuantity = (value, max = MAX_BUY_QUANTITY) => {
     const numberValue = Number(value);
     if (!Number.isFinite(numberValue)) return 1;
     return Math.min(Math.max(1, Math.floor(numberValue)), max);
@@ -49,12 +51,12 @@ const clampQuantity = (value, max = 99) => {
 
 const getMaxBuyQuantity = (item, spiritStones) => {
     const price = Number(item.price) || 0;
-    if (price <= 0) return 99;
-    return Math.max(1, Math.min(99, Math.floor(spiritStones / price)));
+    if (price <= 0) return MAX_BUY_QUANTITY;
+    return Math.max(1, Math.min(MAX_BUY_QUANTITY, Math.floor(spiritStones / price)));
 };
 
 function Shop() {
-    const { gameState, buyItem, cancelPendingSave, characterId, formatNumber, REALMS, saveToServer } = useGame();
+    const { gameState, characterId, formatNumber, loadFromServer, REALMS } = useGame();
     const { player, resources } = gameState;
 
     // State
@@ -121,25 +123,19 @@ function Shop() {
 
     // Handle buy
     const handleBuy = async (item) => {
-        const qty = clampQuantity(buyQuantity[item.id] || 1);
+        const qty = clampQuantity(buyQuantity[item.id] || 1, getMaxBuyQuantity(item, resources.spiritStones));
         setBuyingItemId(item.id);
 
         try {
             if (characterId) {
-                cancelPendingSave();
                 const result = await shopApi.buy(characterId, item.itemId, qty);
-                const localResult = buyItem(item.itemId, item.price, qty);
-                if (!localResult.success) {
-                    throw new Error(localResult.message || "Local shop update failed");
-                }
+                await loadFromServer();
                 setNotification({
                     success: true,
                     message: result.message || `Mua thành công ${qty}x ${item.name}!`,
                 });
             } else {
-                const result = buyItem(item.itemId, item.price, qty);
-                setNotification(result);
-                if (result.success) saveToServer();
+                throw new Error("Khong tim thay nhan vat dang online.");
             }
 
             setBuyQuantity((prev) => ({ ...prev, [item.id]: 1 }));
@@ -164,7 +160,7 @@ function Shop() {
                     <div className='shop-logo'>
                         <span className='material-symbols-outlined'>temp_preferences_custom</span>
                     </div>
-                    <h1>Spirit Market</h1>
+                    <h1>Linh Thị</h1>
                 </div>
 
                 <div className='shop-header-right'>
@@ -237,11 +233,11 @@ function Shop() {
                 <main className='shop-main'>
                     <div className='shop-main-header'>
                         <div className='main-title'>
-                            <h2>
+                            {/* <h2>
                                 Linh Thị (Marketplace)
                                 <span className='material-symbols-outlined animate-pulse'>auto_awesome</span>
                             </h2>
-                            <p>Mua bán vật phẩm, trợ giúp con đường tu luyện.</p>
+                            <p>Mua bán vật phẩm, trợ giúp con đường tu luyện.</p> */}
                         </div>
                         <div className='currency-cards'>
                             <div className='currency-card'>
