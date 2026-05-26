@@ -38,7 +38,7 @@ const applyCultivationTicks = async (client, characterId, { mode = 'manual', tic
   );
 
   if (characterResult.rows.length === 0) {
-    const error = new Error('Character not found');
+    const error = new Error('Không tìm thấy nhân vật');
     error.status = 404;
     throw error;
   }
@@ -74,8 +74,8 @@ const applyCultivationTicks = async (client, characterId, { mode = 'manual', tic
     expGain,
     progress: nextProgress,
     message: ticks === 1
-      ? `Cultivated successfully! +${expGain} EXP`
-      : `Cultivated ${ticks} times! +${expGain} EXP`,
+      ? `Tu luyện thành công! +${expGain} EXP`
+      : `Tu luyện ${ticks} lần! +${expGain} EXP`,
   };
 };
 
@@ -90,7 +90,7 @@ const applyMeditationTicks = async (client, characterId, ticks) => {
   );
 
   if (characterResult.rows.length === 0) {
-    const error = new Error('Character not found');
+    const error = new Error('Không tìm thấy nhân vật');
     error.status = 404;
     throw error;
   }
@@ -136,7 +136,7 @@ const applyMeditationTicks = async (client, characterId, ticks) => {
     foundationRecovered,
     demonSuppressed,
     progress: nextProgress,
-    message: `Meditation completed! +${expGain} EXP`,
+    message: `Nhận +${expGain} EXP`,
   };
 };
 
@@ -150,10 +150,10 @@ router.post('/:characterId/cultivate', gameplayLimiter, validate(cultivateSchema
     ok(res, result);
   } catch (error) {
     if (error.status) {
-      return failFromError(res, error, 'Error cultivating');
+      return failFromError(res, error, 'Không thể tu luyện');
     }
-    console.error('Error cultivating:', error);
-    fail(res, 500, 'Error cultivating');
+    console.error('Không thể tu luyện:', error);
+    fail(res, 500, 'Không thể tu luyện');
   }
 });
 
@@ -166,10 +166,10 @@ router.post('/:characterId/cultivate/batch', gameplayLimiter, validate(cultivate
     ok(res, result);
   } catch (error) {
     if (error.status) {
-      return failFromError(res, error, 'Error cultivating');
+      return failFromError(res, error, 'Không thể tu luyện');
     }
-    console.error('Error cultivating:', error);
-    fail(res, 500, 'Error cultivating');
+    console.error('Không thể tu luyện:', error);
+    fail(res, 500, 'Không thể tu luyện');
   }
 });
 
@@ -186,13 +186,13 @@ router.post('/:characterId/meditation/start', gameplayLimiter, async (req, res) 
       );
 
       if (active.rows.length === 0) {
-        const error = new Error('Character not found');
+        const error = new Error('Không tìm thấy nhân vật');
         error.status = 404;
         throw error;
       }
 
       if (active.rows[0].meditation_started_at) {
-        const error = new Error('Meditation session already started');
+        const error = new Error('Đang có phiên thiền định');
         error.status = 400;
         throw error;
       }
@@ -207,15 +207,15 @@ router.post('/:characterId/meditation/start', gameplayLimiter, async (req, res) 
 
       return {
         startedAt: updated.rows[0].meditation_started_at,
-        message: 'Meditation session started',
+        message: 'Bắt đầu thiền định',
       };
     });
 
     ok(res, result);
   } catch (error) {
-    if (error.status) return failFromError(res, error, 'Error starting meditation session');
-    console.error('Error starting meditation session:', error);
-    fail(res, 500, 'Error starting meditation session');
+    if (error.status) return failFromError(res, error, 'Không thể bắt đầu thiền định');
+    console.error('Không thể bắt đầu thiền định:', error);
+    fail(res, 500, 'Không thể bắt đầu thiền định');
   }
 });
 
@@ -234,13 +234,13 @@ router.post('/:characterId/meditation/finish', gameplayLimiter, async (req, res)
       );
 
       if (session.rows.length === 0) {
-        const error = new Error('Character not found');
+        const error = new Error('Không tìm thấy nhân vật');
         error.status = 404;
         throw error;
       }
 
       if (!session.rows[0].meditation_started_at) {
-        const error = new Error('No active meditation session');
+        const error = new Error('Không có phiên thiền định đang chạy');
         error.status = 400;
         throw error;
       }
@@ -254,14 +254,14 @@ router.post('/:characterId/meditation/finish', gameplayLimiter, async (req, res)
 
     ok(res, result);
   } catch (error) {
-    if (error.status) return failFromError(res, error, 'Error finishing meditation session');
-    console.error('Error finishing meditation session:', error);
-    fail(res, 500, 'Error finishing meditation session');
+    if (error.status) return failFromError(res, error, 'Không thể kết thúc thiền định');
+    console.error('Không thể kết thúc thiền định:', error);
+    fail(res, 500, 'Không thể kết thúc thiền định');
   }
 });
 
 router.post('/:characterId/meditate', gameplayLimiter, async (_req, res) => {
-  fail(res, 410, 'Meditation HP recovery has been removed. HP recovers over time or by using items.');
+  fail(res, 410, 'Hồi HP bằng thiền định đã được gỡ bỏ. HP hồi theo thời gian hoặc bằng đạo cụ.');
 });
 
 router.post('/:characterId/breakthrough', gameplayLimiter, validate(breakthroughSchema), async (req, res) => {
@@ -279,7 +279,7 @@ router.post('/:characterId/breakthrough', gameplayLimiter, validate(breakthrough
       );
 
       if (characterResult.rows.length === 0) {
-        const error = new Error('Character not found');
+        const error = new Error('Không tìm thấy nhân vật');
         error.status = 404;
         throw error;
       }
@@ -289,25 +289,25 @@ router.post('/:characterId/breakthrough', gameplayLimiter, validate(breakthrough
       const tribInfo = TRIBULATION_REQUIREMENTS[character.realm_index];
 
       if (!realm || !tribInfo) {
-        const error = new Error('No breakthrough information for this realm');
+        const error = new Error('Không có thông tin độ kiếp cho cảnh giới này');
         error.status = 400;
         throw error;
       }
 
       if (character.level < realm.levels || Number(character.exp) < Number(character.max_exp) * 0.9) {
-        const error = new Error('Breakthrough requirements are not met');
+        const error = new Error('Chưa đủ điều kiện độ kiếp');
         error.status = 400;
         throw error;
       }
 
       if (character.realm_index >= REALMS.length - 1) {
-        const error = new Error('Highest realm already reached');
+        const error = new Error('Đã đạt cảnh giới cao nhất');
         error.status = 400;
         throw error;
       }
 
       if (Number(character.spirit_stones) < tribInfo.spiritStonesCost) {
-        const error = new Error('Not enough Spirit Stones');
+        const error = new Error('Không đủ linh thạch');
         error.status = 400;
         error.details = {
           required: tribInfo.spiritStonesCost,
@@ -361,7 +361,7 @@ router.post('/:characterId/breakthrough', gameplayLimiter, validate(breakthrough
           pillUsed,
           successRate,
           newRealm: REALMS[nextRealmIndex].name,
-          message: `Breakthrough successful! New realm: ${REALMS[nextRealmIndex].name}`,
+          message: `Độ kiếp thành công! Cảnh giới mới: ${REALMS[nextRealmIndex].name}`,
         };
       }
 
@@ -383,17 +383,17 @@ router.post('/:characterId/breakthrough', gameplayLimiter, validate(breakthrough
         success: false,
         pillUsed,
         successRate,
-        message: `Breakthrough failed! Lost ${Math.floor(penalty.exp * 100)}% EXP and gained ${penalty.innerDemon} Inner Demon.`,
+        message: `Độ kiếp thất bại! Mất ${Math.floor(penalty.exp * 100)}% EXP và tăng ${penalty.innerDemon} Tâm Ma.`,
       };
     });
 
     ok(res, result);
   } catch (error) {
     if (error.status) {
-      return failFromError(res, error, 'Error during breakthrough');
+      return failFromError(res, error, 'Không thể độ kiếp');
     }
-    console.error('Error during breakthrough:', error);
-    fail(res, 500, 'Error during breakthrough');
+    console.error('Không thể độ kiếp:', error);
+    fail(res, 500, 'Không thể độ kiếp');
   }
 });
 

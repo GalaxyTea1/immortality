@@ -27,7 +27,7 @@ router.post('/:characterId/explore', gameplayLimiter, validate(exploreSchema), a
     const zone = WORLD_ZONES[zoneId];
 
     if (!zone) {
-      return fail(res, 404, 'Zone not found');
+      return fail(res, 404, 'Không tìm thấy khu vực');
     }
 
     const result = await withTransaction(async (client) => {
@@ -37,7 +37,7 @@ router.post('/:characterId/explore', gameplayLimiter, validate(exploreSchema), a
       );
 
       if (characterResult.rows.length === 0) {
-        const error = new Error('Character not found');
+        const error = new Error('Không tìm thấy nhân vật');
         error.status = 404;
         throw error;
       }
@@ -62,20 +62,20 @@ router.post('/:characterId/explore', gameplayLimiter, validate(exploreSchema), a
       const explorationHpCost = 1;
 
       if (currentHp <= explorationHpCost) {
-        const error = new Error('Not enough HP to explore');
+        const error = new Error('Không đủ HP để thám hiểm');
         error.status = 400;
         error.details = { requiredHp: explorationHpCost + 1, currentHp };
         throw error;
       }
 
       if (currentCount >= 10) {
-        const error = new Error('No exploration attempts left today');
+        const error = new Error('Đã hết lượt thám hiểm hôm nay');
         error.status = 400;
         throw error;
       }
 
       if (!canEnterZone(zone, character.realm_index, character.level)) {
-        const error = new Error(`Requires ${REALMS[zone.minRealm].name} level ${zone.minLevel}`);
+        const error = new Error(`Cần ${REALMS[zone.minRealm].name} tầng ${zone.minLevel}`);
         error.status = 400;
         throw error;
       }
@@ -102,7 +102,7 @@ router.post('/:characterId/explore', gameplayLimiter, validate(exploreSchema), a
       }
 
       if (currentHp <= hpLoss) {
-        const error = new Error('Not enough HP to survive this exploration');
+        const error = new Error('Không đủ HP để chịu tổn thất khi thám hiểm');
         error.status = 400;
         error.details = { requiredHp: hpLoss + 1, currentHp };
         throw error;
@@ -146,8 +146,8 @@ router.post('/:characterId/explore', gameplayLimiter, validate(exploreSchema), a
       }
 
       const message = isSafe
-        ? `Explored ${zone.name}: -${hpLoss} HP, +${rewards.exp} EXP, +${rewards.spiritStones} Spirit Stones`
-        : `Encountered danger at ${zone.name}: -${hpLoss} HP, +${rewards.exp} EXP`;
+        ? `Khám phá ${zone.name}: -${hpLoss} HP, +${rewards.exp} EXP, +${rewards.spiritStones} linh thạch`
+        : `Gặp nguy hiểm ${zone.name}: -${hpLoss} HP, +${rewards.exp} EXP`;
 
       await client.query(
         `INSERT INTO event_logs (character_id, event_type, message)
@@ -171,10 +171,10 @@ router.post('/:characterId/explore', gameplayLimiter, validate(exploreSchema), a
     ok(res, result);
   } catch (error) {
     if (error.status) {
-      return failFromError(res, error, 'Error exploring zone');
+      return failFromError(res, error, 'Không thể thám hiểm khu vực');
     }
-    console.error('Error exploring zone:', error);
-    fail(res, 500, 'Error exploring zone');
+    console.error('Không thể thám hiểm khu vực:', error);
+    fail(res, 500, 'Không thể thám hiểm khu vực');
   }
 });
 
@@ -193,13 +193,13 @@ router.post('/:characterId/refresh-exploration', gameplayLimiter, async (req, re
       );
 
       if (characterResult.rows.length === 0) {
-        const error = new Error('Character not found');
+        const error = new Error('Không tìm thấy nhân vật');
         error.status = 404;
         throw error;
       }
 
       if (Number(characterResult.rows[0].spirit_stones) < refreshCost) {
-        const error = new Error('Not enough Spirit Stones');
+        const error = new Error('Không đủ linh thạch');
         error.status = 400;
         error.details = { required: refreshCost, current: Number(characterResult.rows[0].spirit_stones) };
         throw error;
@@ -217,22 +217,22 @@ router.post('/:characterId/refresh-exploration', gameplayLimiter, async (req, re
       await client.query(
         `INSERT INTO event_logs (character_id, event_type, message)
          VALUES ($1, 'info', $2)`,
-        [characterId, `Refreshed exploration attempts for ${refreshCost} Spirit Stones`]
+        [characterId, `Làm mới lượt thám hiểm với ${refreshCost} linh thạch`]
       );
 
       return {
         success: true,
         cost: refreshCost,
         explorationCount: 0,
-        message: `Exploration attempts refreshed! -${refreshCost} Spirit Stones`,
+        message: `Đã làm mới lượt thám hiểm! -${refreshCost} linh thạch`,
       };
     });
 
     ok(res, result);
   } catch (error) {
-    if (error.status) return failFromError(res, error, 'Error refreshing exploration attempts');
-    console.error('Error refreshing exploration attempts:', error);
-    fail(res, 500, 'Error refreshing exploration attempts');
+    if (error.status) return failFromError(res, error, 'Không thể làm mới lượt thám hiểm');
+    console.error('Không thể làm mới lượt thám hiểm:', error);
+    fail(res, 500, 'Không thể làm mới lượt thám hiểm');
   }
 });
 

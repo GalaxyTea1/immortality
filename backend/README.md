@@ -23,16 +23,19 @@ JWT_EXPIRES_IN=7d
 
 ## Database
 
+Recommended setup for a new local database:
+
 ```bash
 createdb immortality_db
-psql -U postgres -d immortality_db -f src/db/schema.sql
+npm run db:setup
 ```
 
-If `psql` configured user/database local:
+`db:setup` runs all migrations in order and seeds item/shop/reputation catalogs.
+
+If you only need to rebuild from the full schema snapshot:
 
 ```bash
 npm run db:schema
-npm run db:migrate
 ```
 
 ## Run server

@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS characters (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    name VARCHAR(100) NOT NULL DEFAULT 'Daoist',
+    name VARCHAR(100) NOT NULL DEFAULT 'Đạo Hữu',
     realm_index INTEGER DEFAULT 0,
     level INTEGER DEFAULT 1,
     exp BIGINT DEFAULT 0,
@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS characters (
     inner_demon_max INTEGER DEFAULT 100,
     reputation_points INTEGER DEFAULT 0,
     reputation_level INTEGER DEFAULT 1,
-    reputation_title VARCHAR(100) DEFAULT 'Nameless',
+    reputation_title VARCHAR(100) DEFAULT 'Vô Danh',
     alchemy_level INTEGER DEFAULT 1,
     alchemy_exp INTEGER DEFAULT 0,
     exploration_count INTEGER DEFAULT 0,

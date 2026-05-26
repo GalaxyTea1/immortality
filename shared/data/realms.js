@@ -1,4 +1,4 @@
-// Định nghĩa các cảnh giới tu luyện
+// Shared cultivation realms and reputation titles.
 export const REALMS = [
     { name: "Luyện Khí", levels: 9, expPerLevel: 100 },
     { name: "Trúc Cơ", levels: 9, expPerLevel: 500 },
@@ -7,21 +7,17 @@ export const REALMS = [
     { name: "Hóa Thần", levels: 9, expPerLevel: 50000 },
 ];
 
-// Yêu cầu độ kiếp cho mỗi cảnh giới
-// Khi đạt tầng 9 và max EXP, cần đột phá để lên cảnh giới mới
 export const TRIBULATION_REQUIREMENTS = {
     0: {
-        // Luyện Khí -> Trúc Cơ
         name: "Trúc Cơ Chi Kiếp",
         baseSuccessRate: 0.7,
-        requiredPill: "truc_co_dan", // Đan dược tăng tỉ lệ thành công
-        pillBonus: 0.2, // +20% khi dùng đan
+        requiredPill: "truc_co_dan",
+        pillBonus: 0.2,
         spiritStonesCost: 500,
         pillName: "Trúc Cơ Đan",
-        failurePenalty: { exp: 0.2, innerDemon: 10 }, // Mất 50% EXP, +10 tâm ma
+        failurePenalty: { exp: 0.2, innerDemon: 10 },
     },
     1: {
-        // Trúc Cơ -> Kim Đan
         name: "Kim Đan Chi Kiếp",
         baseSuccessRate: 0.5,
         requiredPill: "kim_dan_dan",
@@ -31,7 +27,6 @@ export const TRIBULATION_REQUIREMENTS = {
         failurePenalty: { exp: 0.3, innerDemon: 20 },
     },
     2: {
-        // Kim Đan -> Nguyên Anh
         name: "Nguyên Anh Chi Kiếp",
         baseSuccessRate: 0.3,
         requiredPill: "nguyen_anh_dan",
@@ -41,18 +36,16 @@ export const TRIBULATION_REQUIREMENTS = {
         failurePenalty: { exp: 0.4, innerDemon: 30 },
     },
     3: {
-        // Nguyên Anh -> Hóa Thần
         name: "Hóa Thần Chi Kiếp",
         baseSuccessRate: 0.15,
         requiredPill: "hoa_than_dan",
         pillBonus: 0.35,
         spiritStonesCost: 50000,
-        pillName: "Hoá Thần Đan",
+        pillName: "Hóa Thần Đan",
         failurePenalty: { exp: 0.5, innerDemon: 50 },
     },
 };
 
-// Bảng danh hiệu
 const REPUTATION_TITLE_ROWS = [
     { level: 1, minPoints: 0, title: "Vô Danh", color: "gray" },
     { level: 2, minPoints: 100, title: "Sơ Nhập Giang Hồ", color: "white" },

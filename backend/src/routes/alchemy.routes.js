@@ -19,7 +19,7 @@ router.post("/:characterId/craft", gameplayLimiter, validate(craftPillSchema), a
         const recipe = ALCHEMY_RECIPES[recipeId];
 
         if (!recipe) {
-            return fail(res, 404, "Recipe not found");
+            return fail(res, 404, "Không tìm thấy công thức");
         }
 
         const result = await withTransaction(async (client) => {
@@ -32,14 +32,14 @@ router.post("/:characterId/craft", gameplayLimiter, validate(craftPillSchema), a
             );
 
             if (characterResult.rows.length === 0) {
-                const error = new Error("Character not found");
+                const error = new Error("Không tìm thấy nhân vật");
                 error.status = 404;
                 throw error;
             }
 
             const character = characterResult.rows[0];
             if (Number(character.alchemy_level) < recipe.minLevel) {
-                const error = new Error(`Requires alchemy level ${recipe.minLevel}`);
+                const error = new Error(`Cần luyện đan cấp ${recipe.minLevel}`);
                 error.status = 400;
                 throw error;
             }
@@ -55,7 +55,7 @@ router.post("/:characterId/craft", gameplayLimiter, validate(craftPillSchema), a
 
                 if (materialResult.rows.length === 0 || materialResult.rows[0].quantity < material.quantity) {
                     const itemName = materialDef.name || material.itemId;
-                    const error = new Error(`Missing ${itemName}`);
+                    const error = new Error(`Thiếu ${itemName}`);
                     error.status = 400;
                     throw error;
                 }
@@ -87,13 +87,13 @@ router.post("/:characterId/craft", gameplayLimiter, validate(craftPillSchema), a
                 await client.query(
                     `INSERT INTO event_logs (character_id, event_type, message)
            VALUES ($1, 'danger', $2)`,
-                    [characterId, "Alchemy failed. Inner Demon increased."]
+                    [characterId, "Luyện đan thất bại. Tâm Ma tăng lên."]
                 );
 
                 return {
                     success: false,
                     finalRate,
-                    message: "Alchemy failed",
+                    message: "Luyện đan thất bại",
                 };
             }
 
@@ -129,7 +129,7 @@ router.post("/:characterId/craft", gameplayLimiter, validate(craftPillSchema), a
             await client.query(
                 `INSERT INTO event_logs (character_id, event_type, message)
          VALUES ($1, 'success', $2)`,
-                [characterId, `Crafted ${outputName}`]
+                [characterId, `Luyện thành ${outputName}`]
             );
 
             const questUpdate = await trackQuestProgress(characterId, "craft", client);
@@ -148,17 +148,17 @@ router.post("/:characterId/craft", gameplayLimiter, validate(craftPillSchema), a
                     color: title.color,
                 },
                 questUpdate,
-                message: `Crafted ${recipe.output.quantity}x ${outputName}`,
+                message: `Luyện thành ${recipe.output.quantity}x ${outputName}`,
             };
         });
 
         ok(res, result);
     } catch (error) {
         if (error.status) {
-            return failFromError(res, error, "Error crafting pill");
+            return failFromError(res, error, "Không thể luyện đan");
         }
-        console.error("Error crafting pill:", error);
-        fail(res, 500, "Error crafting pill");
+        console.error("Không thể luyện đan:", error);
+        fail(res, 500, "Không thể luyện đan");
     }
 });
 

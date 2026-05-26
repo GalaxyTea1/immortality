@@ -51,7 +51,7 @@ const authFetch = async (endpoint, options = {}) => {
         if ((response.status === 401 || response.status === 403) && token) {
             clearToken();
         }
-        throw new Error(data.error?.message || data.error || 'Co loi xay ra');
+        throw new Error(data.error?.message || data.error || 'Có lỗi xảy ra');
     }
 
     if (data && data.success === true && Object.prototype.hasOwnProperty.call(data, 'data')) {
@@ -128,7 +128,7 @@ export const characters = {
             return data;
         } catch (error) {
             // If no character, return null
-            if (error.message.includes('not found') || error.message.includes('Character not found')) {
+            if (error.message.includes('not found') || error.message.includes('Không tìm thấy nhân vật') || error.message.includes('Character not found')) {
                 return null;
             }
             throw error;

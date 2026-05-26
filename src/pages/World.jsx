@@ -58,7 +58,7 @@ function World() {
     if (exploringZoneId) return;
 
     if (!characterId) {
-      setNotification({ success: false, message: 'Khong tim thay nhan vat dang online.' });
+      setNotification({ success: false, message: 'Không tìm thấy nhân vật đang online.' });
       setTimeout(() => setNotification(null), 3000);
       return;
     }
@@ -72,7 +72,7 @@ function World() {
           result = await worldApi.explore(characterId, zoneId);
           await loadFromServer();
         } else {
-          result = { success: false, message: 'Khong tim thay nhan vat dang online.' };
+          result = { success: false, message: 'Không tìm thấy nhân vật đang online.' };
         }
       } catch (error) {
         result = { success: false, message: error.message || 'Không thể khám phá khu vực.' };
@@ -92,7 +92,7 @@ function World() {
     }
 
     if (!characterId) {
-      setNotification({ success: false, message: 'Khong tim thay nhan vat dang online.' });
+      setNotification({ success: false, message: 'Không tìm thấy nhân vật đang online.' });
       setTimeout(() => setNotification(null), 3000);
       return;
     }
@@ -123,7 +123,7 @@ function World() {
         result = { success: false, message: error.message || 'Không thể nhận thưởng quest.' };
       }
     } else {
-      result = { success: false, message: 'Khong tim thay nhan vat dang online.' };
+      result = { success: false, message: 'Không tìm thấy nhân vật đang online.' };
     }
     setNotification(result);
     setTimeout(() => setNotification(null), 3000);

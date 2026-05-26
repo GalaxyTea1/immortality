@@ -22,7 +22,7 @@ export const authMiddleware = async (req, res, next) => {
         );
 
         if (result.rows.length === 0 || !result.rows[0].is_active) {
-            return fail(res, 401, 'Invalid token');
+            return fail(res, 401, 'Token không hợp lệ');
         }
 
         // Attach user info to request
@@ -33,7 +33,7 @@ export const authMiddleware = async (req, res, next) => {
             return fail(res, 401, 'Token expired');
         }
         if (error.name === 'JsonWebTokenError') {
-            return fail(res, 401, 'Invalid token');
+            return fail(res, 401, 'Token không hợp lệ');
         }
         console.error('Auth middleware error:', error);
         fail(res, 500, 'Authentication error');

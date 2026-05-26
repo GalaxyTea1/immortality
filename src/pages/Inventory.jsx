@@ -121,7 +121,7 @@ function Inventory() {
     );
 
     if (!characterId) {
-      showNotification({ success: false, message: 'Khong tim thay nhan vat dang online.' });
+      showNotification({ success: false, message: 'Không tìm thấy nhân vật đang online.' });
       return;
     }
 
@@ -161,7 +161,7 @@ function Inventory() {
       return;
     }
 
-    showNotification({ success: false, message: 'Vat pham nay khong the su dung.' });
+    showNotification({ success: false, message: 'Vật phẩm này không thể sử dụng.' });
   }, [characterId, getInventoryWithDetails, loadFromServer, showNotification]);
 
   // Xử lý tháo trang bị
@@ -181,7 +181,7 @@ function Inventory() {
       return;
     }
 
-    showNotification({ success: false, message: 'Khong tim thay nhan vat dang online.' });
+    showNotification({ success: false, message: 'Không tìm thấy nhân vật đang online.' });
     setSelectedSlot(null);
   }, [characterId, loadFromServer, showNotification]);
 
@@ -204,7 +204,7 @@ function Inventory() {
       return;
     }
 
-    showNotification({ success: false, message: 'Khong tim thay nhan vat dang online.' });
+    showNotification({ success: false, message: 'Không tìm thấy nhân vật đang online.' });
   }, [characterId, loadFromServer, showNotification]);
 
   // Tính toán tiến độ tu luyện

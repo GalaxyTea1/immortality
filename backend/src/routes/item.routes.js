@@ -12,7 +12,7 @@ router.get('/', async (req, res) => {
     ok(res, { items });
   } catch (error) {
     console.error('Error fetching item catalog:', error);
-    fail(res, 500, 'Error fetching item catalog');
+    fail(res, 500, 'Không thể tải danh mục vật phẩm');
   }
 });
 
@@ -21,13 +21,13 @@ router.get('/:itemId', async (req, res) => {
   try {
     const item = await getItemDefinitionFromDb(req.params.itemId);
     if (!item) {
-      return fail(res, 404, 'Item not found');
+      return fail(res, 404, 'Không tìm thấy vật phẩm');
     }
 
     ok(res, { item });
   } catch (error) {
     console.error('Error fetching item detail:', error);
-    fail(res, 500, 'Error fetching item detail');
+    fail(res, 500, 'Không thể tải chi tiết vật phẩm');
   }
 });
 

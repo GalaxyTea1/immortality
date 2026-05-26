@@ -12,13 +12,13 @@ const MAX_BUY_QUANTITY = 999;
 const requireOwnedBodyCharacter = async (req, res) => {
     const { characterId } = req.body;
     if (!characterId) {
-        fail(res, 400, 'Missing characterId');
+        fail(res, 400, 'Thiếu nhân vật');
         return false;
     }
 
     const isOwner = await assertCharacterOwner(req.user.id, characterId);
     if (!isOwner) {
-        fail(res, 403, 'Forbidden character access');
+        fail(res, 403, 'Không có quyền truy cập nhân vật này');
         return false;
     }
 
@@ -32,8 +32,8 @@ router.get('/items', async (req, res) => {
         const items = await listShopCatalogItemsFromDb({ category });
         ok(res, { items });
     } catch (error) {
-        console.error('Error fetching shop items:', error);
-        fail(res, 500, 'Error fetching shop items');
+        console.error('Không thể tải cửa hàng:', error);
+        fail(res, 500, 'Không thể tải cửa hàng');
     }
 });
 
@@ -45,17 +45,17 @@ router.post('/buy', authMiddleware, gameplayLimiter, async (req, res) => {
         if (!(await requireOwnedBodyCharacter(req, res))) return;
 
         if (!itemId) {
-            return fail(res, 400, 'Missing itemId');
+            return fail(res, 400, 'Thiếu vật phẩm');
         }
 
         const buyQuantity = Number(quantity);
         if (!Number.isInteger(buyQuantity) || buyQuantity < 1 || buyQuantity > MAX_BUY_QUANTITY) {
-            return fail(res, 400, `Invalid quantity (1-${MAX_BUY_QUANTITY})`);
+            return fail(res, 400, `Số lượng không hợp lệ (1-${MAX_BUY_QUANTITY})`);
         }
 
         const shopItem = await findShopCatalogItemFromDb(itemId);
         if (!shopItem) {
-            return fail(res, 404, 'Item not found in shop');
+            return fail(res, 404, 'Không tìm thấy vật phẩm trong cửa hàng');
         }
 
         const result = await withTransaction(async (client) => {
@@ -66,13 +66,13 @@ router.post('/buy', authMiddleware, gameplayLimiter, async (req, res) => {
             );
 
             if (charResult.rows.length === 0) {
-                const error = new Error('Character not found');
+                const error = new Error('Không tìm thấy nhân vật');
                 error.status = 404;
                 throw error;
             }
 
             if (charResult.rows[0].spirit_stones < totalCost) {
-                const error = new Error('Not enough Spirit Stones!');
+                const error = new Error('Không đủ linh thạch!');
                 error.status = 400;
                 error.details = {
                     required: totalCost,
@@ -95,7 +95,7 @@ router.post('/buy', authMiddleware, gameplayLimiter, async (req, res) => {
             );
 
             return {
-                message: `Successfully purchased ${buyQuantity}x ${shopItem.name}!`,
+                message: `Mua thành công ${buyQuantity}x ${shopItem.name}!`,
                 itemPurchased: {
                     id: itemId,
                     name: shopItem.name,
@@ -109,10 +109,10 @@ router.post('/buy', authMiddleware, gameplayLimiter, async (req, res) => {
         ok(res, result);
     } catch (error) {
         if (error.status) {
-            return failFromError(res, error, 'Error buying item');
+            return failFromError(res, error, 'Không thể mua vật phẩm');
         }
-        console.error('Error buying item:', error);
-        fail(res, 500, 'Error buying item');
+        console.error('Không thể mua vật phẩm:', error);
+        fail(res, 500, 'Không thể mua vật phẩm');
     }
 });
 
@@ -124,11 +124,11 @@ router.post('/sell', authMiddleware, gameplayLimiter, async (req, res) => {
         if (!(await requireOwnedBodyCharacter(req, res))) return;
 
         if (!itemId) {
-            return fail(res, 400, 'Missing itemId');
+            return fail(res, 400, 'Thiếu vật phẩm');
         }
 
         if (quantity < 1 || quantity > 99) {
-            return fail(res, 400, 'Invalid quantity (1-99)');
+            return fail(res, 400, 'Số lượng không hợp lệ (1-99)');
         }
 
         const result = await withTransaction(async (client) => {
@@ -140,7 +140,7 @@ router.post('/sell', authMiddleware, gameplayLimiter, async (req, res) => {
             );
 
             if (invResult.rows.length === 0 || invResult.rows[0].quantity < quantity) {
-                const error = new Error('Not enough items to sell!');
+                const error = new Error('Không đủ vật phẩm để bán!');
                 error.status = 400;
                 throw error;
             }
@@ -165,7 +165,7 @@ router.post('/sell', authMiddleware, gameplayLimiter, async (req, res) => {
             );
 
             return {
-                message: `Sold successfully! +${totalEarn} Spirit Stones`,
+                message: `Bán thành công! +${totalEarn} linh thạch`,
                 spiritStonesEarned: totalEarn
             };
         });
@@ -173,10 +173,10 @@ router.post('/sell', authMiddleware, gameplayLimiter, async (req, res) => {
         ok(res, result);
     } catch (error) {
         if (error.status) {
-            return failFromError(res, error, 'Error selling item');
+            return failFromError(res, error, 'Không thể bán vật phẩm');
         }
-        console.error('Error selling item:', error);
-        fail(res, 500, 'Error selling item');
+        console.error('Không thể bán vật phẩm:', error);
+        fail(res, 500, 'Không thể bán vật phẩm');
     }
 });
 

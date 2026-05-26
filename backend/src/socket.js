@@ -21,14 +21,14 @@ export function initSocket(httpServer) {
     io.use((socket, next) => {
         const token = socket.handshake.auth.token;
         if (!token) {
-            return next(new Error('Authentication required'));
+            return next(new Error('Cần đăng nhập để kết nối'));
         }
         try {
             const decoded = jwt.verify(token, JWT_SECRET);
             socket.user = decoded; // { userId, username }
             next();
         } catch {
-            next(new Error('Invalid or expired token'));
+            next(new Error('Token không hợp lệ hoặc đã hết hạn'));
         }
     });
 

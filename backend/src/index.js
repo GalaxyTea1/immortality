@@ -89,7 +89,7 @@ app.use('/api/reputation', reputationRoutes);
 
 // 404 Handler
 app.use((req, res) => {
-  fail(res, 404, 'Endpoint not found');
+  fail(res, 404, 'Không tìm thấy endpoint');
 });
 
 // Error Handler
@@ -100,7 +100,7 @@ app.use((err, req, res, next) => {
     ...getRequestLogContext(req),
     error: err,
   });
-  fail(res, 500, 'Internal server error');
+  fail(res, 500, 'Lỗi máy chủ nội bộ');
 });
 
 // Start server

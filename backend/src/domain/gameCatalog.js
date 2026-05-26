@@ -196,7 +196,7 @@ export const getItemDefinitionFromDb = async (itemId, executor = null) => {
 export const assertKnownItemFromDb = async (itemId, executor = null) => {
     const itemDef = await getItemDefinitionFromDb(itemId, executor);
     if (!itemDef) {
-        const error = new Error("Unknown item");
+        const error = new Error("Vật phẩm không tồn tại");
         error.status = 400;
         throw error;
     }
@@ -206,7 +206,7 @@ export const assertKnownItemFromDb = async (itemId, executor = null) => {
 export const assertValidInventoryEntryFromDb = async ({ itemId, enhanceLevel = 0 }, executor = null) => {
     const itemDef = await assertKnownItemFromDb(itemId, executor);
     if (itemDef.type !== "equipment" && enhanceLevel !== 0) {
-        const error = new Error("Only equipment can have enhanceLevel");
+        const error = new Error("Chỉ trang bị mới có cấp cường hóa");
         error.status = 400;
         throw error;
     }
@@ -217,19 +217,19 @@ export const assertEquipmentForSlotFromDb = async ({ itemId, slot }, executor = 
     const itemDef = await assertKnownItemFromDb(itemId, executor);
 
     if (!VALID_EQUIPMENT_SLOTS.has(slot)) {
-        const error = new Error("Invalid equipment slot");
+        const error = new Error("Ô trang bị không hợp lệ");
         error.status = 400;
         throw error;
     }
 
     if (itemDef.type !== "equipment") {
-        const error = new Error("Item is not equipment");
+        const error = new Error("Vật phẩm không phải trang bị");
         error.status = 400;
         throw error;
     }
 
     if (itemDef.slot !== slot) {
-        const error = new Error("Item does not match equipment slot");
+        const error = new Error("Vật phẩm không khớp ô trang bị");
         error.status = 400;
         throw error;
     }
@@ -303,7 +303,7 @@ export const findShopCatalogItemFromDb = async (itemId, executor = null) => {
 export const assertKnownItem = (itemId) => {
     const itemDef = getItemDefinition(itemId);
     if (!itemDef) {
-        const error = new Error("Unknown item");
+        const error = new Error("Vật phẩm không tồn tại");
         error.status = 400;
         throw error;
     }
@@ -313,7 +313,7 @@ export const assertKnownItem = (itemId) => {
 export const assertValidInventoryEntry = ({ itemId, enhanceLevel = 0 }) => {
     const itemDef = assertKnownItem(itemId);
     if (itemDef.type !== "equipment" && enhanceLevel !== 0) {
-        const error = new Error("Only equipment can have enhanceLevel");
+        const error = new Error("Chỉ trang bị mới có cấp cường hóa");
         error.status = 400;
         throw error;
     }
@@ -324,19 +324,19 @@ export const assertEquipmentForSlot = ({ itemId, slot }) => {
     const itemDef = assertKnownItem(itemId);
 
     if (!VALID_EQUIPMENT_SLOTS.has(slot)) {
-        const error = new Error("Invalid equipment slot");
+        const error = new Error("Ô trang bị không hợp lệ");
         error.status = 400;
         throw error;
     }
 
     if (itemDef.type !== "equipment") {
-        const error = new Error("Item is not equipment");
+        const error = new Error("Vật phẩm không phải trang bị");
         error.status = 400;
         throw error;
     }
 
     if (itemDef.slot !== slot) {
-        const error = new Error("Item does not match equipment slot");
+        const error = new Error("Vật phẩm không khớp ô trang bị");
         error.status = 400;
         throw error;
     }

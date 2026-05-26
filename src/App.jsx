@@ -21,7 +21,7 @@ function ProtectedRoute({ children }) {
   if (isLoading) {
     return (
       <div className="loading-screen">
-        <div className="loading-spinner">⟳</div>
+        <div className="loading-spinner">...</div>
         <p>Đang kết nối tu tiên giới...</p>
       </div>
     );

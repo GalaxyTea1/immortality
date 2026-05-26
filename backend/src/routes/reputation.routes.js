@@ -11,7 +11,7 @@ router.get('/titles', async (req, res) => {
     ok(res, { titles });
   } catch (error) {
     console.error('Error fetching reputation titles:', error);
-    fail(res, 500, 'Error fetching reputation titles');
+    fail(res, 500, 'Không thể tải danh hiệu danh vọng');
   }
 });
 

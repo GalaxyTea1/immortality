@@ -18,11 +18,11 @@ test('validates inventory entries against known item definitions', () => {
 
   assert.throws(
     () => assertValidInventoryEntry({ itemId: 'thao_duoc', enhanceLevel: 1 }),
-    /Only equipment can have enhanceLevel/,
+    /Chỉ trang bị mới có cấp cường hóa/,
   );
   assert.throws(
     () => assertValidInventoryEntry({ itemId: 'missing_item' }),
-    /Unknown item/,
+    /Vật phẩm không tồn tại/,
   );
 });
 
@@ -31,11 +31,11 @@ test('validates equipment type and slot', () => {
 
   assert.throws(
     () => assertEquipmentForSlot({ itemId: 'huyet_ma_kiem', slot: 'armor' }),
-    /Item does not match equipment slot/,
+    /Vật phẩm không khớp ô trang bị/,
   );
   assert.throws(
     () => assertEquipmentForSlot({ itemId: 'tu_khi_dan', slot: 'weapon' }),
-    /Item is not equipment/,
+    /Vật phẩm không phải trang bị/,
   );
 });
 

@@ -33,7 +33,7 @@ router.get('/:characterId', async (req, res) => {
         ok(res, { events });
     } catch (error) {
         console.error('Error fetching events:', error);
-        fail(res, 500, 'Error fetching event logs');
+        fail(res, 500, 'Không thể tải nhật ký');
     }
 });
 
@@ -45,12 +45,12 @@ router.post('/:characterId', async (req, res) => {
         const type = bodyType || eventType;
 
         if (!type || !message) {
-            return fail(res, 400, 'Missing type or message');
+            return fail(res, 400, 'Thiếu loại nhật ký hoặc nội dung');
         }
 
         const validTypes = ['info', 'warning', 'success', 'danger', 'quest', 'heal'];
         if (!validTypes.includes(type)) {
-            return fail(res, 400, 'Invalid type', { validTypes });
+            return fail(res, 400, 'Loại nhật ký không hợp lệ', { validTypes });
         }
 
         const result = await query(
@@ -67,8 +67,8 @@ router.post('/:characterId', async (req, res) => {
             time: result.rows[0].created_at
         });
     } catch (error) {
-        console.error('Error adding event:', error);
-        fail(res, 500, 'Error adding event');
+        console.error('Không thể thêm nhật ký:', error);
+        fail(res, 500, 'Không thể thêm nhật ký');
     }
 });
 
@@ -90,10 +90,10 @@ router.delete('/:characterId/clear', async (req, res) => {
             [characterId]
         );
 
-        ok(res, { message: 'Event logs cleared' });
+        ok(res, { message: 'Đã dọn nhật ký' });
     } catch (error) {
         console.error('Error clearing events:', error);
-        fail(res, 500, 'Error clearing logs');
+        fail(res, 500, 'Không thể dọn nhật ký');
     }
 });
 

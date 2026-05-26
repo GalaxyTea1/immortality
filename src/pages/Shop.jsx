@@ -84,7 +84,7 @@ function Shop() {
                 setShopItems([]);
                 setNotification({
                     success: false,
-                    message: error.message || "Khong the tai danh sach vat pham.",
+                    message: error.message || "Không thể tải danh sách vật phẩm.",
                 });
             })
             .finally(() => {
@@ -135,7 +135,7 @@ function Shop() {
                     message: result.message || `Mua thành công ${qty}x ${item.name}!`,
                 });
             } else {
-                throw new Error("Khong tim thay nhan vat dang online.");
+                throw new Error("Không tìm thấy nhân vật đang online.");
             }
 
             setBuyQuantity((prev) => ({ ...prev, [item.id]: 1 }));
@@ -234,7 +234,7 @@ function Shop() {
                     <div className='shop-main-header'>
                         <div className='main-title'>
                             {/* <h2>
-                                Linh Thị (Marketplace)
+                                Linh Thị
                                 <span className='material-symbols-outlined animate-pulse'>auto_awesome</span>
                             </h2>
                             <p>Mua bán vật phẩm, trợ giúp con đường tu luyện.</p> */}
@@ -305,7 +305,7 @@ function Shop() {
                         {isShopLoading ? (
                             <div className='no-items'>
                                 <span className='material-symbols-outlined'>sync</span>
-                                <p>Dang tai danh sach vat pham...</p>
+                                <p>Đang tải danh sách vật phẩm...</p>
                             </div>
                         ) : filteredItems.length === 0 ? (
                             <div className='no-items'>

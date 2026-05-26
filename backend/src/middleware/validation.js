@@ -10,34 +10,34 @@ export const registerSchema = Joi.object({
         .max(30)
         .required()
         .messages({
-            'string.min': 'Username must be at least 3 characters',
-            'string.max': 'Username must not exceed 30 characters',
-            'string.alphanum': 'Username must only contain letters and numbers',
-            'any.required': 'Username is required',
+            'string.min': 'Tên đăng nhập phải có ít nhất 3 ký tự',
+            'string.max': 'Tên đăng nhập không được vượt quá 30 ký tự',
+            'string.alphanum': 'Tên đăng nhập chỉ được chứa chữ cái và số',
+            'any.required': 'Vui lòng nhập tên đăng nhập',
         }),
     email: Joi.string()
         .email()
         .required()
         .messages({
-            'string.email': 'Invalid email format',
-            'any.required': 'Email is required',
+            'string.email': 'Email không hợp lệ',
+            'any.required': 'Vui lòng nhập email',
         }),
     password: Joi.string()
         .min(6)
         .max(100)
         .required()
         .messages({
-            'string.min': 'Password must be at least 6 characters',
-            'any.required': 'Password is required',
+            'string.min': 'Mật khẩu phải có ít nhất 6 ký tự',
+            'any.required': 'Vui lòng nhập mật khẩu',
         }),
 });
 
 export const loginSchema = Joi.object({
     username: Joi.string().required().messages({
-        'any.required': 'Username or email is required',
+        'any.required': 'Vui lòng nhập tên đăng nhập hoặc email',
     }),
     password: Joi.string().required().messages({
-        'any.required': 'Password is required',
+        'any.required': 'Vui lòng nhập mật khẩu',
     }),
 });
 
@@ -138,7 +138,7 @@ export function validate(schema) {
 
         if (error) {
             const errors = error.details.map(d => d.message);
-            return fail(res, 400, 'Validation failed', errors);
+            return fail(res, 400, 'Dữ liệu không hợp lệ', errors);
         }
 
         req.body = value; // Use sanitized values

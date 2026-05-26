@@ -1,4 +1,3 @@
-// ===== CÔNG THỨC LUYỆN ĐAN =====
 export const ALCHEMY_RECIPES = {
     tieu_hoan_dan: {
         id: "tieu_hoan_dan",
@@ -60,7 +59,7 @@ export const ALCHEMY_RECIPES = {
     },
     hoa_than_dan: {
         id: "hoa_than_dan",
-        name: "Hoá Thần Đan",
+        name: "Hóa Thần Đan",
         materials: [
             { itemId: "thao_duoc", quantity: 25 },
             { itemId: "thiet_khoang", quantity: 20 },

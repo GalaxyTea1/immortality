@@ -16,8 +16,8 @@ router.get('/:characterId/active', async (req, res) => {
     const quest = await getOrCreateDailyQuest(req.params.characterId);
     ok(res, { quest });
   } catch (error) {
-    console.error('Error fetching quest:', error);
-    fail(res, 500, 'Error fetching quest');
+    console.error('Không thể tải nhiệm vụ:', error);
+    fail(res, 500, 'Không thể tải nhiệm vụ');
   }
 });
 
@@ -37,7 +37,7 @@ router.post('/:characterId/claim', gameplayLimiter, async (req, res) => {
       );
 
       if (questResult.rows.length === 0) {
-        const error = new Error('No active quest');
+        const error = new Error('Không có nhiệm vụ đang hoạt động');
         error.status = 404;
         throw error;
       }
@@ -45,13 +45,13 @@ router.post('/:characterId/claim', gameplayLimiter, async (req, res) => {
       const questRow = questResult.rows[0];
       const questDef = getQuestDefinition(questRow.quest_id);
       if (!questDef) {
-        const error = new Error('Unknown quest');
+        const error = new Error('Nhiệm vụ không tồn tại');
         error.status = 400;
         throw error;
       }
 
       if (Number(questRow.progress) < questDef.target) {
-        const error = new Error('Quest is not complete');
+        const error = new Error('Nhiệm vụ chưa hoàn thành');
         error.status = 400;
         error.details = { progress: Number(questRow.progress), target: questDef.target };
         throw error;
@@ -66,7 +66,7 @@ router.post('/:characterId/claim', gameplayLimiter, async (req, res) => {
       );
 
       if (characterResult.rows.length === 0) {
-        const error = new Error('Character not found');
+        const error = new Error('Không tìm thấy nhân vật');
         error.status = 404;
         throw error;
       }
@@ -98,7 +98,7 @@ router.post('/:characterId/claim', gameplayLimiter, async (req, res) => {
       await client.query(
         `INSERT INTO event_logs (character_id, event_type, message)
          VALUES ($1, 'quest', $2)`,
-        [characterId, `Completed quest ${questDef.name}`]
+        [characterId, `Hoàn thành ${questDef.name}`]
       );
 
       return {
@@ -106,15 +106,15 @@ router.post('/:characterId/claim', gameplayLimiter, async (req, res) => {
         quest: normalizeQuestRow({ ...questRow, status: 'completed' }),
         rewards,
         progress: nextProgress,
-        message: `Quest completed! +${rewards.spiritStones} Spirit Stones, +${rewards.exp} EXP`,
+        message: `Hoàn thành nhiệm vụ +${rewards.spiritStones} linh thạch, +${rewards.exp} EXP`,
       };
     });
 
     ok(res, result);
   } catch (error) {
-    if (error.status) return failFromError(res, error, 'Error claiming quest reward');
-    console.error('Error claiming quest reward:', error);
-    fail(res, 500, 'Error claiming quest reward');
+    if (error.status) return failFromError(res, error, 'Không thể nhận thưởng nhiệm vụ');
+    console.error('Không thể nhận thưởng nhiệm vụ:', error);
+    fail(res, 500, 'Không thể nhận thưởng nhiệm vụ');
   }
 });
 

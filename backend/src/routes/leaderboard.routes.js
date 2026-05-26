@@ -78,7 +78,7 @@ router.get("/", async (req, res) => {
         });
     } catch (error) {
         console.error("Error fetching leaderboard:", error);
-        fail(res, 500, "Error fetching leaderboard");
+        fail(res, 500, "Không thể tải bảng xếp hạng");
     }
 });
 
@@ -111,7 +111,7 @@ router.get("/power", async (req, res) => {
         ok(res, { leaderboard: result.rows, total: result.rowCount, limit: parseInt(limit) });
     } catch (error) {
         console.error("Error fetching power leaderboard:", error);
-        fail(res, 500, "Error fetching power leaderboard");
+        fail(res, 500, "Không thể tải bảng xếp hạng chiến lực");
     }
 });
 
@@ -139,7 +139,7 @@ router.get("/reputation", async (req, res) => {
         ok(res, { leaderboard: result.rows, total: result.rowCount, limit: parseInt(limit) });
     } catch (error) {
         console.error("Error fetching reputation leaderboard:", error);
-        fail(res, 500, "Error fetching reputation leaderboard");
+        fail(res, 500, "Không thể tải bảng xếp hạng danh vọng");
     }
 });
 

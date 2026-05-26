@@ -16,18 +16,18 @@ export const requireCharacterOwner = (paramName = 'characterId') => {
             const characterId = req.params[paramName] || req.body[paramName];
 
             if (!characterId) {
-                return fail(res, 400, 'Missing characterId');
+                return fail(res, 400, 'Thiếu nhân vật');
             }
 
             const isOwner = await assertCharacterOwner(req.user.id, characterId);
             if (!isOwner) {
-                return fail(res, 403, 'Forbidden character access');
+                return fail(res, 403, 'Không có quyền truy cập nhân vật này');
             }
 
             next();
         } catch (error) {
             console.error('Ownership check error:', error);
-            fail(res, 500, 'Ownership check failed');
+            fail(res, 500, 'Không thể kiểm tra quyền sở hữu');
         }
     };
 };

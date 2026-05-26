@@ -9,22 +9,22 @@ export function useGameProgression({ gameState }) {
     const realm = REALMS[realmIndex];
 
     if (!realm) {
-      return { can: false, reason: 'Canh gioi khong hop le.' };
+      return { can: false, reason: 'Cảnh giới không hợp lệ.' };
     }
 
     if (level < realm.levels) {
-      return { can: false, reason: 'Chua dat tang cao nhat cua canh gioi.' };
+      return { can: false, reason: 'Chưa đạt tầng cao nhất của cảnh giới.' };
     }
 
     if (exp < maxExp * 0.9) {
-      return { can: false, reason: 'Can it nhat 90% EXP de do kiep.' };
+      return { can: false, reason: 'Cần ít nhất 90% EXP để độ kiếp.' };
     }
 
     if (realmIndex >= REALMS.length - 1) {
-      return { can: false, reason: 'Da dat canh gioi toi cao.' };
+      return { can: false, reason: 'Đã đạt cảnh giới tối cao.' };
     }
 
-    return { can: true, reason: 'Co the do kiep.' };
+    return { can: true, reason: 'Có thể độ kiếp.' };
   }, [gameState.player]);
 
   return {

@@ -37,8 +37,8 @@ router.get('/:characterId', async (req, res) => {
 
         ok(res, equipment);
     } catch (error) {
-        console.error('Error fetching equipment:', error);
-        fail(res, 500, 'Error fetching equipment');
+        console.error('Không thể tải trang bị:', error);
+        fail(res, 500, 'Không thể tải trang bị');
     }
 });
 
@@ -49,7 +49,7 @@ router.post('/:characterId/equip', gameplayLimiter, async (req, res) => {
         const { slot, itemId, enhanceLevel = 0 } = req.body;
 
         if (!slot || !itemId) {
-            return fail(res, 400, 'Missing slot or itemId');
+            return fail(res, 400, 'Thiếu ô trang bị hoặc vật phẩm');
         }
 
         await assertEquipmentForSlotFromDb({ itemId, slot });
@@ -64,7 +64,7 @@ router.post('/:characterId/equip', gameplayLimiter, async (req, res) => {
             );
 
             if (invItem.rows.length === 0 || invItem.rows[0].quantity < 1) {
-                const error = new Error('Item not found in inventory');
+                const error = new Error('Không tìm thấy vật phẩm trong túi đồ');
                 error.status = 400;
                 throw error;
             }
@@ -110,7 +110,7 @@ router.post('/:characterId/equip', gameplayLimiter, async (req, res) => {
             await clampHpToEffectiveMax(characterId, client);
 
             return {
-                message: 'Equipped successfully!',
+                message: 'Trang bị thành công!',
                 equipment: equipped.rows[0],
                 oldEquipment: oldEquipment ? {
                     itemId: oldEquipment.item_id,
@@ -122,10 +122,10 @@ router.post('/:characterId/equip', gameplayLimiter, async (req, res) => {
         ok(res, result);
     } catch (error) {
         if (error.status) {
-            return failFromError(res, error, 'Error equipping item');
+            return failFromError(res, error, 'Không thể trang bị vật phẩm');
         }
-        console.error('Error equipping item:', error);
-        fail(res, 500, 'Error equipping item');
+        console.error('Không thể trang bị vật phẩm:', error);
+        fail(res, 500, 'Không thể trang bị vật phẩm');
     }
 });
 
@@ -136,11 +136,11 @@ router.post('/:characterId/unequip', gameplayLimiter, async (req, res) => {
         const { slot } = req.body;
 
         if (!slot) {
-            return fail(res, 400, 'Missing slot information');
+            return fail(res, 400, 'Thiếu thông tin ô trang bị');
         }
 
         if (!VALID_EQUIPMENT_SLOTS.has(slot)) {
-            return fail(res, 400, 'Invalid equipment slot');
+            return fail(res, 400, 'Ô trang bị không hợp lệ');
         }
 
         const result = await withTransaction(async (client) => {
@@ -151,7 +151,7 @@ router.post('/:characterId/unequip', gameplayLimiter, async (req, res) => {
             );
 
             if (existingEquip.rows.length === 0) {
-                const error = new Error('Slot is empty');
+                const error = new Error('Ô trang bị đang trống');
                 error.status = 404;
                 throw error;
             }
@@ -173,7 +173,7 @@ router.post('/:characterId/unequip', gameplayLimiter, async (req, res) => {
             await clampHpToEffectiveMax(characterId, client);
 
             return {
-                message: 'Unequipped item!',
+                message: 'Đã tháo trang bị!',
                 unequippedItem: {
                     itemId: equipment.item_id,
                     enhanceLevel: equipment.enhance_level
@@ -184,10 +184,10 @@ router.post('/:characterId/unequip', gameplayLimiter, async (req, res) => {
         ok(res, result);
     } catch (error) {
         if (error.status) {
-            return failFromError(res, error, 'Error unequipping item');
+            return failFromError(res, error, 'Không thể tháo trang bị');
         }
-        console.error('Error unequipping item:', error);
-        fail(res, 500, 'Error unequipping item');
+        console.error('Không thể tháo trang bị:', error);
+        fail(res, 500, 'Không thể tháo trang bị');
     }
 });
 
@@ -198,11 +198,11 @@ router.post('/:characterId/upgrade', gameplayLimiter, async (req, res) => {
         const { slot } = req.body;
 
         if (!slot) {
-            return fail(res, 400, 'Missing slot');
+            return fail(res, 400, 'Thiếu ô trang bị');
         }
 
         if (!VALID_EQUIPMENT_SLOTS.has(slot)) {
-            return fail(res, 400, 'Invalid equipment slot');
+            return fail(res, 400, 'Ô trang bị không hợp lệ');
         }
 
         const result = await withTransaction(async (client) => {
@@ -213,7 +213,7 @@ router.post('/:characterId/upgrade', gameplayLimiter, async (req, res) => {
             );
 
             if (equipResult.rows.length === 0) {
-                const error = new Error('No equipment in this slot');
+                const error = new Error('Không có trang bị trong ô này');
                 error.status = 404;
                 throw error;
             }
@@ -230,7 +230,7 @@ router.post('/:characterId/upgrade', gameplayLimiter, async (req, res) => {
             );
 
             if (stoneResult.rows.length === 0 || stoneResult.rows[0].quantity < requiredStones) {
-                const error = new Error(`Need ${requiredStones}x Enhancement Stones!`);
+                const error = new Error(`Cần ${requiredStones}x Cường Hóa Thạch!`);
                 error.status = 400;
                 error.details = {
                     required: requiredStones,
@@ -249,7 +249,7 @@ router.post('/:characterId/upgrade', gameplayLimiter, async (req, res) => {
             );
 
             if (materialResult.rows.length === 0) {
-                const error = new Error('Need 1 duplicate item for enhancement!');
+                const error = new Error('Cần 1 trang bị cùng loại để cường hóa!');
                 error.status = 400;
                 throw error;
             }
@@ -278,7 +278,7 @@ router.post('/:characterId/upgrade', gameplayLimiter, async (req, res) => {
             );
 
             return {
-                message: `Upgrade successful! Now +${newLevel}`,
+                message: `Cường hóa thành công! Hiện tại +${newLevel}`,
                 newEnhanceLevel: newLevel,
                 stonesUsed: requiredStones
             };
@@ -287,10 +287,10 @@ router.post('/:characterId/upgrade', gameplayLimiter, async (req, res) => {
         ok(res, result);
     } catch (error) {
         if (error.status) {
-            return failFromError(res, error, 'Error upgrading equipment');
+            return failFromError(res, error, 'Không thể cường hóa trang bị');
         }
-        console.error('Error upgrading equipment:', error);
-        fail(res, 500, 'Error upgrading equipment');
+        console.error('Không thể cường hóa trang bị:', error);
+        fail(res, 500, 'Không thể cường hóa trang bị');
     }
 });
 

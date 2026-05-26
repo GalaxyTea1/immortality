@@ -29,7 +29,7 @@ router.get('/:characterId', async (req, res) => {
         })));
     } catch (error) {
         console.error('Error fetching skills:', error);
-        fail(res, 500, 'Error fetching skills list');
+        fail(res, 500, 'Không thể tải danh sách bí kíp');
     }
 });
 
@@ -40,12 +40,12 @@ router.post('/:characterId/learn', gameplayLimiter, async (req, res) => {
         const { skillId, bookItemId } = req.body;
 
         if (!skillId || !bookItemId) {
-            return fail(res, 400, 'Missing skillId or bookItemId');
+            return fail(res, 400, 'Thiếu bí kíp cần học');
         }
 
         const bookDef = await assertKnownItemFromDb(bookItemId);
         if (bookDef.type !== 'book' || skillId !== bookItemId) {
-            return fail(res, 400, 'Invalid skill book');
+            return fail(res, 400, 'Bí kíp không hợp lệ');
         }
 
         const result = await withTransaction(async (client) => {
@@ -55,7 +55,7 @@ router.post('/:characterId/learn', gameplayLimiter, async (req, res) => {
             );
 
             if (existingSkill.rows.length > 0) {
-                const error = new Error('Skill already learned!');
+                const error = new Error('Đã học bí kíp này!');
                 error.status = 400;
                 throw error;
             }
@@ -68,7 +68,7 @@ router.post('/:characterId/learn', gameplayLimiter, async (req, res) => {
             );
 
             if (bookResult.rows.length === 0 || bookResult.rows[0].quantity < 1) {
-                const error = new Error('Book not found in inventory!');
+                const error = new Error('Không tìm thấy bí kíp trong túi đồ!');
                 error.status = 400;
                 throw error;
             }
@@ -100,7 +100,7 @@ router.post('/:characterId/learn', gameplayLimiter, async (req, res) => {
         });
 
         ok(res, {
-            message: 'Skill learned successfully!',
+            message: 'Học bí kíp thành công!',
             skill: {
                 skillId: result.rows[0].skill_id,
                 learnedAt: result.rows[0].learned_at
@@ -108,10 +108,10 @@ router.post('/:characterId/learn', gameplayLimiter, async (req, res) => {
         });
     } catch (error) {
         if (error.status) {
-            return failFromError(res, error, 'Error learning skill');
+            return failFromError(res, error, 'Không thể học bí kíp');
         }
-        console.error('Error learning skill:', error);
-        fail(res, 500, 'Error learning skill');
+        console.error('Không thể học bí kíp:', error);
+        fail(res, 500, 'Không thể học bí kíp');
     }
 });
 

@@ -161,7 +161,7 @@ function Cultivation() {
         let result;
 
         if (!characterId) {
-            result = { success: false, message: "Khong tim thay nhan vat dang online." };
+            result = { success: false, message: "Không tìm thấy nhân vật đang online." };
             setIsBreakingThrough(false);
             setBreakthroughResult(result);
             addLog(`<span class="text-danger">${result.message}</span>`, "danger");
@@ -304,7 +304,7 @@ function Cultivation() {
     // Xử lý click tu luyện (thủ công)
     const handleCultivateClick = useCallback(async () => {
         if (!characterId) {
-            addLog(`<span class="text-danger">Khong tim thay nhan vat dang online.</span>`, "danger");
+            addLog(`<span class="text-danger">Không tìm thấy nhân vật đang online.</span>`, "danger");
             return;
         }
 
@@ -317,7 +317,7 @@ function Cultivation() {
     // Xử lý thiền định (tự động tu luyện)
     const handleMeditation = useCallback(async () => {
         if (!characterId) {
-            addLog(`<span class="text-danger">Khong tim thay nhan vat dang online.</span>`, "danger");
+            addLog(`<span class="text-danger">Không tìm thấy nhân vật đang online.</span>`, "danger");
             return;
         }
 
@@ -364,12 +364,7 @@ function Cultivation() {
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [
-        isMeditating,
-        characterId,
-        addLog,
-        triggerCultivationPulse,
-    ]);
+    }, [isMeditating, characterId, addLog, triggerCultivationPulse]);
 
     // Xử lý luyện đan
     const handleCraft = useCallback(
@@ -383,7 +378,7 @@ function Cultivation() {
                     result = { success: false, message: error.message || "Luyện đan thất bại!" };
                 }
             } else {
-                result = { success: false, message: "Khong tim thay nhan vat dang online." };
+                result = { success: false, message: "Không tìm thấy nhân vật đang online." };
             }
 
             showResultToast(result, "Luyện đan hoàn tất");

@@ -28,8 +28,8 @@ router.get('/:characterId', async (req, res) => {
 
     ok(res, result.rows);
   } catch (error) {
-    console.error('Error fetching inventory:', error);
-    fail(res, 500, 'Error fetching inventory');
+    console.error('Không thể tải túi đồ:', error);
+    fail(res, 500, 'Không thể tải túi đồ');
   }
 });
 
@@ -47,7 +47,7 @@ router.post('/:characterId/remove', gameplayLimiter, validate(removeItemSchema),
       );
 
       if (current.rows.length === 0) {
-        const error = new Error('Item not found');
+        const error = new Error('Không tìm thấy vật phẩm');
         error.status = 404;
         throw error;
       }
@@ -55,7 +55,7 @@ router.post('/:characterId/remove', gameplayLimiter, validate(removeItemSchema),
       const currentQty = current.rows[0].quantity;
 
       if (currentQty < quantity) {
-        const error = new Error('Not enough quantity');
+        const error = new Error('Không đủ số lượng');
         error.status = 400;
         throw error;
       }
@@ -65,7 +65,7 @@ router.post('/:characterId/remove', gameplayLimiter, validate(removeItemSchema),
           'DELETE FROM inventory WHERE character_id = $1 AND item_id = $2 AND enhance_level = $3',
           [characterId, itemId, enhanceLevel]
         );
-        return { message: 'Item removed' };
+        return { message: 'Đã xóa vật phẩm' };
       }
 
       const updated = await client.query(
@@ -80,10 +80,10 @@ router.post('/:characterId/remove', gameplayLimiter, validate(removeItemSchema),
     ok(res, result);
   } catch (error) {
     if (error.status) {
-      return failFromError(res, error, 'Error removing item');
+      return failFromError(res, error, 'Không thể xóa vật phẩm');
     }
-    console.error('Error removing item:', error);
-    fail(res, 500, 'Error removing item');
+    console.error('Không thể xóa vật phẩm:', error);
+    fail(res, 500, 'Không thể xóa vật phẩm');
   }
 });
 
@@ -95,11 +95,11 @@ router.post('/:characterId/use', gameplayLimiter, validate(useItemSchema), async
     const itemDef = await assertValidInventoryEntryFromDb({ itemId, enhanceLevel });
 
     if (!['pill', 'book'].includes(itemDef.type)) {
-      return fail(res, 400, 'Item cannot be used directly');
+      return fail(res, 400, 'Vật phẩm này không thể sử dụng trực tiếp');
     }
 
     if (itemDef.type === 'book' && quantity !== 1) {
-      return fail(res, 400, 'Books can only be used one at a time');
+      return fail(res, 400, 'Bí kíp chỉ có thể dùng từng quyển');
     }
 
     const result = await withTransaction(async (client) => {
@@ -111,7 +111,7 @@ router.post('/:characterId/use', gameplayLimiter, validate(useItemSchema), async
       );
 
       if (inventoryResult.rows.length === 0 || inventoryResult.rows[0].quantity < quantity) {
-        const error = new Error('Not enough items in inventory');
+        const error = new Error('Không đủ vật phẩm trong túi');
         error.status = 400;
         throw error;
       }
@@ -123,7 +123,7 @@ router.post('/:characterId/use', gameplayLimiter, validate(useItemSchema), async
         );
 
         if (existingSkill.rows.length > 0) {
-          const error = new Error('Skill already learned');
+          const error = new Error('Đã học bí kíp này');
           error.status = 400;
           throw error;
         }
@@ -168,7 +168,7 @@ router.post('/:characterId/use', gameplayLimiter, validate(useItemSchema), async
         );
 
         if (characterResult.rows.length === 0) {
-          const error = new Error('Character not found');
+          const error = new Error('Không tìm thấy nhân vật');
           error.status = 404;
           throw error;
         }
@@ -213,11 +213,11 @@ router.post('/:characterId/use', gameplayLimiter, validate(useItemSchema), async
             'UPDATE characters SET inner_demon_value = GREATEST(0, inner_demon_value - $2) WHERE id = $1',
             [characterId, demonReduction]
           );
-          messages.push(`-${demonReduction} Inner Demon`);
+          messages.push(`-${demonReduction} Tâm Ma`);
         }
 
         return {
-          message: `Used ${quantity}x ${itemDef.name}: ${messages.join(', ')}`,
+          message: `Sử dụng ${quantity}x ${itemDef.name}: ${messages.join(', ')}`,
           itemId,
           quantityUsed: quantity,
         };
@@ -239,7 +239,7 @@ router.post('/:characterId/use', gameplayLimiter, validate(useItemSchema), async
       );
 
       return {
-        message: `Learned ${itemDef.name}`,
+        message: `Đã học ${itemDef.name}`,
         skill: {
           skillId: skillResult.rows[0].skill_id,
           learnedAt: skillResult.rows[0].learned_at,
@@ -250,10 +250,10 @@ router.post('/:characterId/use', gameplayLimiter, validate(useItemSchema), async
     ok(res, result);
   } catch (error) {
     if (error.status) {
-      return failFromError(res, error, 'Error using item');
+      return failFromError(res, error, 'Không thể sử dụng vật phẩm');
     }
-    console.error('Error using item:', error);
-    fail(res, 500, 'Error using item');
+    console.error('Không thể sử dụng vật phẩm:', error);
+    fail(res, 500, 'Không thể sử dụng vật phẩm');
   }
 });
 

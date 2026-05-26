@@ -26,13 +26,13 @@ router.get('/:id', authMiddleware, requireCharacterOwner('id'), async (req, res)
     });
 
     if (!character) {
-      return fail(res, 404, 'Character not found');
+      return fail(res, 404, 'Không tìm thấy nhân vật');
     }
 
     ok(res, character);
   } catch (error) {
     console.error('Error fetching character:', error);
-    fail(res, 500, 'Error fetching character info');
+    fail(res, 500, 'Không thể tải thông tin nhân vật');
   }
 });
 
@@ -45,13 +45,13 @@ router.post('/', authMiddleware, async (req, res) => {
       `INSERT INTO characters (user_id, name)
        VALUES ($1, $2)
        RETURNING *`,
-      [req.user.id, name || 'Daoist']
+      [req.user.id, name || 'Đạo Hữu']
     );
 
     created(res, result.rows[0]);
   } catch (error) {
-    console.error('Error creating character:', error);
-    fail(res, 500, 'Error creating character');
+    console.error('Không thể tạo nhân vật:', error);
+    fail(res, 500, 'Không thể tạo nhân vật');
   }
 });
 
@@ -71,13 +71,13 @@ router.put('/:id', authMiddleware, requireCharacterOwner('id'), saveLimiter, val
     );
 
     if (result.rows.length === 0) {
-      return fail(res, 404, 'Character not found');
+      return fail(res, 404, 'Không tìm thấy nhân vật');
     }
 
     ok(res, result.rows[0]);
   } catch (error) {
-    console.error('Error updating character:', error);
-    fail(res, 500, 'Error updating character');
+    console.error('Không thể cập nhật nhân vật:', error);
+    fail(res, 500, 'Không thể cập nhật nhân vật');
   }
 });
 
