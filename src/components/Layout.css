@@ -25,7 +25,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10rem;
+  gap: 1.25rem;
 }
 
 @media (min-width: 768px) {
@@ -71,6 +71,7 @@
   flex: 1;
   justify-content: center;
   gap: 0.25rem;
+  min-width: 0;
 }
 
 @media (min-width: 1024px) {
@@ -90,7 +91,8 @@
   color: var(--text-secondary);
   text-decoration: none;
   transition: all 0.2s ease;
-  min-width: 10rem;
+  min-width: 0;
+  white-space: nowrap;
 }
 
 .nav-link:hover {

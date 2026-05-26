@@ -11,6 +11,7 @@ import {
   getReputationTitle,
 } from '../backend/src/domain/gameCatalog.js';
 import { calculateCombatPower } from '../shared/data/combatPower.js';
+import { BOSS_LIST } from '../shared/data/bosses.js';
 
 test('validates inventory entries against known item definitions', () => {
   assert.equal(assertValidInventoryEntry({ itemId: 'thao_duoc' }).type, 'material');
@@ -90,4 +91,18 @@ test('calculates combat power with realm floors above previous realm peak', () =
 
   assert.ok(soulFormationEntry > nascentSoulPeak);
   assert.equal(calculateCombatPower({ realmIndex: 0, level: 1 }), 100000);
+});
+
+test('boss catalog entries are ready for database seeding', () => {
+  assert.ok(BOSS_LIST.length >= 1);
+  for (const boss of BOSS_LIST) {
+    assert.ok(boss.id);
+    assert.ok(boss.name);
+    assert.ok(boss.maxHp > 0);
+    assert.ok(boss.respawnHours > 0);
+    assert.ok(boss.rewards && typeof boss.rewards === 'object');
+    assert.ok(Array.isArray(boss.rewards.phases));
+    assert.ok(boss.rewards.phases.length >= 1);
+    assert.ok(Array.isArray(boss.rewards.loot));
+  }
 });

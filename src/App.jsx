@@ -9,12 +9,10 @@ import World from "./pages/World";
 import Inventory from "./pages/Inventory";
 import Shop from "./pages/Shop";
 import Leaderboard from "./pages/Leaderboard";
+import SectBoss from "./pages/SectBoss";
 import Login from "./pages/Login";
 import "./index.css";
 
-/**
- * Protected Route Component
- */
 function ProtectedRoute({ children }) {
   const { isAuthenticated, isLoading } = useAuth();
 
@@ -34,9 +32,6 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
-/**
- * Wrapper to pass characterId from auth to GameProvider
- */
 function GameProviderWithAuth({ children }) {
   const { user } = useAuth();
   return (
@@ -50,10 +45,8 @@ function AppContent() {
   return (
     <Router>
       <Routes>
-        {/* Public route - Login */}
         <Route path="/login" element={<Login />} />
 
-        {/* Protected routes */}
         <Route
           path="/"
           element={
@@ -69,10 +62,10 @@ function AppContent() {
           <Route path="world" element={<World />} />
           <Route path="inventory" element={<Inventory />} />
           <Route path="shop" element={<Shop />} />
+          <Route path="sect-boss" element={<SectBoss />} />
           <Route path="leaderboard" element={<Leaderboard />} />
         </Route>
 
-        {/* Catch-all redirect */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>

@@ -501,6 +501,54 @@ export const reputation = {
     },
 };
 
+// ==================== SECT / BOSS API ====================
+
+export const sects = {
+    getAll: async () => {
+        const data = await authFetch('/sects');
+        return data.sects || [];
+    },
+
+    getProfile: async (characterId) => {
+        return authFetch(`/sects/character/${characterId}`);
+    },
+
+    create: async (characterId, name, description = '') => {
+        return authFetch('/sects', {
+            method: 'POST',
+            body: JSON.stringify({ characterId, name, description }),
+        });
+    },
+
+    join: async (sectId, characterId) => {
+        return authFetch(`/sects/${sectId}/join`, {
+            method: 'POST',
+            body: JSON.stringify({ characterId }),
+        });
+    },
+
+    leave: async (sectId, characterId) => {
+        return authFetch(`/sects/${sectId}/leave`, {
+            method: 'POST',
+            body: JSON.stringify({ characterId }),
+        });
+    },
+
+    spawnBoss: async (sectId, characterId, bossId) => {
+        return authFetch(`/sects/${sectId}/bosses/spawn`, {
+            method: 'POST',
+            body: JSON.stringify({ characterId, bossId }),
+        });
+    },
+
+    attackBoss: async (sectId, instanceId, characterId) => {
+        return authFetch(`/sects/${sectId}/bosses/${instanceId}/attack`, {
+            method: 'POST',
+            body: JSON.stringify({ characterId }),
+        });
+    },
+};
+
 // ==================== HEALTH CHECK ====================
 
 export const health = {

@@ -2,6 +2,7 @@ import { pathToFileURL } from 'node:url';
 import { pool } from './index.js';
 import { ITEM_DEFINITIONS } from '../../../shared/data/items.js';
 import { REPUTATION_TITLES } from '../../../shared/data/realms.js';
+import { BOSS_LIST } from '../../../shared/data/bosses.js';
 import { SHOP_CATALOG } from '../../../shared/shopCatalog.js';
 
 const toJson = (value) => JSON.stringify(value || {});
@@ -124,6 +125,39 @@ const upsertReputationTitle = async (client, title) => {
   );
 };
 
+const upsertBossDefinition = async (client, boss) => {
+  await client.query(
+    `INSERT INTO boss_definitions (
+       boss_id, name, description, realm_index, level, max_hp, attack, defense, rewards, respawn_hours, is_active
+     )
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, TRUE)
+     ON CONFLICT (boss_id)
+     DO UPDATE SET
+       name = EXCLUDED.name,
+       description = EXCLUDED.description,
+       realm_index = EXCLUDED.realm_index,
+       level = EXCLUDED.level,
+       max_hp = EXCLUDED.max_hp,
+       attack = EXCLUDED.attack,
+       defense = EXCLUDED.defense,
+       rewards = EXCLUDED.rewards,
+       respawn_hours = EXCLUDED.respawn_hours,
+       is_active = TRUE`,
+    [
+      boss.id,
+      boss.name,
+      boss.description || '',
+      toNonNegativeInteger(boss.realmIndex),
+      toNonNegativeInteger(boss.level, 1),
+      toNonNegativeInteger(boss.maxHp, 1),
+      toNonNegativeInteger(boss.attack),
+      toNonNegativeInteger(boss.defense),
+      toJson(boss.rewards),
+      toNonNegativeInteger(boss.respawnHours, 24),
+    ]
+  );
+};
+
 const seedCatalogWithClient = async (client) => {
   const definitions = Object.entries(ITEM_DEFINITIONS);
 
@@ -139,10 +173,15 @@ const seedCatalogWithClient = async (client) => {
     await upsertReputationTitle(client, title);
   }
 
+  for (const boss of BOSS_LIST) {
+    await upsertBossDefinition(client, boss);
+  }
+
   return {
     itemDefinitions: definitions.length,
     shopItems: SHOP_CATALOG.length,
     reputationTitles: REPUTATION_TITLES.length,
+    bossDefinitions: BOSS_LIST.length,
   };
 };
 
@@ -171,7 +210,7 @@ if (isDirectRun) {
   seedCatalog()
     .then(async (result) => {
       console.log(
-        `Seeded ${result.itemDefinitions} item definitions, ${result.shopItems} shop items, and ${result.reputationTitles} reputation titles.`
+        `Seeded ${result.itemDefinitions} item definitions, ${result.shopItems} shop items, ${result.reputationTitles} reputation titles, and ${result.bossDefinitions} boss definitions.`
       );
       await pool.end();
     })

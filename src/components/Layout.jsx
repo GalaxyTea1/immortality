@@ -8,7 +8,8 @@ const navItems = [
   { path: '/world', label: 'Thế Giới', icon: 'public' },
   { path: '/inventory', label: 'Kho Đồ', icon: 'backpack' },
   { path: '/shop', label: 'Cửa Hàng', icon: 'storefront' },
-  { path: '/leaderboard', label: 'Bảng Xếp Hạng', icon: 'leaderboard' },
+  { path: '/sect-boss', label: 'Tông Môn', icon: 'fort' },
+  { path: '/leaderboard', label: 'Xếp Hạng', icon: 'leaderboard' },
 ];
 
 function Layout() {
@@ -25,7 +26,6 @@ function Layout() {
 
   return (
     <div className="app-container">
-      {/* Header */}
       <header className="main-header">
         <div className="header-content">
           <nav className="main-nav">
@@ -42,17 +42,15 @@ function Layout() {
           </nav>
 
           <div className="header-actions">
-            {/* User info */}
             <div className="user-info">
               <span className="user-name">{user?.username || 'Vô Danh'}</span>
             </div>
 
-            <button className="notification-btn">
+            <button className="notification-btn" aria-label="Thông báo">
               <span className="material-symbols-outlined">notifications</span>
               <span className="notification-dot"></span>
             </button>
 
-            {/* User dropdown */}
             <div className="user-dropdown">
               <div className="user-avatar">
                 <span className="avatar-text">
@@ -75,14 +73,12 @@ function Layout() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="main-content">
         <Outlet />
       </main>
 
-      {/* Mobile Navigation */}
       <nav className="mobile-nav">
-        {navItems.slice(0, 5).map((item) => (
+        {navItems.slice(0, 6).map((item) => (
           <Link
             key={item.path}
             to={item.path}

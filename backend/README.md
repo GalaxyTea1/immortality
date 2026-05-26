@@ -77,6 +77,12 @@ Server default: `http://localhost:3002`
 - `GET /api/quests/:characterId/active`
 - `POST /api/quests/:characterId/claim`
 - `GET /api/leaderboard`
+- `GET /api/sects`
+- `GET /api/sects/character/:characterId`
+- `POST /api/sects`
+- `POST /api/sects/:sectId/join`
+- `POST /api/sects/:sectId/bosses/spawn`
+- `POST /api/sects/:sectId/bosses/:instanceId/attack`
 - `GET /api/shop/items`
 - `POST /api/shop/buy`
 - `POST /api/shop/sell`

@@ -1,0 +1,373 @@
+.sect-page {
+  min-height: calc(100vh - 84px);
+  padding: 24px;
+  color: #f7f2e8;
+  background:
+    linear-gradient(135deg, rgba(18, 27, 28, 0.96), rgba(35, 27, 30, 0.96)),
+    url('/src/assets/logo.png') center/240px no-repeat;
+}
+
+.sect-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 26px 0 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.sect-kicker {
+  margin: 0 0 8px;
+  color: #f6c76a;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.sect-hero h1 {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  letter-spacing: 0;
+}
+
+.sect-hero p {
+  max-width: 760px;
+  margin: 10px 0 0;
+  color: #cfc6b5;
+  line-height: 1.6;
+}
+
+.sect-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(110px, 1fr));
+  gap: 10px;
+  min-width: min(460px, 100%);
+}
+
+.sect-summary div,
+.sect-panel {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(7, 13, 16, 0.74);
+  backdrop-filter: blur(12px);
+}
+
+.sect-summary div {
+  padding: 14px;
+  border-radius: 8px;
+}
+
+.sect-summary span,
+.member-row span,
+.sect-row span,
+.damage-row span,
+.boss-note {
+  display: block;
+  color: #a9b2ad;
+  font-size: 0.82rem;
+}
+
+.sect-summary strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 1.35rem;
+}
+
+.sect-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
+  gap: 18px;
+  margin-top: 20px;
+}
+
+.sect-grid-setup {
+  grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.1fr);
+}
+
+.boss-panel {
+  grid-row: span 2;
+}
+
+.sect-panel {
+  border-radius: 8px;
+  padding: 18px;
+}
+
+.sect-panel h2 {
+  margin: 0 0 16px;
+  font-size: 1.15rem;
+}
+
+.sect-form {
+  display: grid;
+  gap: 14px;
+}
+
+.sect-form label,
+.boss-summon label {
+  display: grid;
+  gap: 8px;
+  color: #d8d0c3;
+  font-weight: 700;
+}
+
+.sect-form input,
+.sect-form textarea,
+.boss-summon select {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  padding: 12px 14px;
+  color: #ffb115;
+  background: rgba(255, 255, 255, 0.09);
+  outline: none;
+}
+
+.sect-form textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.sect-primary-btn,
+.sect-danger-btn,
+.sect-row button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 16px;
+  color: #160f08;
+  background: #f6c76a;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.sect-danger-btn {
+  color: #fff8ec;
+  background: #bd3f32;
+  box-shadow: 0 0 24px rgba(189, 63, 50, 0.22);
+}
+
+.sect-primary-btn:disabled,
+.sect-danger-btn:disabled,
+.sect-row button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.sect-list,
+.member-list,
+.damage-list {
+  display: grid;
+  gap: 10px;
+  max-height: 440px;
+  overflow: auto;
+}
+
+.sect-row,
+.member-row,
+.damage-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.damage-row {
+  justify-content: flex-start;
+}
+
+.damage-rank {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border-radius: 8px;
+  color: #f6c76a;
+  background: rgba(246, 199, 106, 0.12);
+  font-weight: 800;
+}
+
+.sect-empty,
+.sect-loading {
+  padding: 28px;
+  border-radius: 8px;
+  color: #cfc6b5;
+  background: rgba(255, 255, 255, 0.06);
+  text-align: center;
+}
+
+.panel-title-row,
+.boss-title-row,
+.boss-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.boss-state,
+.boss-title-row span {
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: #fbdb94;
+  background: rgba(246, 199, 106, 0.14);
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.boss-arena {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  gap: 20px;
+  align-items: center;
+}
+
+.boss-orb {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 30%, #ffe3a0, #d65b45 46%, #441b21 72%);
+  box-shadow: 0 0 34px rgba(214, 91, 69, 0.48);
+  animation: bossPulse 2.4s ease-in-out infinite;
+}
+
+.boss-orb .material-symbols-outlined {
+  font-size: 4rem;
+}
+
+.boss-info h3 {
+  margin: 0;
+  font-size: 1.7rem;
+}
+
+.boss-info p,
+.boss-summon p {
+  color: #cfc6b5;
+  line-height: 1.55;
+}
+
+.boss-hp-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+  font-size: 0.92rem;
+}
+
+.boss-hp-bar {
+  height: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  margin: 8px 0 16px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.boss-hp-bar div {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #d94d3f, #f6c76a);
+  transition: width 180ms ease;
+}
+
+.boss-summon,
+.boss-preview,
+.combat-result,
+.loot-drops {
+  display: grid;
+  gap: 12px;
+}
+
+.loot-preview,
+.loot-drops {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.loot-preview span,
+.loot-drops span {
+  border-radius: 999px;
+  padding: 7px 10px;
+  color: #f5d48b;
+  background: rgba(246, 199, 106, 0.12);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.combat-result {
+  margin-top: 18px;
+  border-radius: 8px;
+  padding: 14px;
+  color: #dcebdc;
+  background: rgba(83, 162, 101, 0.12);
+  border: 1px solid rgba(83, 162, 101, 0.22);
+}
+
+.combat-result.defeated {
+  color: #ffefbd;
+  background: rgba(246, 199, 106, 0.13);
+  border-color: rgba(246, 199, 106, 0.28);
+}
+
+@keyframes bossPulse {
+  0%, 100% {
+    transform: scale(1);
+    filter: saturate(1);
+  }
+
+  50% {
+    transform: scale(1.035);
+    filter: saturate(1.25);
+  }
+}
+
+@media (max-width: 900px) {
+  .sect-page {
+    padding: 16px;
+  }
+
+  .sect-hero,
+  .boss-arena,
+  .boss-title-row,
+  .boss-actions {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sect-grid,
+  .sect-grid-setup {
+    grid-template-columns: 1fr;
+  }
+
+  .boss-panel {
+    grid-row: auto;
+  }
+
+  .sect-summary {
+    grid-template-columns: repeat(3, 1fr);
+    min-width: 0;
+  }
+}
+
+@media (max-width: 560px) {
+  .sect-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .sect-row,
+  .member-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
