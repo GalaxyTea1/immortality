@@ -568,6 +568,49 @@ export const sects = {
     },
 };
 
+// ==================== TREASURE HOUSE API ====================
+
+export const treasureHouse = {
+    getStatus: async (characterId) => {
+        const query = characterId ? `?characterId=${encodeURIComponent(characterId)}` : '';
+        return authFetch(`/treasure-house/status${query}`);
+    },
+
+    placeBet: async (characterId, roundId, side, amount) => {
+        return authFetch('/treasure-house/bets', {
+            method: 'POST',
+            body: JSON.stringify({ characterId, roundId, side, amount }),
+        });
+    },
+
+    depositPot: async (amount) => {
+        return authFetch('/treasure-house/admin/deposit', {
+            method: 'POST',
+            body: JSON.stringify({ amount }),
+        });
+    },
+
+    updateSettings: async (settings) => {
+        return authFetch('/treasure-house/admin/settings', {
+            method: 'PUT',
+            body: JSON.stringify(settings),
+        });
+    },
+
+    forceRound: async (roundId, side) => {
+        return authFetch(`/treasure-house/admin/rounds/${roundId}/force`, {
+            method: 'POST',
+            body: JSON.stringify({ side }),
+        });
+    },
+
+    resolveRound: async (roundId) => {
+        return authFetch(`/treasure-house/admin/rounds/${roundId}/resolve`, {
+            method: 'POST',
+        });
+    },
+};
+
 // ==================== HEALTH CHECK ====================
 
 export const health = {

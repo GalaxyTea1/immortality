@@ -25,6 +25,7 @@ import alchemyRoutes from './routes/alchemy.routes.js';
 import questRoutes from './routes/quest.routes.js';
 import reputationRoutes from './routes/reputation.routes.js';
 import sectRoutes from './routes/sect.routes.js';
+import treasureHouseRoutes from './routes/treasureHouse.routes.js';
 
 attachConsoleFileLogger();
 
@@ -81,6 +82,7 @@ app.use('/api/alchemy', alchemyRoutes);
 app.use('/api/quests', questRoutes);
 app.use('/api/reputation', reputationRoutes);
 app.use('/api/sects', sectRoutes);
+app.use('/api/treasure-house', treasureHouseRoutes);
 
 app.use((req, res) => {
   fail(res, 404, 'Không tìm thấy endpoint');

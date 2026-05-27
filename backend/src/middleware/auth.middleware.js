@@ -17,7 +17,7 @@ export const authMiddleware = async (req, res, next) => {
 
         // Check if user exists and is active
         const result = await query(
-            'SELECT id, username, email, is_active FROM users WHERE id = $1',
+            'SELECT id, username, email, is_admin, is_active FROM users WHERE id = $1',
             [decoded.userId]
         );
 
@@ -50,7 +50,7 @@ export const optionalAuth = async (req, res, next) => {
             const decoded = jwt.verify(token, JWT_SECRET);
 
             const result = await query(
-                'SELECT id, username, email, is_active FROM users WHERE id = $1',
+                'SELECT id, username, email, is_admin, is_active FROM users WHERE id = $1',
                 [decoded.userId]
             );
 

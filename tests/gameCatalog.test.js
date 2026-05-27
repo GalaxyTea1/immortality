@@ -14,6 +14,13 @@ import {
 } from '../backend/src/domain/gameCatalog.js';
 import { calculateCombatPower } from '../shared/data/combatPower.js';
 import { BOSS_LIST } from '../shared/data/bosses.js';
+import {
+  calculateJackpotAmount,
+  calculateJackpotRate,
+  calculatePayoutPool,
+  distributeByStake,
+  getTreasureRoundTiming,
+} from '../backend/src/domain/treasureHouse.js';
 
 test('validates inventory entries against known item definitions', () => {
   assert.equal(assertValidInventoryEntry({ itemId: 'thao_duoc' }).type, 'material');
@@ -130,4 +137,31 @@ test('boss catalog entries are ready for database seeding', () => {
     assert.ok(Array.isArray(boss.rewards.loot));
     assert.ok(boss.rewards.loot.some((drop) => drop.mode === 'treasury'));
   }
+});
+
+test('calculates treasure house payout limits', () => {
+  assert.equal(calculateJackpotRate(2000000), 0.1);
+  assert.equal(calculateJackpotRate(50000), 0.05);
+  assert.equal(calculatePayoutPool({ potAmount: 1000, losingTotal: 500, winningTotal: 2000, payoutMultiplier: 1.8 }), 1500);
+  assert.equal(calculateJackpotAmount({ remainingPot: 10000, jackpotTriggered: true, jackpotPayoutPercent: 0.25 }), 2500);
+});
+
+test('distributes treasure house rewards by stake', () => {
+  assert.deepEqual(
+    distributeByStake([{ id: 1, amount: 1 }, { id: 2, amount: 3 }], 100),
+    [{ id: 1, amount: 25 }, { id: 2, amount: 75 }],
+  );
+});
+
+test('keeps treasure house in settling phase after betting closes', () => {
+  const timing = getTreasureRoundTiming(
+    {
+      status: 'betting',
+      closes_at: new Date(Date.now() - 1000).toISOString(),
+    },
+    { settleSeconds: 10 },
+  );
+
+  assert.equal(timing.phase, 'settling');
+  assert.ok(timing.settleSecondsRemaining > 0);
 });

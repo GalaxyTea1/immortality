@@ -10,6 +10,7 @@ import Inventory from "./pages/Inventory";
 import Shop from "./pages/Shop";
 import Leaderboard from "./pages/Leaderboard";
 import SectBoss from "./pages/SectBoss";
+import TreasureHouse from "./pages/TreasureHouse";
 import Login from "./pages/Login";
 import "./index.css";
 
@@ -63,6 +64,7 @@ function AppContent() {
           <Route path="inventory" element={<Inventory />} />
           <Route path="shop" element={<Shop />} />
           <Route path="sect-boss" element={<SectBoss />} />
+          <Route path="treasure-house" element={<TreasureHouse />} />
           <Route path="leaderboard" element={<Leaderboard />} />
         </Route>
 

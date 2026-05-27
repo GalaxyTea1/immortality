@@ -70,6 +70,7 @@ router.post('/register', authLimiter, validate(registerSchema), async (req, res)
                 username: newUser.username,
                 email: newUser.email,
                 characterId: characterResult.rows[0].id,
+                isAdmin: false,
             },
             token,
         });
@@ -129,6 +130,7 @@ router.post('/login', authLimiter, validate(loginSchema), async (req, res) => {
                 username: user.username,
                 email: user.email,
                 characterId: user.character_id,
+                isAdmin: Boolean(user.is_admin),
             },
             token,
         });
@@ -142,7 +144,7 @@ router.post('/login', authLimiter, validate(loginSchema), async (req, res) => {
 router.get('/me', authMiddleware, async (req, res) => {
     try {
         const result = await query(
-            `SELECT u.id, u.username, u.email, u.created_at, u.last_login,
+            `SELECT u.id, u.username, u.email, u.is_admin, u.created_at, u.last_login,
               c.id as character_id, c.name as character_name,
               c.realm_index, c.level, c.spirit_stones
        FROM users u

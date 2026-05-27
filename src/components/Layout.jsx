@@ -9,6 +9,7 @@ const navItems = [
   { path: '/inventory', label: 'Kho Đồ', icon: 'backpack' },
   { path: '/shop', label: 'Cửa Hàng', icon: 'storefront' },
   { path: '/sect-boss', label: 'Tông Môn', icon: 'fort' },
+  { path: '/treasure-house', label: 'Tụ Bảo', icon: 'casino' },
   { path: '/leaderboard', label: 'Xếp Hạng', icon: 'leaderboard' },
 ];
 
@@ -78,7 +79,7 @@ function Layout() {
       </main>
 
       <nav className="mobile-nav">
-        {navItems.slice(0, 6).map((item) => (
+        {navItems.slice(0, 7).map((item) => (
           <Link
             key={item.path}
             to={item.path}

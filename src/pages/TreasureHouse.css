@@ -1,0 +1,412 @@
+.treasure-page {
+  min-height: calc(100vh - 84px);
+  padding: 24px;
+  color: #f8fafc;
+  background:
+    radial-gradient(circle at 18% 10%, rgba(206, 15, 72, 0.22), transparent 30%),
+    radial-gradient(circle at 82% 16%, rgba(36, 82, 215, 0.24), transparent 28%),
+    linear-gradient(135deg, #141418, #1b2028 48%, #17161b);
+}
+
+.treasure-shell {
+  width: min(1120px, 100%);
+  margin: 0 auto;
+}
+
+.treasure-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 22px;
+  padding: 20px 0 22px;
+}
+
+.treasure-kicker {
+  margin: 0 0 8px;
+  color: #f59e0b;
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.treasure-hero h1 {
+  margin: 0;
+  font-size: clamp(2.1rem, 4vw, 3.8rem);
+  letter-spacing: 0;
+}
+
+.treasure-hero p {
+  max-width: 660px;
+  margin: 10px 0 0;
+  color: #cbd5e1;
+  line-height: 1.6;
+}
+
+.treasure-pot-card,
+.treasure-board,
+.treasure-panel,
+.treasure-admin-panel {
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  border-radius: 8px;
+  background: rgba(12, 14, 20, 0.82);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.24);
+}
+
+.treasure-pot-card {
+  display: grid;
+  gap: 6px;
+  min-width: min(310px, 100%);
+  padding: 16px;
+}
+
+.treasure-pot-card span,
+.treasure-pot-card small,
+.treasure-panel p,
+.admin-heading p {
+  color: #a1a1aa;
+}
+
+.treasure-pot-card strong {
+  color: #f59e0b;
+  font-size: 2rem;
+}
+
+.treasure-board {
+  padding: 14px;
+  background:
+    linear-gradient(90deg, rgba(206, 15, 72, 0.1), transparent 38%, rgba(36, 82, 215, 0.1)),
+    #18191d;
+}
+
+.treasure-history {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-height: 28px;
+}
+
+.history-more {
+  color: #a1a1aa;
+  font-size: 0.82rem;
+}
+
+.result-chip {
+  display: grid;
+  place-items: center;
+  min-width: 28px;
+  height: 28px;
+  border-radius: 5px;
+  color: white;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.result-chip.result-1 {
+  background: #ce0f48;
+}
+
+.result-chip.result-2 {
+  background: #2452d7;
+}
+
+.treasure-result {
+  margin-top: 4px;
+  text-align: center;
+  color: #d4d4d8;
+}
+
+.treasure-result strong {
+  color: #f43f5e;
+}
+
+.treasure-timer-bar {
+  height: 10px;
+  margin: 10px 0 8px;
+  overflow: hidden;
+  background: #2452d7;
+}
+
+.treasure-timer-bar div {
+  height: 100%;
+  background: #ce0f48;
+  transition: width 180ms linear;
+}
+
+.treasure-timer-bar.settling {
+  background: #27272a;
+}
+
+.treasure-timer-bar.settling div {
+  background: #f59e0b;
+}
+
+.treasure-core {
+  display: grid;
+  grid-template-columns: 1fr minmax(280px, 1.25fr) 1fr;
+  gap: 14px;
+  align-items: start;
+}
+
+.treasure-side,
+.treasure-center {
+  min-width: 0;
+}
+
+.treasure-side {
+  display: grid;
+  gap: 7px;
+  padding-top: 12px;
+  font-size: 1rem;
+}
+
+.treasure-side span {
+  color: #f43f5e;
+  font-weight: 900;
+}
+
+.side-two {
+  text-align: right;
+}
+
+.side-two span {
+  color: #60a5fa;
+}
+
+.treasure-side strong,
+.treasure-side em,
+.treasure-side b {
+  color: #f8fafc;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.treasure-side em {
+  color: #a1a1aa;
+  font-size: 0.9rem;
+}
+
+.treasure-side b {
+  font-size: 1.35rem;
+}
+
+.treasure-center {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.treasure-center > strong {
+  color: #f59e0b;
+  font-size: 1.15rem;
+}
+
+.treasure-center span {
+  color: #e4e4e7;
+  font-size: 0.88rem;
+}
+
+.treasure-count {
+  color: white;
+  font-size: clamp(2rem, 4vw, 2rem);
+  font-weight: 950;
+  line-height: 1;
+}
+
+.treasure-center p {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 1.05rem;
+}
+
+.treasure-center small {
+  min-height: 18px;
+  color: #a1a1aa;
+  font-size: 0.95rem;
+}
+
+.forced-note {
+  color: #fbbf24 !important;
+}
+
+.treasure-bet-row,
+.treasure-action-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.treasure-bet-row input,
+.treasure-admin-panel input {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid #667085;
+  border-radius: 5px;
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0 10px;
+  outline: none;
+}
+
+.treasure-bet-row input:focus,
+.treasure-admin-panel input:focus {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.12);
+}
+
+.treasure-action-row button,
+.treasure-admin-panel button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 6px;
+  color: white;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.bet-one {
+  background: #ce0f48;
+}
+
+.bet-two {
+  background: #2452d7;
+}
+
+.treasure-action-row button:disabled,
+.treasure-admin-panel button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.treasure-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.treasure-panel {
+  padding: 16px;
+}
+
+.treasure-panel h2,
+.treasure-admin-panel h2 {
+  margin: 0 0 12px;
+  font-size: 1.1rem;
+}
+
+.leader-list {
+  display: grid;
+  gap: 8px;
+}
+
+.leader-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 34px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  color: #d4d4d8;
+}
+
+.leader-row strong {
+  color: #f59e0b;
+}
+
+.treasure-admin-panel {
+  margin-top: 14px;
+  padding: 16px;
+}
+
+.admin-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.admin-heading p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.admin-force-row,
+.inline-form {
+  display: flex;
+  gap: 8px;
+}
+
+.admin-force-row button,
+.inline-form button,
+.settings-form button {
+  padding: 0 14px;
+  background: #3f3f46;
+}
+
+.admin-force-row button:first-child {
+  background: #ce0f48;
+}
+
+.admin-force-row button:nth-child(2) {
+  background: #2452d7;
+}
+
+.admin-forms {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.admin-forms label,
+.settings-form label {
+  display: grid;
+  gap: 7px;
+  color: #d4d4d8;
+  font-weight: 700;
+}
+
+.settings-form {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(110px, 1fr)) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.settings-form button {
+  min-width: 118px;
+}
+
+@media (max-width: 860px) {
+  .treasure-page {
+    padding: 16px;
+  }
+
+  .treasure-hero,
+  .admin-heading {
+    display: grid;
+  }
+
+  .treasure-core,
+  .treasure-grid,
+  .settings-form {
+    grid-template-columns: 1fr;
+  }
+
+  .side-two {
+    text-align: left;
+  }
+
+  .treasure-side {
+    grid-template-columns: repeat(4, minmax(0, auto));
+    align-items: center;
+  }
+
+  .admin-force-row,
+  .inline-form {
+    flex-wrap: wrap;
+  }
+}

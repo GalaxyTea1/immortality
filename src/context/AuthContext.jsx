@@ -13,6 +13,7 @@ const normalizeAuthUser = (userData) => ({
     username: userData.username,
     email: userData.email,
     characterId: userData.characterId ?? userData.character_id,
+    isAdmin: Boolean(userData.isAdmin ?? userData.is_admin),
 });
 
 export function AuthProvider({ children }) {
