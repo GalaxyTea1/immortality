@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" role="img" aria-label="Thanh Lang Vương">
+  <defs>
+    <radialGradient id="moon" cx="36%" cy="24%" r="50%">
+      <stop offset="0" stop-color="#dff8ff"/>
+      <stop offset="0.45" stop-color="#7fc9d8"/>
+      <stop offset="1" stop-color="#102b35"/>
+    </radialGradient>
+    <linearGradient id="fur" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#8ee7dd"/>
+      <stop offset="0.48" stop-color="#297e86"/>
+      <stop offset="1" stop-color="#0c2730"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="7" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="640" height="640" rx="36" fill="#08141a"/>
+  <circle cx="190" cy="150" r="130" fill="url(#moon)" opacity="0.78"/>
+  <path d="M0 494 C118 418 190 474 294 412 C396 352 486 379 640 302 L640 640 L0 640 Z" fill="#102831"/>
+  <path d="M154 374 L213 236 L268 342 L324 194 L381 342 L432 236 L494 374 L514 516 L414 562 L321 534 L226 562 L133 516 Z" fill="url(#fur)"/>
+  <path d="M226 368 C261 326 381 326 416 368 C397 448 365 484 321 484 C277 484 245 448 226 368 Z" fill="#061217"/>
+  <path d="M246 373 L285 388 L252 403 Z" fill="#b9fff4" filter="url(#glow)"/>
+  <path d="M397 373 L358 388 L391 403 Z" fill="#b9fff4" filter="url(#glow)"/>
+  <path d="M294 432 L321 414 L348 432 L321 452 Z" fill="#071016"/>
+  <path d="M242 497 C282 526 360 526 401 497" fill="none" stroke="#8ee7dd" stroke-width="10" stroke-linecap="round" opacity="0.65"/>
+  <path d="M117 236 C105 309 128 358 182 387" fill="none" stroke="#59d5ce" stroke-width="18" stroke-linecap="round" opacity="0.5"/>
+  <path d="M522 236 C535 309 512 358 458 387" fill="none" stroke="#59d5ce" stroke-width="18" stroke-linecap="round" opacity="0.5"/>
+</svg>

@@ -17,6 +17,85 @@ const STAT_COLUMNS = {
     cultivationSpeed: "cultivation_speed",
 };
 
+const PROGRESSION_STAT_KEYS = ["maxHp", "attack", "defense", "agility", "spirit", "cultivationSpeed"];
+
+const emptyStatGain = () => ({
+    maxHp: 0,
+    attack: 0,
+    defense: 0,
+    agility: 0,
+    spirit: 0,
+    cultivationSpeed: 0,
+});
+
+const normalizeStatGain = (statGain = {}) => PROGRESSION_STAT_KEYS.reduce((normalized, key) => {
+    normalized[key] = Math.max(0, Number(statGain[key]) || 0);
+    return normalized;
+}, {});
+
+export const hasStatGain = (statGain = {}) => (
+    PROGRESSION_STAT_KEYS.some((key) => (Number(statGain[key]) || 0) > 0)
+);
+
+export const calculateLevelStatGain = ({ realmIndex = 0, fromLevel = 1, toLevel = 1 } = {}) => {
+    const levelsGained = Math.max(0, Math.floor(Number(toLevel) || 1) - Math.floor(Number(fromLevel) || 1));
+    if (levelsGained <= 0) return emptyStatGain();
+
+    const realmTier = Math.max(1, Math.floor(Number(realmIndex) || 0) + 1);
+    return {
+        maxHp: levelsGained * (8 + realmTier * 4),
+        attack: levelsGained * (1 + realmTier),
+        defense: levelsGained * (1 + Math.ceil(realmTier / 2)),
+        agility: levelsGained * (1 + Math.floor(realmTier / 2)),
+        spirit: levelsGained * (1 + realmTier),
+        cultivationSpeed: Number((levelsGained * 0.01).toFixed(2)),
+    };
+};
+
+export const calculateRealmBreakthroughStatGain = ({ toRealmIndex = 0 } = {}) => {
+    const realmTier = Math.max(1, Math.floor(Number(toRealmIndex) || 0) + 1);
+    return {
+        maxHp: 80 + realmTier * 40,
+        attack: 12 + realmTier * 6,
+        defense: 10 + realmTier * 5,
+        agility: 8 + realmTier * 3,
+        spirit: 14 + realmTier * 7,
+        cultivationSpeed: Number((0.03 + realmTier * 0.01).toFixed(2)),
+    };
+};
+
+export const applyCharacterStatGain = async (characterId, statGain = {}, executor = null) => {
+    const normalized = normalizeStatGain(statGain);
+    const fragments = [];
+    const values = [];
+
+    if (normalized.maxHp > 0) {
+        values.push(normalized.maxHp);
+        const placeholder = `$${values.length + 1}`;
+        fragments.push(`max_hp = max_hp + ${placeholder}`);
+        fragments.push(`hp = hp + ${placeholder}`);
+    }
+
+    for (const key of ["attack", "defense", "agility", "spirit", "cultivationSpeed"]) {
+        if (normalized[key] <= 0) continue;
+        values.push(normalized[key]);
+        fragments.push(`${STAT_COLUMNS[key]} = ${STAT_COLUMNS[key]} + $${values.length + 1}`);
+    }
+
+    if (fragments.length === 0) return null;
+
+    const result = await runCatalogQuery(
+        executor,
+        `UPDATE characters
+         SET ${fragments.join(", ")}
+         WHERE id = $1
+         RETURNING *`,
+        [characterId, ...values]
+    );
+
+    return result.rows[0] || null;
+};
+
 export const getItemDefinition = (itemId) => ITEM_DEFINITIONS[itemId] || null;
 export {
     ALCHEMY_RECIPES,

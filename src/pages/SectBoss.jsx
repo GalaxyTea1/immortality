@@ -47,6 +47,7 @@ function SectBoss() {
   const [sectLeaderboard, setSectLeaderboard] = useState([]);
   const [newSect, setNewSect] = useState({ name: '', description: '' });
   const [selectedBossId, setSelectedBossId] = useState('');
+  const [attackBurst, setAttackBurst] = useState(0);
 
   const selectedBoss = useMemo(
     () => profile.bossCatalog.find((boss) => boss.id === selectedBossId) || profile.bossCatalog[0],
@@ -62,9 +63,9 @@ function SectBoss() {
 
   const getItemName = useCallback((itemId) => ITEM_DEFINITIONS?.[itemId]?.name || itemId, [ITEM_DEFINITIONS]);
 
-  const loadSectData = useCallback(async () => {
+  const loadSectData = useCallback(async ({ showLoading = false } = {}) => {
     if (!characterId) return;
-    setIsLoading(true);
+    if (showLoading) setIsLoading(true);
     try {
       const [nextProfile, nextSectList, nextSectLeaderboard] = await Promise.all([
         sectApi.getProfile(characterId),
@@ -78,12 +79,12 @@ function SectBoss() {
     } catch (error) {
       toast.error(error.message || 'Không thể tải dữ liệu tông môn');
     } finally {
-      setIsLoading(false);
+      if (showLoading) setIsLoading(false);
     }
   }, [characterId]);
 
   useEffect(() => {
-    loadSectData();
+    loadSectData({ showLoading: true });
   }, [loadSectData]);
 
   const runAction = useCallback(async (action, successMessage) => {
@@ -95,8 +96,11 @@ function SectBoss() {
     try {
       const result = await action();
       setCombatResult(result?.damage !== undefined ? result : null);
+      if (result?.damage !== undefined) {
+        setAttackBurst((value) => value + 1);
+      }
       toast.success(result?.message || successMessage);
-      await Promise.all([loadSectData(), loadFromServer?.()]);
+      await Promise.all([loadSectData({ showLoading: false }), loadFromServer?.()]);
       return result;
     } catch (error) {
       toast.error(error.message || 'Thao tác thất bại');
@@ -256,7 +260,12 @@ function SectBoss() {
             {activeBoss ? (
               <div className="boss-arena">
                 <div className={`boss-orb phase-${currentPhase?.name ? 'active' : 'idle'}`}>
-                  <span className="material-symbols-outlined">local_fire_department</span>
+                  {activeBoss.image ? (
+                    <img src={activeBoss.image} alt={activeBoss.name} />
+                  ) : (
+                    <span className="material-symbols-outlined">local_fire_department</span>
+                  )}
+                  {attackBurst > 0 && <span key={attackBurst} className="boss-hit-burst" />}
                 </div>
                 <div className="boss-info">
                   <div className="boss-title-row">
@@ -299,6 +308,9 @@ function SectBoss() {
                 </label>
                 {selectedBoss && (
                   <div className="boss-preview">
+                    {selectedBoss.image && (
+                      <img className="boss-preview-image" src={selectedBoss.image} alt={selectedBoss.name} />
+                    )}
                     <p>{selectedBoss.description}</p>
                     <div className="raid-meta-grid">
                       <span>Raid: {selectedBoss.rewards?.raidMinutes || 60} phút</span>

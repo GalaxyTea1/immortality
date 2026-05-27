@@ -1,7 +1,12 @@
 import express from 'express';
 import Joi from 'joi';
 import { query, withTransaction } from '../db/index.js';
-import { applyHpRegeneration, calculateExpProgress } from '../domain/gameCatalog.js';
+import {
+  applyCharacterStatGain,
+  applyHpRegeneration,
+  calculateExpProgress,
+  calculateLevelStatGain,
+} from '../domain/gameCatalog.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireCharacterOwner } from '../middleware/ownership.middleware.js';
 import { gameplayLimiter } from '../middleware/rateLimit.js';
@@ -139,6 +144,7 @@ const normalizeBossDefinition = (row) => ({
   attack: toNumber(row.attack),
   defense: toNumber(row.defense),
   rewards: row.rewards || {},
+  image: row.image || '',
   phase: getBossPhase({ ...row, current_hp: row.max_hp }),
   respawnHours: toNumber(row.respawn_hours, 24),
 });
@@ -203,6 +209,7 @@ const normalizeBossInstance = (row, damageBoard = []) => row && ({
   attack: toNumber(row.attack),
   defense: toNumber(row.defense),
   rewards: row.rewards || {},
+  image: row.image || '',
   phase: getBossPhase(row),
   status: row.status,
   spawnedAt: row.spawned_at,
@@ -217,7 +224,7 @@ const normalizeBossInstance = (row, damageBoard = []) => row && ({
 
 const listBossDefinitions = async (executor = { query }) => {
   const result = await executor.query(
-    `SELECT boss_id, name, description, realm_index, level, max_hp, attack, defense, rewards, respawn_hours
+    `SELECT boss_id, name, description, realm_index, level, max_hp, attack, defense, rewards, image, respawn_hours
      FROM boss_definitions
      WHERE is_active = TRUE
      ORDER BY realm_index ASC, level ASC, max_hp ASC`
@@ -304,14 +311,16 @@ const getSectDailyMetrics = async (sectId, executor = { query }) => {
   };
 };
 
-const getSectDailyQuests = async (sectId, executor = { query }) => {
+const getSectDailyQuests = async (sectId, characterId, executor = { query }) => {
   const [metrics, claims] = await Promise.all([
     getSectDailyMetrics(sectId, executor),
     executor.query(
       `SELECT quest_id
        FROM sect_quest_claims
-       WHERE sect_id = $1 AND quest_date = CURRENT_DATE`,
-      [sectId]
+       WHERE sect_id = $1
+         AND claimed_by = $2
+         AND quest_date = CURRENT_DATE`,
+      [sectId, characterId]
     ),
   ]);
   const claimed = new Set(claims.rows.map((row) => row.quest_id));
@@ -366,6 +375,7 @@ const getActiveBossForSect = async (sectId, executor = { query }) => {
        bd.attack,
        bd.defense,
        bd.rewards,
+       bd.image,
        COALESCE(SUM(ba.damage), 0) AS total_damage
      FROM boss_instances bi
      JOIN boss_definitions bd ON bd.boss_id = bi.boss_id
@@ -492,6 +502,11 @@ const distributeDefeatRewards = async ({ client, sectId, bossInstanceId, rewards
       exp: character.exp,
       maxExp: character.max_exp,
     }, expGain);
+    const statGain = calculateLevelStatGain({
+      realmIndex: character.realm_index,
+      fromLevel: character.level,
+      toLevel: nextProgress.level,
+    });
 
     await client.query(
       `UPDATE characters
@@ -499,9 +514,10 @@ const distributeDefeatRewards = async ({ client, sectId, bossInstanceId, rewards
            exp = $3,
            level = $4,
            max_exp = $5
-       WHERE id = $1`,
+      WHERE id = $1`,
       [row.characterId, stonesGain, nextProgress.exp, nextProgress.level, nextProgress.maxExp]
     );
+    await applyCharacterStatGain(row.characterId, statGain, client);
 
     await client.query(
       `UPDATE sect_members
@@ -516,6 +532,7 @@ const distributeDefeatRewards = async ({ client, sectId, bossInstanceId, rewards
       exp: expGain,
       spiritStones: stonesGain,
       contribution: contributionGain,
+      statGain,
       share,
     });
   }
@@ -654,7 +671,7 @@ router.get('/character/:characterId', requireCharacterOwner('characterId'), asyn
       attackInfo: await getDailyAttackInfo(characterId, activeBoss?.rewards),
       treasury: await getSectTreasury(member.sectId),
       sectShop: getSectShopItems(sect?.level),
-      dailyQuests: await getSectDailyQuests(member.sectId),
+      dailyQuests: await getSectDailyQuests(member.sectId, characterId),
     });
   } catch (error) {
     console.error('Không thể tải thông tin tông môn:', error);
@@ -871,7 +888,7 @@ router.post('/:sectId/quests/:questId/claim', gameplayLimiter, validateBody(char
 
     const result = await withTransaction(async (client) => {
       await assertSectMember(sectId, characterId, client);
-      const quests = await getSectDailyQuests(sectId, client);
+      const quests = await getSectDailyQuests(sectId, characterId, client);
       const questState = quests.find((quest) => quest.id === questId);
       if (!questState) {
         const error = new Error('Không tìm thấy nhiệm vụ tông môn');
@@ -912,7 +929,7 @@ router.post('/:sectId/quests/:questId/claim', gameplayLimiter, validateBody(char
 
       return {
         quest: { ...questState, claimed: true },
-        dailyQuests: await getSectDailyQuests(sectId, client),
+        dailyQuests: await getSectDailyQuests(sectId, characterId, client),
         message: `Đã nhận thưởng nhiệm vụ ${questState.title}`,
       };
     });
@@ -949,7 +966,7 @@ router.post('/:sectId/bosses/spawn', gameplayLimiter, validateBody(spawnBossSche
       }
 
       const bossResult = await client.query(
-        `SELECT boss_id, name, description, realm_index, level, max_hp, attack, defense, rewards, respawn_hours
+        `SELECT boss_id, name, description, realm_index, level, max_hp, attack, defense, rewards, image, respawn_hours
          FROM boss_definitions
          WHERE boss_id = $1 AND is_active = TRUE`,
         [bossId]
@@ -999,7 +1016,8 @@ router.post('/:sectId/bosses/:instanceId/attack', gameplayLimiter, validateBody(
            bd.max_hp,
            bd.attack,
            bd.defense,
-           bd.rewards
+           bd.rewards,
+           bd.image
          FROM boss_instances bi
          JOIN boss_definitions bd ON bd.boss_id = bi.boss_id
          WHERE bi.id = $1 AND bi.sect_id = $2 AND bi.status = 'active'

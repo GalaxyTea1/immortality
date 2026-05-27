@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" role="img" aria-label="Huyền Băng Long">
+  <defs>
+    <linearGradient id="ice" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#e6fbff"/>
+      <stop offset="0.45" stop-color="#67b7e5"/>
+      <stop offset="1" stop-color="#172451"/>
+    </linearGradient>
+    <radialGradient id="aura" cx="48%" cy="42%" r="62%">
+      <stop offset="0" stop-color="#e4fbff"/>
+      <stop offset="0.42" stop-color="#5ba8db"/>
+      <stop offset="1" stop-color="#07152d"/>
+    </radialGradient>
+    <filter id="frost">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="640" height="640" rx="36" fill="#071225"/>
+  <circle cx="320" cy="308" r="260" fill="url(#aura)" opacity="0.7"/>
+  <path d="M120 480 C208 360 204 246 320 158 C436 246 432 360 520 480 C424 546 218 546 120 480 Z" fill="url(#ice)"/>
+  <path d="M194 268 L248 110 L286 232 Z" fill="#c7f7ff"/>
+  <path d="M446 268 L392 110 L354 232 Z" fill="#c7f7ff"/>
+  <path d="M250 315 C284 268 356 268 390 315 C380 410 354 456 320 456 C286 456 260 410 250 315 Z" fill="#07172d"/>
+  <path d="M268 325 L304 342 L268 360 Z" fill="#d8fbff" filter="url(#frost)"/>
+  <path d="M372 325 L336 342 L372 360 Z" fill="#d8fbff" filter="url(#frost)"/>
+  <path d="M238 510 C296 540 344 540 402 510" fill="none" stroke="#d8fbff" stroke-width="14" stroke-linecap="round" opacity="0.72"/>
+  <path d="M92 388 L180 360 L128 438 Z" fill="#94dff2" opacity="0.5"/>
+  <path d="M548 388 L460 360 L512 438 Z" fill="#94dff2" opacity="0.5"/>
+  <path d="M320 72 L344 148 L320 132 L296 148 Z" fill="#e7fbff" opacity="0.9"/>
+</svg>

@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS characters (
     agility INTEGER DEFAULT 10,
     spirit INTEGER DEFAULT 10,
     cultivation_speed DECIMAL(5,2) DEFAULT 1.0,
+    progression_stat_version INTEGER NOT NULL DEFAULT 1,
     
     -- Foundation & Inner Demon
     foundation_value INTEGER DEFAULT 100,
@@ -218,6 +219,7 @@ CREATE TABLE IF NOT EXISTS boss_definitions (
     attack INTEGER NOT NULL DEFAULT 0 CHECK (attack >= 0),
     defense INTEGER NOT NULL DEFAULT 0 CHECK (defense >= 0),
     rewards JSONB NOT NULL DEFAULT '{}'::jsonb,
+    image TEXT,
     respawn_hours INTEGER NOT NULL DEFAULT 24 CHECK (respawn_hours > 0),
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -273,7 +275,7 @@ CREATE TABLE IF NOT EXISTS sect_quest_claims (
     quest_date DATE NOT NULL DEFAULT CURRENT_DATE,
     claimed_by INTEGER REFERENCES characters(id) ON DELETE SET NULL,
     claimed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(sect_id, quest_id, quest_date)
+    UNIQUE(sect_id, quest_id, quest_date, claimed_by)
 );
 
 -- ===========================
@@ -344,6 +346,7 @@ CREATE INDEX IF NOT EXISTS idx_boss_attacks_instance_id ON boss_attacks(boss_ins
 CREATE INDEX IF NOT EXISTS idx_boss_attacks_character_id ON boss_attacks(character_id);
 CREATE INDEX IF NOT EXISTS idx_sect_treasury_items_sect_id ON sect_treasury_items(sect_id);
 CREATE INDEX IF NOT EXISTS idx_sect_quest_claims_sect_date ON sect_quest_claims(sect_id, quest_date);
+CREATE INDEX IF NOT EXISTS idx_sect_quest_claims_character_date ON sect_quest_claims(claimed_by, quest_date);
 
 -- ===========================
 -- Trigger for updated_at

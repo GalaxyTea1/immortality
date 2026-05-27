@@ -3,6 +3,7 @@ export const BOSS_DEFINITIONS = {
     id: 'thanh_lang_vuong',
     name: 'Thanh Lang Vương',
     description: 'Yêu lang canh giữ linh mạch ngoại vi, phù hợp cho tông môn mới lập.',
+    image: '/assets/bosses/thanh-lang-vuong.svg',
     realmIndex: 0,
     level: 5,
     maxHp: 2500,
@@ -32,6 +33,7 @@ export const BOSS_DEFINITIONS = {
     id: 'xich_viem_ma_tuong',
     name: 'Xích Viêm Ma Tướng',
     description: 'Ma tướng hấp thu địa hỏa, cần nhiều đệ tử hợp lực mới có thể hạ gục.',
+    image: '/assets/bosses/xich-viem-ma-tuong.svg',
     realmIndex: 1,
     level: 3,
     maxHp: 9000,
@@ -47,7 +49,7 @@ export const BOSS_DEFINITIONS = {
       exp: 420,
       phases: [
         { threshold: 1, name: 'Liệt Diễm', description: 'Hỏa khí hộ thể, boss phòng ngự ổn định.', retaliationMultiplier: 1, defenseMultiplier: 1, requiredParticipants: 1 },
-        { threshold: 0.65, name: 'Ma Hóa', description: 'Ma hóa lan rộng, cần 3 thành viên tham chiến để giảm áp lực phản kích.', retaliationMultiplier: 1.35, defenseMultiplier: 0.9, requiredParticipants: 3 },
+        { threshold: 0.65, name: 'Ma Hỏa', description: 'Ma hỏa lan rộng, cần 3 thành viên tham chiến để giảm áp lực phản kích.', retaliationMultiplier: 1.35, defenseMultiplier: 0.9, requiredParticipants: 3 },
         { threshold: 0.3, name: 'Phần Thiên', description: 'Đại chiêu Phần Thiên yêu cầu cả đội dồn lực, thiếu người sẽ bị giảm sát thương.', retaliationMultiplier: 1.8, defenseMultiplier: 0.78, requiredParticipants: 4 },
       ],
       loot: [
@@ -63,6 +65,7 @@ export const BOSS_DEFINITIONS = {
     id: 'huyen_bang_long',
     name: 'Huyền Băng Long',
     description: 'Cổ long ngủ sâu trong băng mạch, chỉ tông môn mạnh mới nên khiêu chiến.',
+    image: '/assets/bosses/huyen-bang-long.svg',
     realmIndex: 2,
     level: 2,
     maxHp: 24000,

@@ -128,9 +128,9 @@ const upsertReputationTitle = async (client, title) => {
 const upsertBossDefinition = async (client, boss) => {
   await client.query(
     `INSERT INTO boss_definitions (
-       boss_id, name, description, realm_index, level, max_hp, attack, defense, rewards, respawn_hours, is_active
+       boss_id, name, description, realm_index, level, max_hp, attack, defense, rewards, image, respawn_hours, is_active
      )
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, TRUE)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, TRUE)
      ON CONFLICT (boss_id)
      DO UPDATE SET
        name = EXCLUDED.name,
@@ -141,6 +141,7 @@ const upsertBossDefinition = async (client, boss) => {
        attack = EXCLUDED.attack,
        defense = EXCLUDED.defense,
        rewards = EXCLUDED.rewards,
+       image = EXCLUDED.image,
        respawn_hours = EXCLUDED.respawn_hours,
        is_active = TRUE`,
     [
@@ -153,6 +154,7 @@ const upsertBossDefinition = async (client, boss) => {
       toNonNegativeInteger(boss.attack),
       toNonNegativeInteger(boss.defense),
       toJson(boss.rewards),
+      boss.image || '',
       toNonNegativeInteger(boss.respawnHours, 24),
     ]
   );

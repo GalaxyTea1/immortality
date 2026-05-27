@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS boss_definitions (
     attack INTEGER NOT NULL DEFAULT 0 CHECK (attack >= 0),
     defense INTEGER NOT NULL DEFAULT 0 CHECK (defense >= 0),
     rewards JSONB NOT NULL DEFAULT '{}'::jsonb,
+    image TEXT,
     respawn_hours INTEGER NOT NULL DEFAULT 24 CHECK (respawn_hours > 0),
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

@@ -1,5 +1,8 @@
 import express from 'express';
 import {
+  applyCharacterStatGain,
+  calculateLevelStatGain,
+  calculateRealmBreakthroughStatGain,
   calculateExpProgress,
   REALMS,
   TRIBULATION_REQUIREMENTS,
@@ -61,6 +64,11 @@ const applyCultivationTicks = async (client, characterId, { mode = 'manual', tic
     exp: character.exp,
     maxExp: character.max_exp,
   }, expGain);
+  const statGain = calculateLevelStatGain({
+    realmIndex: character.realm_index,
+    fromLevel: character.level,
+    toLevel: nextProgress.level,
+  });
 
   await client.query(
     `UPDATE characters
@@ -68,10 +76,12 @@ const applyCultivationTicks = async (client, characterId, { mode = 'manual', tic
      WHERE id = $1`,
     [characterId, nextProgress.exp, nextProgress.level, nextProgress.maxExp]
   );
+  await applyCharacterStatGain(characterId, statGain, client);
 
   return {
     ticks,
     expGain,
+    statGain,
     progress: nextProgress,
     message: ticks === 1
       ? `Tu luyện thành công! +${expGain} EXP`
@@ -113,6 +123,11 @@ const applyMeditationTicks = async (client, characterId, ticks) => {
     exp: character.exp,
     maxExp: character.max_exp,
   }, expGain);
+  const statGain = calculateLevelStatGain({
+    realmIndex: character.realm_index,
+    fromLevel: character.level,
+    toLevel: nextProgress.level,
+  });
 
   const nextFoundation = Math.min(
     Number(character.foundation_max) || 100,
@@ -129,10 +144,12 @@ const applyMeditationTicks = async (client, characterId, ticks) => {
      WHERE id = $1`,
     [characterId, nextProgress.exp, nextProgress.level, nextProgress.maxExp, nextFoundation, nextDemon]
   );
+  await applyCharacterStatGain(characterId, statGain, client);
 
   return {
     ticks,
     expGain,
+    statGain,
     foundationRecovered,
     demonSuppressed,
     progress: nextProgress,
@@ -349,17 +366,20 @@ router.post('/:characterId/breakthrough', gameplayLimiter, validate(breakthrough
       const isSuccess = Math.random() < successRate;
       if (isSuccess) {
         const nextRealmIndex = character.realm_index + 1;
+        const statGain = calculateRealmBreakthroughStatGain({ toRealmIndex: nextRealmIndex });
         await client.query(
           `UPDATE characters
            SET realm_index = $2, level = 1, exp = 0, max_exp = $3
            WHERE id = $1`,
           [characterId, nextRealmIndex, REALMS[nextRealmIndex].expPerLevel]
         );
+        await applyCharacterStatGain(characterId, statGain, client);
 
         return {
           success: true,
           pillUsed,
           successRate,
+          statGain,
           newRealm: REALMS[nextRealmIndex].name,
           message: `Độ kiếp thành công! Cảnh giới mới: ${REALMS[nextRealmIndex].name}`,
         };

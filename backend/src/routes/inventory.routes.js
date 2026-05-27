@@ -1,9 +1,11 @@
 import express from 'express';
 import {
+  applyCharacterStatGain,
   applyHpRegeneration,
   assertValidInventoryEntryFromDb,
   buildStatIncrementFragments,
   calculateExpProgress,
+  calculateLevelStatGain,
 } from '../domain/gameCatalog.js';
 import { query, withTransaction } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
@@ -176,6 +178,7 @@ router.post('/:characterId/use', gameplayLimiter, validate(useItemSchema), async
         const character = characterResult.rows[0];
         const effect = itemDef.effect || {};
         const messages = [];
+        let statGain = null;
 
         if (effect.type === 'exp' || effect.exp) {
           const expGain = (effect.value || effect.exp) * quantity;
@@ -185,6 +188,11 @@ router.post('/:characterId/use', gameplayLimiter, validate(useItemSchema), async
             exp: character.exp,
             maxExp: character.max_exp,
           }, expGain);
+          statGain = calculateLevelStatGain({
+            realmIndex: character.realm_index,
+            fromLevel: character.level,
+            toLevel: nextProgress.level,
+          });
 
           await client.query(
             `UPDATE characters
@@ -192,17 +200,19 @@ router.post('/:characterId/use', gameplayLimiter, validate(useItemSchema), async
              WHERE id = $1`,
             [characterId, nextProgress.exp, nextProgress.level, nextProgress.maxExp]
           );
+          await applyCharacterStatGain(characterId, statGain, client);
           messages.push(`+${expGain} EXP`);
         }
 
         if (effect.type === 'heal' || effect.hp) {
           const hpGain = (effect.value || effect.hp) * quantity;
+          const effectiveMaxHp = Number(character.effective_max_hp) + (Number(statGain?.maxHp) || 0);
           await client.query(
             `UPDATE characters
              SET hp = LEAST($3, hp + $2),
                  last_hp_regen_at = NOW()
              WHERE id = $1`,
-            [characterId, hpGain, character.effective_max_hp]
+            [characterId, hpGain, effectiveMaxHp]
           );
           messages.push(`+${hpGain} HP`);
         }
@@ -220,6 +230,7 @@ router.post('/:characterId/use', gameplayLimiter, validate(useItemSchema), async
           message: `Sử dụng ${quantity}x ${itemDef.name}: ${messages.join(', ')}`,
           itemId,
           quantityUsed: quantity,
+          statGain,
         };
       }
 

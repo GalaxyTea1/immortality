@@ -1,8 +1,10 @@
 import express from 'express';
 import {
+  applyCharacterStatGain,
   assertValidInventoryEntryFromDb,
   applyHpRegeneration,
   calculateExpProgress,
+  calculateLevelStatGain,
   calculateZoneRewards,
   canEnterZone,
   REALMS,
@@ -101,12 +103,8 @@ router.post('/:characterId/explore', gameplayLimiter, validate(exploreSchema), a
         rewards.exp = Math.floor(baseRewards.exp * 0.3);
       }
 
-      if (currentHp <= hpLoss) {
-        const error = new Error('Không đủ HP để chịu tổn thất khi thám hiểm');
-        error.status = 400;
-        error.details = { requiredHp: hpLoss + 1, currentHp };
-        throw error;
-      }
+      const hpAfterDamage = Math.max(1, currentHp - hpLoss);
+      const actualHpLoss = currentHp - hpAfterDamage;
 
       const nextProgress = calculateExpProgress({
         realmIndex: character.realm_index,
@@ -114,12 +112,17 @@ router.post('/:characterId/explore', gameplayLimiter, validate(exploreSchema), a
         exp: character.exp,
         maxExp: character.max_exp,
       }, rewards.exp);
+      const statGain = calculateLevelStatGain({
+        realmIndex: character.realm_index,
+        fromLevel: character.level,
+        toLevel: nextProgress.level,
+      });
 
       await client.query(
         `UPDATE characters
          SET exp = $2, level = $3, max_exp = $4,
              spirit_stones = spirit_stones + $5,
-             hp = hp - $6,
+             hp = GREATEST(1, hp - $6),
              last_hp_regen_at = NOW(),
              exploration_count = $7,
              exploration_last_reset = CURRENT_DATE
@@ -134,6 +137,7 @@ router.post('/:characterId/explore', gameplayLimiter, validate(exploreSchema), a
           currentCount + 1,
         ]
       );
+      await applyCharacterStatGain(characterId, statGain, client);
 
       for (const item of rewards.items) {
         await client.query(
@@ -146,8 +150,8 @@ router.post('/:characterId/explore', gameplayLimiter, validate(exploreSchema), a
       }
 
       const message = isSafe
-        ? `Khám phá ${zone.name}: -${hpLoss} HP, +${rewards.exp} EXP, +${rewards.spiritStones} linh thạch`
-        : `Gặp nguy hiểm ${zone.name}: -${hpLoss} HP, +${rewards.exp} EXP`;
+        ? `Khám phá ${zone.name}: -${actualHpLoss} HP, +${rewards.exp} EXP, +${rewards.spiritStones} linh thạch`
+        : `Gặp nguy hiểm ${zone.name}: chịu ${hpLoss} sát thương, còn ${hpAfterDamage} HP, +${rewards.exp} EXP`;
 
       await client.query(
         `INSERT INTO event_logs (character_id, event_type, message)
@@ -161,8 +165,10 @@ router.post('/:characterId/explore', gameplayLimiter, validate(exploreSchema), a
         success: true,
         message,
         rewards,
-        hpLoss,
-        hp: currentHp - hpLoss,
+        statGain,
+        hpLoss: actualHpLoss,
+        incomingDamage: hpLoss,
+        hp: hpAfterDamage + (Number(statGain.maxHp) || 0),
         explorationCount: currentCount + 1,
         questUpdate,
       };

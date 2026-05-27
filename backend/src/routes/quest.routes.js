@@ -1,5 +1,9 @@
 import express from 'express';
-import { calculateExpProgress } from '../domain/gameCatalog.js';
+import {
+  applyCharacterStatGain,
+  calculateExpProgress,
+  calculateLevelStatGain,
+} from '../domain/gameCatalog.js';
 import { withTransaction } from '../db/index.js';
 import { ok, fail, failFromError } from '../http/response.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
@@ -79,6 +83,11 @@ router.post('/:characterId/claim', gameplayLimiter, async (req, res) => {
         exp: character.exp,
         maxExp: character.max_exp,
       }, rewards.exp);
+      const statGain = calculateLevelStatGain({
+        realmIndex: character.realm_index,
+        fromLevel: character.level,
+        toLevel: nextProgress.level,
+      });
 
       await client.query(
         `UPDATE characters
@@ -87,6 +96,7 @@ router.post('/:characterId/claim', gameplayLimiter, async (req, res) => {
          WHERE id = $1`,
         [characterId, nextProgress.exp, nextProgress.level, nextProgress.maxExp, rewards.spiritStones]
       );
+      await applyCharacterStatGain(characterId, statGain, client);
 
       await client.query(
         `UPDATE character_quests
@@ -105,6 +115,7 @@ router.post('/:characterId/claim', gameplayLimiter, async (req, res) => {
         success: true,
         quest: normalizeQuestRow({ ...questRow, status: 'completed' }),
         rewards,
+        statGain,
         progress: nextProgress,
         message: `Hoàn thành nhiệm vụ +${rewards.spiritStones} linh thạch, +${rewards.exp} EXP`,
       };

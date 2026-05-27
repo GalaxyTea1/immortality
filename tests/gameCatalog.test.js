@@ -8,6 +8,8 @@ import {
   calculateAlchemyProgress,
   buildStatIncrementFragments,
   calculateExpProgress,
+  calculateLevelStatGain,
+  calculateRealmBreakthroughStatGain,
   getReputationTitle,
 } from '../backend/src/domain/gameCatalog.js';
 import { calculateCombatPower } from '../shared/data/combatPower.js';
@@ -49,6 +51,25 @@ test('calculates server-side exp progression like the client mapper expects', ()
   assert.deepEqual(
     calculateExpProgress({ realmIndex: 0, level: 9, exp: 950, maxExp: 900 }, 500),
     { level: 9, exp: 900, maxExp: 900 },
+  );
+});
+
+test('calculates stat growth for minor level ups', () => {
+  assert.deepEqual(
+    calculateLevelStatGain({ realmIndex: 0, fromLevel: 1, toLevel: 3 }),
+    { maxHp: 24, attack: 4, defense: 4, agility: 2, spirit: 4, cultivationSpeed: 0.02 },
+  );
+
+  assert.deepEqual(
+    calculateLevelStatGain({ realmIndex: 2, fromLevel: 5, toLevel: 5 }),
+    { maxHp: 0, attack: 0, defense: 0, agility: 0, spirit: 0, cultivationSpeed: 0 },
+  );
+});
+
+test('calculates larger stat growth for realm breakthrough', () => {
+  assert.deepEqual(
+    calculateRealmBreakthroughStatGain({ toRealmIndex: 1 }),
+    { maxHp: 160, attack: 24, defense: 20, agility: 14, spirit: 28, cultivationSpeed: 0.05 },
   );
 });
 

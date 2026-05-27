@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS characters (
     agility INTEGER DEFAULT 10,
     spirit INTEGER DEFAULT 10,
     cultivation_speed DECIMAL(5,2) DEFAULT 1.0,
+    progression_stat_version INTEGER NOT NULL DEFAULT 1,
     foundation_value INTEGER DEFAULT 100,
     foundation_max INTEGER DEFAULT 100,
     inner_demon_value INTEGER DEFAULT 0,

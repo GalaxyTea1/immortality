@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" role="img" aria-label="Xích Viêm Ma Tướng">
+  <defs>
+    <radialGradient id="fire" cx="50%" cy="48%" r="58%">
+      <stop offset="0" stop-color="#ffe08a"/>
+      <stop offset="0.42" stop-color="#d94a2d"/>
+      <stop offset="1" stop-color="#22070c"/>
+    </radialGradient>
+    <linearGradient id="armor" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#ffb35c"/>
+      <stop offset="0.45" stop-color="#8f1f23"/>
+      <stop offset="1" stop-color="#230b16"/>
+    </linearGradient>
+    <filter id="heat">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="640" height="640" rx="36" fill="#14070b"/>
+  <circle cx="320" cy="330" r="260" fill="url(#fire)" opacity="0.62"/>
+  <path d="M110 540 C148 338 124 222 250 142 L310 238 L390 142 C516 222 492 338 530 540 Z" fill="url(#armor)"/>
+  <path d="M220 312 L174 184 L273 252 Z" fill="#f06d32"/>
+  <path d="M420 312 L466 184 L367 252 Z" fill="#f06d32"/>
+  <path d="M230 302 C268 242 372 242 410 302 L390 428 C350 474 290 474 250 428 Z" fill="#2a0b12"/>
+  <path d="M260 321 L304 337 L259 354 Z" fill="#ffd36f" filter="url(#heat)"/>
+  <path d="M380 321 L336 337 L381 354 Z" fill="#ffd36f" filter="url(#heat)"/>
+  <path d="M286 409 C312 426 328 426 354 409" stroke="#ff8a45" stroke-width="12" stroke-linecap="round" fill="none"/>
+  <path d="M130 500 C210 460 204 386 166 326" stroke="#ff6b35" stroke-width="24" stroke-linecap="round" fill="none" opacity="0.55"/>
+  <path d="M510 500 C430 460 436 386 474 326" stroke="#ff6b35" stroke-width="24" stroke-linecap="round" fill="none" opacity="0.55"/>
+</svg>

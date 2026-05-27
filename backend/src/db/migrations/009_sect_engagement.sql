@@ -16,11 +16,12 @@ CREATE TABLE IF NOT EXISTS sect_quest_claims (
     quest_date DATE NOT NULL DEFAULT CURRENT_DATE,
     claimed_by INTEGER REFERENCES characters(id) ON DELETE SET NULL,
     claimed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(sect_id, quest_id, quest_date)
+    UNIQUE(sect_id, quest_id, quest_date, claimed_by)
 );
 
 CREATE INDEX IF NOT EXISTS idx_sect_treasury_items_sect_id ON sect_treasury_items(sect_id);
 CREATE INDEX IF NOT EXISTS idx_sect_quest_claims_sect_date ON sect_quest_claims(sect_id, quest_date);
+CREATE INDEX IF NOT EXISTS idx_sect_quest_claims_character_date ON sect_quest_claims(claimed_by, quest_date);
 
 DROP TRIGGER IF EXISTS update_sect_treasury_items_updated_at ON sect_treasury_items;
 CREATE TRIGGER update_sect_treasury_items_updated_at
